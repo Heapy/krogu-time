@@ -41,6 +41,109 @@ public class Duration private constructor(
         return create(seconds, nanoOfSecond)
     }
 
+    /** Returns this duration with [other] added. */
+    public operator fun plus(other: Duration): Duration =
+        plusComponents(other.seconds, other.nano.toLong())
+
+    /** Returns this duration with standard 24-hour days added. */
+    public fun plusDays(daysToAdd: Long): Duration =
+        plusComponents(multiplyExact(daysToAdd, SECONDS_PER_DAY), 0)
+
+    /** Returns this duration with hours added. */
+    public fun plusHours(hoursToAdd: Long): Duration =
+        plusComponents(multiplyExact(hoursToAdd, SECONDS_PER_HOUR), 0)
+
+    /** Returns this duration with minutes added. */
+    public fun plusMinutes(minutesToAdd: Long): Duration =
+        plusComponents(multiplyExact(minutesToAdd, SECONDS_PER_MINUTE), 0)
+
+    /** Returns this duration with seconds added. */
+    public fun plusSeconds(secondsToAdd: Long): Duration = plusComponents(secondsToAdd, 0)
+
+    /** Returns this duration with milliseconds added. */
+    public fun plusMillis(millisToAdd: Long): Duration = plusComponents(
+        millisToAdd / MILLIS_PER_SECOND,
+        millisToAdd % MILLIS_PER_SECOND * NANOS_PER_MILLI,
+    )
+
+    /** Returns this duration with nanoseconds added. */
+    public fun plusNanos(nanosToAdd: Long): Duration = plusComponents(0, nanosToAdd)
+
+    /** Returns this duration with [other] subtracted. */
+    public operator fun minus(other: Duration): Duration {
+        if (other.seconds == Long.MIN_VALUE) {
+            return plusComponents(Long.MAX_VALUE, -other.nano.toLong())
+                .plusComponents(1, 0)
+        }
+        return plusComponents(-other.seconds, -other.nano.toLong())
+    }
+
+    /** Returns this duration with standard 24-hour days subtracted. */
+    public fun minusDays(daysToSubtract: Long): Duration =
+        if (daysToSubtract == Long.MIN_VALUE) {
+            plusDays(Long.MAX_VALUE).plusDays(1)
+        } else {
+            plusDays(-daysToSubtract)
+        }
+
+    /** Returns this duration with hours subtracted. */
+    public fun minusHours(hoursToSubtract: Long): Duration =
+        if (hoursToSubtract == Long.MIN_VALUE) {
+            plusHours(Long.MAX_VALUE).plusHours(1)
+        } else {
+            plusHours(-hoursToSubtract)
+        }
+
+    /** Returns this duration with minutes subtracted. */
+    public fun minusMinutes(minutesToSubtract: Long): Duration =
+        if (minutesToSubtract == Long.MIN_VALUE) {
+            plusMinutes(Long.MAX_VALUE).plusMinutes(1)
+        } else {
+            plusMinutes(-minutesToSubtract)
+        }
+
+    /** Returns this duration with seconds subtracted. */
+    public fun minusSeconds(secondsToSubtract: Long): Duration =
+        if (secondsToSubtract == Long.MIN_VALUE) {
+            plusSeconds(Long.MAX_VALUE).plusSeconds(1)
+        } else {
+            plusSeconds(-secondsToSubtract)
+        }
+
+    /** Returns this duration with milliseconds subtracted. */
+    public fun minusMillis(millisToSubtract: Long): Duration =
+        if (millisToSubtract == Long.MIN_VALUE) {
+            plusMillis(Long.MAX_VALUE).plusMillis(1)
+        } else {
+            plusMillis(-millisToSubtract)
+        }
+
+    /** Returns this duration with nanoseconds subtracted. */
+    public fun minusNanos(nanosToSubtract: Long): Duration =
+        if (nanosToSubtract == Long.MIN_VALUE) {
+            plusNanos(Long.MAX_VALUE).plusNanos(1)
+        } else {
+            plusNanos(-nanosToSubtract)
+        }
+
+    /** Returns this duration with its sign reversed. */
+    public fun negated(): Duration = ZERO - this
+
+    /** Returns a duration with the same magnitude and a non-negative sign. */
+    public fun abs(): Duration = if (isNegative) negated() else this
+
+    /** Kotlin-named alias for [abs]. */
+    public fun absoluteValue(): Duration = abs()
+
+    private fun plusComponents(secondsToAdd: Long, nanosToAdd: Long): Duration {
+        if (secondsToAdd == 0L && nanosToAdd == 0L) return this
+
+        var resultSeconds = addExact(seconds, secondsToAdd)
+        resultSeconds = addExact(resultSeconds, nanosToAdd / NANOS_PER_SECOND)
+        val nanoAdjustment = nano.toLong() + nanosToAdd % NANOS_PER_SECOND
+        return ofSeconds(resultSeconds, nanoAdjustment)
+    }
+
     override fun compareTo(other: Duration): Int {
         val secondsComparison = seconds.compareTo(other.seconds)
         return if (secondsComparison != 0) secondsComparison else nano.compareTo(other.nano)

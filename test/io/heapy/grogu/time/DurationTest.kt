@@ -81,6 +81,62 @@ class DurationTest {
     }
 
     @Test
+    fun additionNormalizesNanosecondsAndSupportsEveryFixedUnit() {
+        assertEquals(
+            Duration.ofSeconds(3, 100_000_000),
+            Duration.ofSeconds(1, 600_000_000) + Duration.ofMillis(1_500),
+        )
+        assertEquals(Duration.ofDays(2), Duration.ofDays(1).plusDays(1))
+        assertEquals(Duration.ofHours(2), Duration.ofHours(1).plusHours(1))
+        assertEquals(Duration.ofMinutes(2), Duration.ofMinutes(1).plusMinutes(1))
+        assertEquals(Duration.ofSeconds(2), Duration.ofSeconds(1).plusSeconds(1))
+        assertEquals(Duration.ofMillis(2), Duration.ofMillis(1).plusMillis(1))
+        assertEquals(Duration.ofNanos(2), Duration.ofNanos(1).plusNanos(1))
+    }
+
+    @Test
+    fun subtractionHandlesLongMinValueWithoutNegatingIt() {
+        assertSame(
+            Duration.ZERO,
+            Duration.ofSeconds(Long.MIN_VALUE).minusSeconds(Long.MIN_VALUE),
+        )
+        assertEquals(
+            Duration.ofNanos(Long.MAX_VALUE).plusNanos(1),
+            Duration.ZERO.minusNanos(Long.MIN_VALUE),
+        )
+        assertFailsWith<ArithmeticException> {
+            Duration.ZERO - Duration.ofSeconds(Long.MIN_VALUE)
+        }
+    }
+
+    @Test
+    fun arithmeticDetectsOverflow() {
+        assertFailsWith<ArithmeticException> {
+            Duration.ofSeconds(Long.MAX_VALUE).plusSeconds(1)
+        }
+        assertFailsWith<ArithmeticException> {
+            Duration.ofSeconds(Long.MIN_VALUE).minusSeconds(1)
+        }
+        assertFailsWith<ArithmeticException> {
+            Duration.ZERO.plusDays(Long.MAX_VALUE)
+        }
+    }
+
+    @Test
+    fun negatedAndAbsoluteSwapOrRemoveTheSign() {
+        val positive = Duration.ofSeconds(1, 500_000_000)
+        val negative = Duration.ofSeconds(-2, 500_000_000)
+
+        assertEquals(negative, positive.negated())
+        assertEquals(positive, negative.negated())
+        assertSame(positive, positive.absoluteValue())
+        assertEquals(positive, negative.absoluteValue())
+        assertFailsWith<ArithmeticException> {
+            Duration.ofSeconds(Long.MIN_VALUE).negated()
+        }
+    }
+
+    @Test
     fun stringUsesIso8601SecondsRepresentation() {
         assertEquals("PT0S", Duration.ZERO.toString())
         assertEquals("PT48H", Duration.ofDays(2).toString())
