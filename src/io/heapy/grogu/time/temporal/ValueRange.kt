@@ -32,7 +32,7 @@ public class ValueRange private constructor(
      * Returns [value] if valid, otherwise throws [DateTimeException].
      * [field] is used only to make the exception message more useful.
      */
-    public fun checkValidValue(value: Long, field: Any?): Long {
+    public fun checkValidValue(value: Long, field: TemporalField?): Long {
         if (!isValidValue(value)) {
             throw DateTimeException(invalidValueMessage(value, field))
         }
@@ -42,14 +42,14 @@ public class ValueRange private constructor(
     /**
      * Returns [value] as an [Int] if valid and the entire range fits in [Int].
      */
-    public fun checkValidIntValue(value: Long, field: Any?): Int {
+    public fun checkValidIntValue(value: Long, field: TemporalField?): Int {
         if (!isValidIntValue(value)) {
             throw DateTimeException(invalidValueMessage(value, field))
         }
         return value.toInt()
     }
 
-    private fun invalidValueMessage(value: Long, field: Any?): String = if (field != null) {
+    private fun invalidValueMessage(value: Long, field: TemporalField?): String = if (field != null) {
         "Invalid value for $field (valid values $this): $value"
     } else {
         "Invalid value (valid values $this): $value"

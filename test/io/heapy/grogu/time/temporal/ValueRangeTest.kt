@@ -57,7 +57,7 @@ class ValueRangeTest {
         assertEquals(-2, range.checkValidValue(-2, null))
 
         val error = assertFailsWith<DateTimeException> {
-            range.checkValidValue(4, "ExampleField")
+            range.checkValidValue(4, NamedField("ExampleField"))
         }
         assertEquals("Invalid value for ExampleField (valid values -2 - 3): 4", error.message)
     }
@@ -91,5 +91,24 @@ class ValueRangeTest {
         assertEquals(first.hashCode(), equal.hashCode())
         assertNotEquals(first, different)
         assertFalse(first.equals("1/2 - 28/31"))
+    }
+
+    private class NamedField(private val name: String) : TemporalField {
+        override val baseUnit: TemporalUnit = ChronoUnit.DAYS
+        override val rangeUnit: TemporalUnit = ChronoUnit.FOREVER
+        override val range: ValueRange = ValueRange.of(Long.MIN_VALUE, Long.MAX_VALUE)
+        override val isDateBased: Boolean = false
+        override val isTimeBased: Boolean = false
+
+        override fun isSupportedBy(temporal: TemporalAccessor): Boolean = false
+
+        override fun rangeRefinedBy(temporal: TemporalAccessor): ValueRange = range
+
+        override fun getFrom(temporal: TemporalAccessor): Long =
+            throw UnsupportedTemporalTypeException("Unsupported field: $name")
+
+        override fun <R : Temporal> adjustInto(temporal: R, newValue: Long): R = temporal
+
+        override fun toString(): String = name
     }
 }
