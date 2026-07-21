@@ -1,6 +1,8 @@
 package io.heapy.grogu.time
 
 import java.time.Duration as JavaDuration
+import java.time.temporal.ChronoUnit as JavaChronoUnit
+import io.heapy.grogu.time.temporal.ChronoUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -64,6 +66,82 @@ class DurationJavaConformanceTest {
         }
     }
 
+    @Test
+    fun standardTemporalUnitBehaviorMatchesJavaTime() {
+        val units = listOf(
+            ChronoUnit.NANOS,
+            ChronoUnit.MICROS,
+            ChronoUnit.MILLIS,
+            ChronoUnit.SECONDS,
+            ChronoUnit.MINUTES,
+            ChronoUnit.HOURS,
+            ChronoUnit.HALF_DAYS,
+            ChronoUnit.DAYS,
+            ChronoUnit.WEEKS,
+            ChronoUnit.MONTHS,
+        )
+        val amounts = listOf(Long.MIN_VALUE, -1_000L, -1L, 0L, 1L, 1_000L, Long.MAX_VALUE)
+        val duration = Duration.ofSeconds(-2, 500_000_000)
+        val javaDuration = JavaDuration.ofSeconds(duration.seconds, duration.nano.toLong())
+
+        units.forEach { unit ->
+            val javaUnit = JavaChronoUnit.valueOf(unit.name)
+            amounts.forEach { amount ->
+                assertSameOutcome(
+                    javaOperation = { JavaDuration.of(amount, javaUnit).toString() },
+                    kotlinOperation = { Duration.of(amount, unit).toString() },
+                )
+                assertSameOutcome(
+                    javaOperation = { javaDuration.plus(amount, javaUnit).toString() },
+                    kotlinOperation = { duration.plus(amount, unit).toString() },
+                )
+                assertSameOutcome(
+                    javaOperation = { javaDuration.minus(amount, javaUnit).toString() },
+                    kotlinOperation = { duration.minus(amount, unit).toString() },
+                )
+            }
+        }
+    }
+
+    @Test
+    fun multiplicationMatchesJavaTime() {
+        val durations = listOf(
+            Duration.ZERO,
+            Duration.ofNanos(-1),
+            Duration.ofMillis(-1_500),
+            Duration.ofSeconds(-2, 1),
+            Duration.ofMillis(1_500),
+            Duration.ofSeconds(1, 999_999_999),
+            Duration.ofSeconds(Long.MIN_VALUE),
+            Duration.ofSeconds(Long.MAX_VALUE, 999_999_999),
+        )
+        val multiplicands = listOf(
+            Long.MIN_VALUE,
+            -1_000_000_001L,
+            -1_000_000_000L,
+            -999_999_999L,
+            -2L,
+            -1L,
+            0L,
+            1L,
+            2L,
+            999_999_999L,
+            1_000_000_000L,
+            1_000_000_001L,
+            Long.MAX_VALUE,
+        )
+
+        durations.forEach { duration ->
+            val javaDuration = JavaDuration.ofSeconds(duration.seconds, duration.nano.toLong())
+            multiplicands.forEach { multiplicand ->
+                assertSameOutcome(
+                    javaOperation = { javaDuration.multipliedBy(multiplicand).toString() },
+                    kotlinOperation = { duration.multipliedBy(multiplicand).toString() },
+                )
+            }
+        }
+    }
+
     private fun assertSameOutcome(
         javaOperation: () -> String,
         kotlinOperation: () -> String,
@@ -73,8 +151,8 @@ class DurationJavaConformanceTest {
 
         assertEquals(javaResult.getOrNull(), kotlinResult.getOrNull())
         assertEquals(
-            javaResult.exceptionOrNull()?.javaClass,
-            kotlinResult.exceptionOrNull()?.javaClass,
+            javaResult.exceptionOrNull()?.javaClass?.simpleName,
+            kotlinResult.exceptionOrNull()?.javaClass?.simpleName,
         )
     }
 }

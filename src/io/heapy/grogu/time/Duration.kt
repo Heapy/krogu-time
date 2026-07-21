@@ -4,6 +4,11 @@ import io.heapy.grogu.time.internal.addExact
 import io.heapy.grogu.time.internal.floorDiv
 import io.heapy.grogu.time.internal.floorMod
 import io.heapy.grogu.time.internal.multiplyExact
+import io.heapy.grogu.time.temporal.ChronoUnit
+import io.heapy.grogu.time.temporal.Temporal
+import io.heapy.grogu.time.temporal.TemporalAmount
+import io.heapy.grogu.time.temporal.TemporalUnit
+import io.heapy.grogu.time.temporal.UnsupportedTemporalTypeException
 
 /**
  * A time-based amount stored as seconds and a nanosecond adjustment.
@@ -15,7 +20,11 @@ import io.heapy.grogu.time.internal.multiplyExact
 public class Duration private constructor(
     public val seconds: Long,
     public val nano: Int,
-) : Comparable<Duration> {
+) : TemporalAmount, Comparable<Duration> {
+    /** The units supported by [get], in descending order. */
+    override val units: List<TemporalUnit>
+        get() = listOf(ChronoUnit.SECONDS, ChronoUnit.NANOS)
+
     /** Whether this duration has no length. */
     public val isZero: Boolean
         get() = seconds == 0L && nano == 0
@@ -44,6 +53,26 @@ public class Duration private constructor(
     /** Returns this duration with [other] added. */
     public operator fun plus(other: Duration): Duration =
         plusComponents(other.seconds, other.nano.toLong())
+
+    /** Returns this duration with [amountToAdd] of [unit] added. */
+    public fun plus(amountToAdd: Long, unit: TemporalUnit): Duration {
+        if (unit === ChronoUnit.DAYS) return plusDays(amountToAdd)
+        if (unit.isDurationEstimated) {
+            throw UnsupportedTemporalTypeException("Unit must not have an estimated duration")
+        }
+        if (amountToAdd == 0L) return this
+
+        return when (unit) {
+            ChronoUnit.NANOS -> plusNanos(amountToAdd)
+            ChronoUnit.MICROS -> plusSeconds(
+                amountToAdd / MICROS_PER_SECOND,
+            ).plusNanos(amountToAdd % MICROS_PER_SECOND * NANOS_PER_MICRO)
+            ChronoUnit.MILLIS -> plusMillis(amountToAdd)
+            ChronoUnit.SECONDS -> plusSeconds(amountToAdd)
+            is ChronoUnit -> plusSeconds(multiplyExact(unit.duration.seconds, amountToAdd))
+            else -> plus(unit.duration.multipliedBy(amountToAdd))
+        }
+    }
 
     /** Returns this duration with standard 24-hour days added. */
     public fun plusDays(daysToAdd: Long): Duration =
@@ -77,6 +106,14 @@ public class Duration private constructor(
         }
         return plusComponents(-other.seconds, -other.nano.toLong())
     }
+
+    /** Returns this duration with [amountToSubtract] of [unit] subtracted. */
+    public fun minus(amountToSubtract: Long, unit: TemporalUnit): Duration =
+        if (amountToSubtract == Long.MIN_VALUE) {
+            plus(Long.MAX_VALUE, unit).plus(1, unit)
+        } else {
+            plus(-amountToSubtract, unit)
+        }
 
     /** Returns this duration with standard 24-hour days subtracted. */
     public fun minusDays(daysToSubtract: Long): Duration =
@@ -129,11 +166,64 @@ public class Duration private constructor(
     /** Returns this duration with its sign reversed. */
     public fun negated(): Duration = ZERO - this
 
+    /** Returns this duration multiplied by [multiplicand]. */
+    public fun multipliedBy(multiplicand: Long): Duration {
+        if (multiplicand == 0L) return ZERO
+        if (multiplicand == 1L) return this
+
+        val integralSeconds: Long
+        val fractionalNanos: Long
+        if (seconds < 0 && nano > 0) {
+            integralSeconds = seconds + 1
+            fractionalNanos = nano.toLong() - NANOS_PER_SECOND
+        } else {
+            integralSeconds = seconds
+            fractionalNanos = nano.toLong()
+        }
+
+        val multiplierSeconds = multiplicand / NANOS_PER_SECOND
+        val multiplierNanos = multiplicand % NANOS_PER_SECOND
+        val wholeFractionSeconds = multiplyExact(fractionalNanos, multiplierSeconds)
+        val partialFraction = multiplyExact(fractionalNanos, multiplierNanos)
+        val fractionSeconds = addExact(
+            wholeFractionSeconds,
+            partialFraction / NANOS_PER_SECOND,
+        )
+        val resultSeconds = addExact(
+            multiplyExact(integralSeconds, multiplicand),
+            fractionSeconds,
+        )
+        return ofSeconds(resultSeconds, partialFraction % NANOS_PER_SECOND)
+    }
+
     /** Returns a duration with the same magnitude and a non-negative sign. */
     public fun abs(): Duration = if (isNegative) negated() else this
 
     /** Kotlin-named alias for [abs]. */
     public fun absoluteValue(): Duration = abs()
+
+    /** Returns the value of this duration in [unit]. */
+    override fun get(unit: TemporalUnit): Long = when (unit) {
+        ChronoUnit.SECONDS -> seconds
+        ChronoUnit.NANOS -> nano.toLong()
+        else -> throw UnsupportedTemporalTypeException("Unsupported unit: $unit")
+    }
+
+    /** Adds this duration to [temporal], applying seconds before nanoseconds. */
+    override fun addTo(temporal: Temporal): Temporal {
+        var result = temporal
+        if (seconds != 0L) result = result.plus(seconds, ChronoUnit.SECONDS)
+        if (nano != 0) result = result.plus(nano.toLong(), ChronoUnit.NANOS)
+        return result
+    }
+
+    /** Subtracts this duration from [temporal], applying seconds before nanoseconds. */
+    override fun subtractFrom(temporal: Temporal): Temporal {
+        var result = temporal
+        if (seconds != 0L) result = result.minus(seconds, ChronoUnit.SECONDS)
+        if (nano != 0) result = result.minus(nano.toLong(), ChronoUnit.NANOS)
+        return result
+    }
 
     private fun plusComponents(secondsToAdd: Long, nanosToAdd: Long): Duration {
         if (secondsToAdd == 0L && nanosToAdd == 0L) return this
@@ -185,8 +275,10 @@ public class Duration private constructor(
     }
 
     public companion object {
+        private const val NANOS_PER_MICRO: Long = 1_000
         private const val NANOS_PER_MILLI: Int = 1_000_000
         private const val NANOS_PER_SECOND: Long = 1_000_000_000
+        private const val MICROS_PER_SECOND: Long = 1_000_000
         private const val MILLIS_PER_SECOND: Long = 1_000
         private const val SECONDS_PER_MINUTE: Long = 60
         private const val SECONDS_PER_HOUR: Long = 3_600
@@ -194,6 +286,18 @@ public class Duration private constructor(
 
         /** The canonical zero-length duration. */
         public val ZERO: Duration = Duration(0, 0)
+
+        /** Creates a duration from [amount] measured in [unit]. */
+        public fun of(amount: Long, unit: TemporalUnit): Duration = ZERO.plus(amount, unit)
+
+        /** Creates a duration from any temporal amount. */
+        public fun from(amount: TemporalAmount): Duration {
+            var duration = ZERO
+            amount.units.forEach { unit ->
+                duration = duration.plus(amount.get(unit), unit)
+            }
+            return duration
+        }
 
         /** Creates a duration from standard 24-hour days. */
         public fun ofDays(days: Long): Duration =
