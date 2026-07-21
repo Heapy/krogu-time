@@ -35,6 +35,9 @@ Implemented foundations:
 - `DateTimeParseException`
 - `DayOfWeek`
 - `Month`
+- `Era` and `IsoEra`
+- `Year` core value, leap-year, temporal-field, year-scale arithmetic, and
+  comparison behavior (clock, formatting, and date-producing APIs remain)
 - `Duration` with the complete Java 21 public API surface, including parsing,
   temporal integration, checked arithmetic, conversions, truncation, and
   `between`

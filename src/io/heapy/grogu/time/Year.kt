@@ -1,0 +1,165 @@
+package io.heapy.grogu.time
+
+import io.heapy.grogu.time.internal.addExact
+import io.heapy.grogu.time.internal.multiplyExact
+import io.heapy.grogu.time.temporal.ChronoField
+import io.heapy.grogu.time.temporal.ChronoUnit
+import io.heapy.grogu.time.temporal.Temporal
+import io.heapy.grogu.time.temporal.TemporalAccessor
+import io.heapy.grogu.time.temporal.TemporalAdjuster
+import io.heapy.grogu.time.temporal.TemporalAmount
+import io.heapy.grogu.time.temporal.TemporalField
+import io.heapy.grogu.time.temporal.TemporalUnit
+import io.heapy.grogu.time.temporal.UnsupportedTemporalTypeException
+import io.heapy.grogu.time.temporal.ValueRange
+
+/** A year in the ISO-8601 calendar system. */
+public class Year private constructor(
+    public val value: Int,
+) : Temporal, TemporalAdjuster, Comparable<Year> {
+    /** Whether this year is a leap year. */
+    public val isLeap: Boolean
+        get() = isLeap(value.toLong())
+
+    /** The number of days in this year. */
+    public val length: Int
+        get() = if (isLeap) 366 else 365
+
+    override fun isSupported(field: TemporalField): Boolean =
+        if (field is ChronoField) {
+            field === ChronoField.YEAR ||
+                field === ChronoField.YEAR_OF_ERA ||
+                field === ChronoField.ERA
+        } else {
+            field.isSupportedBy(this)
+        }
+
+    override fun isSupported(unit: TemporalUnit): Boolean =
+        if (unit is ChronoUnit) {
+            unit === ChronoUnit.YEARS ||
+                unit === ChronoUnit.DECADES ||
+                unit === ChronoUnit.CENTURIES ||
+                unit === ChronoUnit.MILLENNIA ||
+                unit === ChronoUnit.ERAS
+        } else {
+            unit.isSupportedBy(this)
+        }
+
+    override fun range(field: TemporalField): ValueRange = when (field) {
+        ChronoField.YEAR_OF_ERA -> if (value <= 0) {
+            ValueRange.of(1, MAX_VALUE.toLong() + 1)
+        } else {
+            ValueRange.of(1, MAX_VALUE.toLong())
+        }
+        else -> super<Temporal>.range(field)
+    }
+
+    override fun getLong(field: TemporalField): Long = when (field) {
+        ChronoField.YEAR_OF_ERA -> (if (value < 1) 1 - value else value).toLong()
+        ChronoField.YEAR -> value.toLong()
+        ChronoField.ERA -> if (value < 1) 0 else 1
+        is ChronoField -> throw UnsupportedTemporalTypeException("Unsupported field: $field")
+        else -> field.getFrom(this)
+    }
+
+    override fun with(adjuster: TemporalAdjuster): Year = adjuster.adjustInto(this) as Year
+
+    override fun with(field: TemporalField, newValue: Long): Year {
+        if (field !is ChronoField) return field.adjustInto(this, newValue)
+        val newYear = field.checkValidIntValue(newValue)
+        return when (field) {
+            ChronoField.YEAR_OF_ERA -> of(if (value < 1) 1 - newYear else newYear)
+            ChronoField.YEAR -> of(newYear)
+            ChronoField.ERA -> if (getLong(ChronoField.ERA) == newValue) this else of(1 - value)
+            else -> throw UnsupportedTemporalTypeException("Unsupported field: $field")
+        }
+    }
+
+    override fun plus(amount: TemporalAmount): Year = amount.addTo(this) as Year
+
+    override fun plus(amountToAdd: Long, unit: TemporalUnit): Year {
+        if (unit !is ChronoUnit) return unit.addTo(this, amountToAdd)
+        return when (unit) {
+            ChronoUnit.YEARS -> plusYears(amountToAdd)
+            ChronoUnit.DECADES -> plusYears(multiplyExact(amountToAdd, 10))
+            ChronoUnit.CENTURIES -> plusYears(multiplyExact(amountToAdd, 100))
+            ChronoUnit.MILLENNIA -> plusYears(multiplyExact(amountToAdd, 1_000))
+            ChronoUnit.ERAS -> with(
+                ChronoField.ERA,
+                addExact(getLong(ChronoField.ERA), amountToAdd),
+            )
+            else -> throw UnsupportedTemporalTypeException("Unsupported unit: $unit")
+        }
+    }
+
+    /** Returns this year with [yearsToAdd] added. */
+    public fun plusYears(yearsToAdd: Long): Year =
+        if (yearsToAdd == 0L) this else of(
+            ChronoField.YEAR.checkValidIntValue(value.toLong() + yearsToAdd),
+        )
+
+    override fun minus(amount: TemporalAmount): Year = amount.subtractFrom(this) as Year
+
+    override fun minus(amountToSubtract: Long, unit: TemporalUnit): Year =
+        if (amountToSubtract == Long.MIN_VALUE) {
+            plus(Long.MAX_VALUE, unit).plus(1, unit)
+        } else {
+            plus(-amountToSubtract, unit)
+        }
+
+    /** Returns this year with [yearsToSubtract] subtracted. */
+    public fun minusYears(yearsToSubtract: Long): Year =
+        if (yearsToSubtract == Long.MIN_VALUE) {
+            plusYears(Long.MAX_VALUE).plusYears(1)
+        } else {
+            plusYears(-yearsToSubtract)
+        }
+
+    override fun adjustInto(temporal: Temporal): Temporal =
+        temporal.with(ChronoField.YEAR, value.toLong())
+
+    override fun until(endExclusive: Temporal, unit: TemporalUnit): Long {
+        val end = from(endExclusive)
+        val yearsUntil = end.value.toLong() - value
+        if (unit !is ChronoUnit) return unit.between(this, end)
+        return when (unit) {
+            ChronoUnit.YEARS -> yearsUntil
+            ChronoUnit.DECADES -> yearsUntil / 10
+            ChronoUnit.CENTURIES -> yearsUntil / 100
+            ChronoUnit.MILLENNIA -> yearsUntil / 1_000
+            ChronoUnit.ERAS -> end.getLong(ChronoField.ERA) - getLong(ChronoField.ERA)
+            else -> throw UnsupportedTemporalTypeException("Unsupported unit: $unit")
+        }
+    }
+
+    override fun compareTo(other: Year): Int = value.compareTo(other.value)
+
+    /** Whether this year is after [other]. */
+    public fun isAfter(other: Year): Boolean = value > other.value
+
+    /** Whether this year is before [other]. */
+    public fun isBefore(other: Year): Boolean = value < other.value
+
+    override fun equals(other: Any?): Boolean = this === other || other is Year && value == other.value
+
+    override fun hashCode(): Int = value
+
+    override fun toString(): String = value.toString()
+
+    public companion object {
+        public const val MIN_VALUE: Int = -999_999_999
+        public const val MAX_VALUE: Int = 999_999_999
+
+        /** Obtains an ISO year. */
+        public fun of(isoYear: Int): Year =
+            Year(ChronoField.YEAR.checkValidIntValue(isoYear.toLong()))
+
+        /** Obtains a year from a temporal accessor. */
+        public fun from(temporal: TemporalAccessor): Year =
+            if (temporal is Year) temporal else of(temporal.get(ChronoField.YEAR))
+
+        /** Returns whether [year] is a leap year in the proleptic Gregorian calendar. */
+        public fun isLeap(year: Long): Boolean =
+            year and 3L == 0L && (year % 100L != 0L || year % 400L == 0L)
+    }
+}
