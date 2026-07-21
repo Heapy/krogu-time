@@ -241,6 +241,52 @@ class DurationTest {
     }
 
     @Test
+    fun convertsToWholeUnitsAndNormalizedComponents() {
+        val positive = Duration.ofSeconds(90_061, 987_654_321)
+
+        assertEquals(1, positive.toDays())
+        assertEquals(25, positive.toHours())
+        assertEquals(1_501, positive.toMinutes())
+        assertEquals(90_061, positive.toSeconds())
+        assertEquals(90_061_987, positive.toMillis())
+        assertEquals(90_061_987_654_321, positive.toNanos())
+        assertEquals(1, positive.toDaysPart())
+        assertEquals(1, positive.toHoursPart())
+        assertEquals(1, positive.toMinutesPart())
+        assertEquals(1, positive.toSecondsPart())
+        assertEquals(987, positive.toMillisPart())
+        assertEquals(987_654_321, positive.toNanosPart())
+
+        val negative = positive.negated()
+        assertEquals(-1, negative.toDays())
+        assertEquals(-25, negative.toHours())
+        assertEquals(-1_501, negative.toMinutes())
+        assertEquals(-90_062, negative.toSeconds())
+        assertEquals(-90_061_987, negative.toMillis())
+        assertEquals(-90_061_987_654_321, negative.toNanos())
+        assertEquals(-1, negative.toDaysPart())
+        assertEquals(-1, negative.toHoursPart())
+        assertEquals(-1, negative.toMinutesPart())
+        assertEquals(-2, negative.toSecondsPart())
+        assertEquals(12, negative.toMillisPart())
+        assertEquals(12_345_679, negative.toNanosPart())
+    }
+
+    @Test
+    fun exactSubsecondConversionsDetectOverflow() {
+        assertEquals(Long.MAX_VALUE, Duration.ofMillis(Long.MAX_VALUE).toMillis())
+        assertEquals(Long.MIN_VALUE, Duration.ofMillis(Long.MIN_VALUE).toMillis())
+        assertEquals(Long.MAX_VALUE, Duration.ofNanos(Long.MAX_VALUE).toNanos())
+        assertEquals(Long.MIN_VALUE, Duration.ofNanos(Long.MIN_VALUE).toNanos())
+        assertFailsWith<ArithmeticException> {
+            Duration.ofSeconds(Long.MAX_VALUE).toMillis()
+        }
+        assertFailsWith<ArithmeticException> {
+            Duration.ofSeconds(Long.MIN_VALUE).toNanos()
+        }
+    }
+
+    @Test
     fun stringUsesIso8601SecondsRepresentation() {
         assertEquals("PT0S", Duration.ZERO.toString())
         assertEquals("PT48H", Duration.ofDays(2).toString())

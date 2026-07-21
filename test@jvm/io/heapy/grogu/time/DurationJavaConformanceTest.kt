@@ -142,9 +142,41 @@ class DurationJavaConformanceTest {
         }
     }
 
+    @Test
+    fun conversionsAndComponentPartsMatchJavaTime() {
+        val durations = listOf(
+            Duration.ofSeconds(Long.MIN_VALUE),
+            Duration.ofNanos(Long.MIN_VALUE),
+            Duration.ofSeconds(-90_062, 12_345_679),
+            Duration.ofNanos(-1),
+            Duration.ZERO,
+            Duration.ofNanos(1),
+            Duration.ofSeconds(90_061, 987_654_321),
+            Duration.ofNanos(Long.MAX_VALUE),
+            Duration.ofSeconds(Long.MAX_VALUE, 999_999_999),
+        )
+
+        durations.forEach { duration ->
+            val javaDuration = JavaDuration.ofSeconds(duration.seconds, duration.nano.toLong())
+
+            assertSameOutcome(javaDuration::toDays, duration::toDays)
+            assertSameOutcome(javaDuration::toHours, duration::toHours)
+            assertSameOutcome(javaDuration::toMinutes, duration::toMinutes)
+            assertSameOutcome(javaDuration::toSeconds, duration::toSeconds)
+            assertSameOutcome(javaDuration::toMillis, duration::toMillis)
+            assertSameOutcome(javaDuration::toNanos, duration::toNanos)
+            assertSameOutcome(javaDuration::toDaysPart, duration::toDaysPart)
+            assertSameOutcome(javaDuration::toHoursPart, duration::toHoursPart)
+            assertSameOutcome(javaDuration::toMinutesPart, duration::toMinutesPart)
+            assertSameOutcome(javaDuration::toSecondsPart, duration::toSecondsPart)
+            assertSameOutcome(javaDuration::toMillisPart, duration::toMillisPart)
+            assertSameOutcome(javaDuration::toNanosPart, duration::toNanosPart)
+        }
+    }
+
     private fun assertSameOutcome(
-        javaOperation: () -> String,
-        kotlinOperation: () -> String,
+        javaOperation: () -> Any?,
+        kotlinOperation: () -> Any?,
     ) {
         val javaResult = runCatching(javaOperation)
         val kotlinResult = runCatching(kotlinOperation)

@@ -225,6 +225,58 @@ public class Duration private constructor(
         return result
     }
 
+    /** Returns the number of whole standard 24-hour days in this duration. */
+    public fun toDays(): Long = seconds / SECONDS_PER_DAY
+
+    /** Returns the number of whole hours in this duration. */
+    public fun toHours(): Long = seconds / SECONDS_PER_HOUR
+
+    /** Returns the number of whole minutes in this duration. */
+    public fun toMinutes(): Long = seconds / SECONDS_PER_MINUTE
+
+    /** Returns the normalized seconds value of this duration. */
+    public fun toSeconds(): Long = seconds
+
+    /** Returns the total number of milliseconds, failing if it does not fit in a [Long]. */
+    public fun toMillis(): Long = toExactUnits(MILLIS_PER_SECOND, NANOS_PER_MILLI.toLong())
+
+    /** Returns the total number of nanoseconds, failing if it does not fit in a [Long]. */
+    public fun toNanos(): Long = toExactUnits(NANOS_PER_SECOND, 1)
+
+    /** Returns the whole standard-day part of this duration. */
+    public fun toDaysPart(): Long = toDays()
+
+    /** Returns the hour part within the standard day. */
+    public fun toHoursPart(): Int = (toHours() % HOURS_PER_DAY).toInt()
+
+    /** Returns the minute part within the hour. */
+    public fun toMinutesPart(): Int = (toMinutes() % MINUTES_PER_HOUR).toInt()
+
+    /** Returns the second part within the minute. */
+    public fun toSecondsPart(): Int = (seconds % SECONDS_PER_MINUTE).toInt()
+
+    /** Returns the millisecond part within the normalized second. */
+    public fun toMillisPart(): Int = nano / NANOS_PER_MILLI
+
+    /** Returns the nanosecond part within the normalized second. */
+    public fun toNanosPart(): Int = nano
+
+    private fun toExactUnits(unitsPerSecond: Long, nanosPerUnit: Long): Long {
+        val wholeSeconds: Long
+        val fractionalNanos: Long
+        if (seconds < 0) {
+            wholeSeconds = seconds + 1
+            fractionalNanos = nano.toLong() - NANOS_PER_SECOND
+        } else {
+            wholeSeconds = seconds
+            fractionalNanos = nano.toLong()
+        }
+        return addExact(
+            multiplyExact(wholeSeconds, unitsPerSecond),
+            fractionalNanos / nanosPerUnit,
+        )
+    }
+
     private fun plusComponents(secondsToAdd: Long, nanosToAdd: Long): Duration {
         if (secondsToAdd == 0L && nanosToAdd == 0L) return this
 
@@ -280,6 +332,8 @@ public class Duration private constructor(
         private const val NANOS_PER_SECOND: Long = 1_000_000_000
         private const val MICROS_PER_SECOND: Long = 1_000_000
         private const val MILLIS_PER_SECOND: Long = 1_000
+        private const val MINUTES_PER_HOUR: Long = 60
+        private const val HOURS_PER_DAY: Long = 24
         private const val SECONDS_PER_MINUTE: Long = 60
         private const val SECONDS_PER_HOUR: Long = 3_600
         private const val SECONDS_PER_DAY: Long = 86_400
