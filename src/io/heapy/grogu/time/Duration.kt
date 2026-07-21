@@ -1,5 +1,6 @@
 package io.heapy.grogu.time
 
+import io.heapy.grogu.time.format.DateTimeParseException
 import io.heapy.grogu.time.internal.addExact
 import io.heapy.grogu.time.internal.floorDiv
 import io.heapy.grogu.time.internal.floorMod
@@ -353,6 +354,51 @@ public class Duration private constructor(
             return duration
         }
 
+        /** Parses a Java-compatible ISO-8601 duration. */
+        public fun parse(text: CharSequence): Duration {
+            val input = text.toString()
+            val match = DURATION_PATTERN.matchEntire(input)
+                ?: throw parseFailure(input)
+            val timeSection = match.groups[3]?.value
+            if (timeSection?.equals("T", ignoreCase = true) == true) {
+                throw parseFailure(input)
+            }
+
+            val days = match.groups[2]?.value
+            val hours = match.groups[4]?.value
+            val minutes = match.groups[5]?.value
+            val seconds = match.groups[6]?.value
+            if (days == null && hours == null && minutes == null && seconds == null) {
+                throw parseFailure(input)
+            }
+
+            val daysAsSeconds = parseNumber(input, days, SECONDS_PER_DAY, "days")
+            val hoursAsSeconds = parseNumber(input, hours, SECONDS_PER_HOUR, "hours")
+            val minutesAsSeconds = parseNumber(input, minutes, SECONDS_PER_MINUTE, "minutes")
+            val secondsValue = parseNumber(input, seconds, 1, "seconds")
+            val fraction = parseFraction(
+                input = input,
+                value = match.groups[7]?.value,
+                sign = if (seconds?.startsWith('-') == true) -1 else 1,
+            )
+
+            try {
+                val totalSeconds = addExact(
+                    daysAsSeconds,
+                    addExact(hoursAsSeconds, addExact(minutesAsSeconds, secondsValue)),
+                )
+                val duration = ofSeconds(totalSeconds, fraction.toLong())
+                return if (match.groups[1]?.value == "-") duration.negated() else duration
+            } catch (exception: ArithmeticException) {
+                throw DateTimeParseException(
+                    "Text cannot be parsed to a Duration: overflow",
+                    input,
+                    0,
+                    exception,
+                )
+            }
+        }
+
         /** Creates a duration from standard 24-hour days. */
         public fun ofDays(days: Long): Duration =
             create(multiplyExact(days, SECONDS_PER_DAY), 0)
@@ -391,5 +437,63 @@ public class Duration private constructor(
 
         private fun create(seconds: Long, nano: Int): Duration =
             if (seconds == 0L && nano == 0) ZERO else Duration(seconds, nano)
+
+        private fun parseNumber(
+            input: String,
+            value: String?,
+            multiplier: Long,
+            description: String,
+        ): Long {
+            if (value == null) return 0
+            try {
+                return multiplyExact(value.toLong(), multiplier)
+            } catch (exception: NumberFormatException) {
+                throw DateTimeParseException(
+                    "Text cannot be parsed to a Duration: $description",
+                    input,
+                    0,
+                    exception,
+                )
+            } catch (exception: ArithmeticException) {
+                throw DateTimeParseException(
+                    "Text cannot be parsed to a Duration: $description",
+                    input,
+                    0,
+                    exception,
+                )
+            }
+        }
+
+        private fun parseFraction(input: String, value: String?, sign: Int): Int {
+            if (value.isNullOrEmpty()) return 0
+            try {
+                var fraction = value.toInt()
+                repeat(9 - value.length) {
+                    fraction *= 10
+                }
+                return fraction * sign
+            } catch (exception: NumberFormatException) {
+                throw DateTimeParseException(
+                    "Text cannot be parsed to a Duration: fraction",
+                    input,
+                    0,
+                    exception,
+                )
+            } catch (exception: ArithmeticException) {
+                throw DateTimeParseException(
+                    "Text cannot be parsed to a Duration: fraction",
+                    input,
+                    0,
+                    exception,
+                )
+            }
+        }
+
+        private fun parseFailure(input: String): DateTimeParseException =
+            DateTimeParseException("Text cannot be parsed to a Duration", input, 0)
+
+        private val DURATION_PATTERN: Regex = Regex(
+            """([-+]?)[Pp](?:([-+]?[0-9]+)[Dd])?([Tt](?:([-+]?[0-9]+)[Hh])?(?:([-+]?[0-9]+)[Mm])?(?:([-+]?[0-9]+)(?:[.,]([0-9]{0,9}))?[Ss])?)?""",
+        )
     }
 }

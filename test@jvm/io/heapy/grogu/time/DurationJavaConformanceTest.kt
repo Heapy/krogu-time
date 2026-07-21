@@ -174,6 +174,46 @@ class DurationJavaConformanceTest {
         }
     }
 
+    @Test
+    fun parsingMatchesJavaTime() {
+        val inputs = listOf(
+            "PT0S",
+            "pt20.345s",
+            "PT15M",
+            "PT10H",
+            "P2D",
+            "P2DT3H4M",
+            "PT-6H3M",
+            "-PT6H3M",
+            "-PT-6H+3M",
+            "PT+1,25S",
+            "PT1.S",
+            "PT-0.5S",
+            "P+2DT-3H+4M-5.000000006S",
+            "PT9223372036854775807.999999999S",
+            "PT-9223372036854775808S",
+            "",
+            "P",
+            "PT",
+            "P1DT",
+            "1S",
+            "P1H",
+            "PT1D",
+            "PT1.1234567890S",
+            "PT１S",
+            "PT9223372036854775808S",
+            "P106751991167301D",
+            "-PT-9223372036854775808S",
+        )
+
+        inputs.forEach { input ->
+            assertSameOutcome(
+                javaOperation = { JavaDuration.parse(input).toString() },
+                kotlinOperation = { Duration.parse(input).toString() },
+            )
+        }
+    }
+
     private fun assertSameOutcome(
         javaOperation: () -> Any?,
         kotlinOperation: () -> Any?,

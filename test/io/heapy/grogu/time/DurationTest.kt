@@ -1,5 +1,6 @@
 package io.heapy.grogu.time
 
+import io.heapy.grogu.time.format.DateTimeParseException
 import io.heapy.grogu.time.temporal.ChronoUnit
 import io.heapy.grogu.time.temporal.Temporal
 import io.heapy.grogu.time.temporal.TemporalAmount
@@ -283,6 +284,48 @@ class DurationTest {
         }
         assertFailsWith<ArithmeticException> {
             Duration.ofSeconds(Long.MIN_VALUE).toNanos()
+        }
+    }
+
+    @Test
+    fun parsesIsoDurationsIncludingJavaSignedExtensions() {
+        assertEquals(Duration.ofSeconds(20, 345_000_000), Duration.parse("PT20.345S"))
+        assertEquals(Duration.ofMinutes(15), Duration.parse("PT15M"))
+        assertEquals(Duration.ofHours(10), Duration.parse("pt10h"))
+        assertEquals(Duration.ofDays(2), Duration.parse("P2D"))
+        assertEquals(
+            Duration.ofDays(2).plusHours(3).plusMinutes(4),
+            Duration.parse("P2DT3H4M"),
+        )
+        assertEquals(Duration.ofHours(-6).plusMinutes(3), Duration.parse("PT-6H3M"))
+        assertEquals(Duration.ofHours(-6).minusMinutes(3), Duration.parse("-PT6H3M"))
+        assertEquals(Duration.ofHours(6).minusMinutes(3), Duration.parse("-PT-6H+3M"))
+        assertEquals(Duration.ofMillis(1_250), Duration.parse("PT+1,25S"))
+        assertEquals(Duration.ofSeconds(1), Duration.parse("PT1.S"))
+        assertEquals(Duration.ofMillis(-500), Duration.parse("PT-0.5S"))
+    }
+
+    @Test
+    fun parseRejectsMissingSectionsMalformedFractionsAndOverflow() {
+        val invalidInputs = listOf(
+            "",
+            "P",
+            "PT",
+            "P1DT",
+            "1S",
+            "P1H",
+            "PT1D",
+            "PT1.1234567890S",
+            "PT１S",
+            "PT9223372036854775808S",
+            "P106751991167301D",
+            "-PT-9223372036854775808S",
+        )
+
+        invalidInputs.forEach { input ->
+            val error = assertFailsWith<DateTimeParseException> { Duration.parse(input) }
+            assertEquals(input, error.parsedString)
+            assertEquals(0, error.errorIndex)
         }
     }
 
