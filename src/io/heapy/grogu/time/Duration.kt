@@ -5,6 +5,9 @@ import io.heapy.grogu.time.internal.addExact
 import io.heapy.grogu.time.internal.floorDiv
 import io.heapy.grogu.time.internal.floorMod
 import io.heapy.grogu.time.internal.multiplyExact
+import io.heapy.grogu.time.internal.Unsigned128
+import io.heapy.grogu.time.internal.unsignedMagnitude
+import io.heapy.grogu.time.internal.unsignedMultiplyAdd
 import io.heapy.grogu.time.temporal.ChronoUnit
 import io.heapy.grogu.time.temporal.Temporal
 import io.heapy.grogu.time.temporal.TemporalAmount
@@ -197,6 +200,33 @@ public class Duration private constructor(
         return ofSeconds(resultSeconds, partialFraction % NANOS_PER_SECOND)
     }
 
+    /** Returns this duration divided by [divisor], truncated to nanosecond precision. */
+    public fun dividedBy(divisor: Long): Duration {
+        if (divisor == 0L) throw ArithmeticException("Division by zero")
+        if (isZero) return ZERO
+
+        val quotientNanos = magnitudeInNanos().dividedBy(
+            Unsigned128(0uL, unsignedMagnitude(divisor)),
+        ).quotient
+        val split = quotientNanos.dividedBy(NANOS_PER_SECOND_128)
+        val negative = isNegative xor (divisor < 0)
+        return fromMagnitude(
+            secondsMagnitude = split.quotient,
+            nanoMagnitude = split.remainder.low,
+            negative = negative,
+        )
+    }
+
+    /** Returns the whole-number ratio between this duration and [divisor]. */
+    public fun dividedBy(divisor: Duration): Long {
+        if (divisor.isZero) throw ArithmeticException("Division by zero")
+
+        val quotient = magnitudeInNanos().dividedBy(divisor.magnitudeInNanos()).quotient
+        if (quotient.high != 0uL) throw ArithmeticException("long overflow")
+        val negative = isNegative xor divisor.isNegative
+        return signedLong(quotient.low, negative)
+    }
+
     /** Returns a duration with the same magnitude and a non-negative sign. */
     public fun abs(): Duration = if (isNegative) negated() else this
 
@@ -278,6 +308,23 @@ public class Duration private constructor(
         )
     }
 
+    private fun magnitudeInNanos(): Unsigned128 {
+        val wholeSeconds: Long
+        val fractionalNanos: UInt
+        if (isNegative && nano > 0) {
+            wholeSeconds = seconds + 1
+            fractionalNanos = (NANOS_PER_SECOND.toInt() - nano).toUInt()
+        } else {
+            wholeSeconds = seconds
+            fractionalNanos = nano.toUInt()
+        }
+        return unsignedMultiplyAdd(
+            value = unsignedMagnitude(wholeSeconds),
+            multiplier = NANOS_PER_SECOND.toUInt(),
+            addend = fractionalNanos,
+        )
+    }
+
     private fun plusComponents(secondsToAdd: Long, nanosToAdd: Long): Duration {
         if (secondsToAdd == 0L && nanosToAdd == 0L) return this
 
@@ -338,6 +385,7 @@ public class Duration private constructor(
         private const val SECONDS_PER_MINUTE: Long = 60
         private const val SECONDS_PER_HOUR: Long = 3_600
         private const val SECONDS_PER_DAY: Long = 86_400
+        private val NANOS_PER_SECOND_128: Unsigned128 = Unsigned128(0uL, 1_000_000_000uL)
 
         /** The canonical zero-length duration. */
         public val ZERO: Duration = Duration(0, 0)
@@ -437,6 +485,55 @@ public class Duration private constructor(
 
         private fun create(seconds: Long, nano: Int): Duration =
             if (seconds == 0L && nano == 0) ZERO else Duration(seconds, nano)
+
+        private fun fromMagnitude(
+            secondsMagnitude: Unsigned128,
+            nanoMagnitude: ULong,
+            negative: Boolean,
+        ): Duration {
+            if (secondsMagnitude.high != 0uL || nanoMagnitude >= NANOS_PER_SECOND.toULong()) {
+                throw ArithmeticException("Exceeds capacity of Duration")
+            }
+            val wholeSeconds = secondsMagnitude.low
+            if (!negative) {
+                if (wholeSeconds > Long.MAX_VALUE.toULong()) {
+                    throw ArithmeticException("Exceeds capacity of Duration")
+                }
+                return create(wholeSeconds.toLong(), nanoMagnitude.toInt())
+            }
+            if (wholeSeconds == 0uL && nanoMagnitude == 0uL) return ZERO
+            if (nanoMagnitude == 0uL) {
+                val minMagnitude = Long.MAX_VALUE.toULong() + 1uL
+                if (wholeSeconds > minMagnitude) {
+                    throw ArithmeticException("Exceeds capacity of Duration")
+                }
+                val signedSeconds = if (wholeSeconds == minMagnitude) {
+                    Long.MIN_VALUE
+                } else {
+                    -wholeSeconds.toLong()
+                }
+                return create(signedSeconds, 0)
+            }
+            if (wholeSeconds > Long.MAX_VALUE.toULong()) {
+                throw ArithmeticException("Exceeds capacity of Duration")
+            }
+            return create(
+                seconds = -wholeSeconds.toLong() - 1,
+                nano = (NANOS_PER_SECOND.toULong() - nanoMagnitude).toInt(),
+            )
+        }
+
+        private fun signedLong(magnitude: ULong, negative: Boolean): Long {
+            if (!negative) {
+                if (magnitude > Long.MAX_VALUE.toULong()) {
+                    throw ArithmeticException("long overflow")
+                }
+                return magnitude.toLong()
+            }
+            val minMagnitude = Long.MAX_VALUE.toULong() + 1uL
+            if (magnitude > minMagnitude) throw ArithmeticException("long overflow")
+            return if (magnitude == minMagnitude) Long.MIN_VALUE else -magnitude.toLong()
+        }
 
         private fun parseNumber(
             input: String,

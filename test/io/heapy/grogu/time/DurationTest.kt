@@ -206,6 +206,34 @@ class DurationTest {
     }
 
     @Test
+    fun scalarDivisionTruncatesTowardZeroAtNanosecondPrecision() {
+        assertEquals(Duration.ofMillis(750), Duration.ofMillis(1_500).dividedBy(2))
+        assertEquals(Duration.ofMillis(-750), Duration.ofMillis(-1_500).dividedBy(2))
+        assertSame(Duration.ZERO, Duration.ofNanos(1).dividedBy(2))
+        assertSame(Duration.ZERO, Duration.ofNanos(-1).dividedBy(2))
+        assertEquals(
+            Duration.ofSeconds(Long.MIN_VALUE / 2),
+            Duration.ofSeconds(Long.MIN_VALUE).dividedBy(2),
+        )
+        assertFailsWith<ArithmeticException> { Duration.ofSeconds(1).dividedBy(0) }
+        assertFailsWith<ArithmeticException> {
+            Duration.ofSeconds(Long.MIN_VALUE).dividedBy(-1)
+        }
+    }
+
+    @Test
+    fun durationDivisionReturnsTheWholeRatioAndDetectsOverflow() {
+        assertEquals(2, Duration.ofMillis(5_500).dividedBy(Duration.ofSeconds(2)))
+        assertEquals(-2, Duration.ofMillis(-5_500).dividedBy(Duration.ofSeconds(2)))
+        assertEquals(-2, Duration.ofMillis(5_500).dividedBy(Duration.ofSeconds(-2)))
+        assertEquals(3, Duration.ofSeconds(1).dividedBy(Duration.ofMillis(333)))
+        assertFailsWith<ArithmeticException> { ONE_SECOND.dividedBy(Duration.ZERO) }
+        assertFailsWith<ArithmeticException> {
+            Duration.ofSeconds(Long.MAX_VALUE).dividedBy(Duration.ofNanos(1))
+        }
+    }
+
+    @Test
     fun createsDurationFromAnyTemporalAmount() {
         val amount = object : TemporalAmount {
             override val units: List<TemporalUnit> =
@@ -361,6 +389,8 @@ class DurationTest {
     }
 
     private companion object {
+        val ONE_SECOND: Duration = Duration.ofSeconds(1)
+
         val ONE_AND_A_HALF_SECONDS: TemporalUnit = object : TemporalUnit {
             override val duration: Duration = Duration.ofMillis(1_500)
             override val isDurationEstimated: Boolean = false

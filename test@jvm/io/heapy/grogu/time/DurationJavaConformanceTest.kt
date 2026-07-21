@@ -214,6 +214,59 @@ class DurationJavaConformanceTest {
         }
     }
 
+    @Test
+    fun divisionMatchesJavaTime() {
+        val durations = listOf(
+            Duration.ofSeconds(Long.MIN_VALUE),
+            Duration.ofSeconds(-2, 1),
+            Duration.ofMillis(-1_500),
+            Duration.ofNanos(-1),
+            Duration.ZERO,
+            Duration.ofNanos(1),
+            Duration.ofMillis(1_500),
+            Duration.ofSeconds(1, 999_999_999),
+            Duration.ofSeconds(Long.MAX_VALUE, 999_999_999),
+        )
+        val scalarDivisors = listOf(
+            Long.MIN_VALUE,
+            -1_000_000_001L,
+            -2L,
+            -1L,
+            0L,
+            1L,
+            2L,
+            1_000_000_001L,
+            Long.MAX_VALUE,
+        )
+        val durationDivisors = listOf(
+            Duration.ofSeconds(Long.MIN_VALUE),
+            Duration.ofSeconds(-1),
+            Duration.ofNanos(-1),
+            Duration.ZERO,
+            Duration.ofNanos(1),
+            Duration.ofMillis(333),
+            Duration.ofSeconds(1),
+            Duration.ofSeconds(Long.MAX_VALUE, 999_999_999),
+        )
+
+        durations.forEach { duration ->
+            val javaDuration = JavaDuration.ofSeconds(duration.seconds, duration.nano.toLong())
+            scalarDivisors.forEach { divisor ->
+                assertSameOutcome(
+                    javaOperation = { javaDuration.dividedBy(divisor).toString() },
+                    kotlinOperation = { duration.dividedBy(divisor).toString() },
+                )
+            }
+            durationDivisors.forEach { divisor ->
+                val javaDivisor = JavaDuration.ofSeconds(divisor.seconds, divisor.nano.toLong())
+                assertSameOutcome(
+                    javaOperation = { javaDuration.dividedBy(javaDivisor) },
+                    kotlinOperation = { duration.dividedBy(divisor) },
+                )
+            }
+        }
+    }
+
     private fun assertSameOutcome(
         javaOperation: () -> Any?,
         kotlinOperation: () -> Any?,
