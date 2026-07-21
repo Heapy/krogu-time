@@ -1,3 +1,11 @@
 product:
   type: kmp/lib
   platforms: [jvm, android, iosArm64, iosSimulatorArm64, iosX64]
+
+description: A Kotlin Multiplatform port of java.time
+
+settings:
+  android:
+    namespace: io.heapy.grogu.time
+  kotlin:
+    allWarningsAsErrors: true
