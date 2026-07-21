@@ -13,7 +13,13 @@ public interface TemporalAccessor {
     public fun isSupported(field: TemporalField): Boolean
 
     /** Returns the refined valid range for [field]. */
-    public fun range(field: TemporalField): ValueRange = field.rangeRefinedBy(this)
+    public fun range(field: TemporalField): ValueRange {
+        if (field is ChronoField) {
+            if (isSupported(field)) return field.range
+            throw UnsupportedTemporalTypeException("Unsupported field: $field")
+        }
+        return field.rangeRefinedBy(this)
+    }
 
     /** Returns [field] as an [Int], validating that its range fits. */
     public fun get(field: TemporalField): Int {
