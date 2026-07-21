@@ -1,8 +1,16 @@
 package io.heapy.grogu.time
 
 import java.time.Duration as JavaDuration
+import java.time.Instant as JavaInstant
+import java.time.temporal.ChronoField as JavaChronoField
 import java.time.temporal.ChronoUnit as JavaChronoUnit
+import java.time.temporal.Temporal as JavaTemporal
+import io.heapy.grogu.time.temporal.ChronoField
 import io.heapy.grogu.time.temporal.ChronoUnit
+import io.heapy.grogu.time.temporal.Temporal
+import io.heapy.grogu.time.temporal.TemporalField
+import io.heapy.grogu.time.temporal.TemporalUnit
+import io.heapy.grogu.time.temporal.UnsupportedTemporalTypeException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -304,6 +312,27 @@ class DurationJavaConformanceTest {
         }
     }
 
+    @Test
+    fun betweenMatchesJavaTime() {
+        val pairs = listOf(
+            JavaInstant.ofEpochSecond(0, 100_000_000) to
+                JavaInstant.ofEpochSecond(0, 350_000_000),
+            JavaInstant.ofEpochSecond(0, 900_000_000) to
+                JavaInstant.ofEpochSecond(2, 100_000_000),
+            JavaInstant.ofEpochSecond(2, 100_000_000) to
+                JavaInstant.ofEpochSecond(0, 900_000_000),
+            JavaInstant.ofEpochSecond(-10, 999_999_999) to
+                JavaInstant.ofEpochSecond(10, 1),
+        )
+
+        pairs.forEach { (start, end) ->
+            assertEquals(
+                JavaDuration.between(start, end).toString(),
+                Duration.between(JavaTemporalAdapter(start), JavaTemporalAdapter(end)).toString(),
+            )
+        }
+    }
+
     private fun assertSameOutcome(
         javaOperation: () -> Any?,
         kotlinOperation: () -> Any?,
@@ -316,5 +345,43 @@ class DurationJavaConformanceTest {
             javaResult.exceptionOrNull()?.javaClass?.simpleName,
             kotlinResult.exceptionOrNull()?.javaClass?.simpleName,
         )
+    }
+
+    private data class JavaTemporalAdapter(
+        val delegate: JavaTemporal,
+    ) : Temporal {
+        override fun isSupported(field: TemporalField): Boolean =
+            field is ChronoField && delegate.isSupported(JavaChronoField.valueOf(field.name))
+
+        override fun isSupported(unit: TemporalUnit): Boolean =
+            unit is ChronoUnit && delegate.isSupported(JavaChronoUnit.valueOf(unit.name))
+
+        override fun getLong(field: TemporalField): Long =
+            if (field is ChronoField) {
+                delegate.getLong(JavaChronoField.valueOf(field.name))
+            } else {
+                throw UnsupportedTemporalTypeException("Unsupported field: $field")
+            }
+
+        override fun with(field: TemporalField, newValue: Long): Temporal =
+            if (field is ChronoField) {
+                JavaTemporalAdapter(delegate.with(JavaChronoField.valueOf(field.name), newValue))
+            } else {
+                throw UnsupportedTemporalTypeException("Unsupported field: $field")
+            }
+
+        override fun plus(amountToAdd: Long, unit: TemporalUnit): Temporal =
+            if (unit is ChronoUnit) {
+                JavaTemporalAdapter(delegate.plus(amountToAdd, JavaChronoUnit.valueOf(unit.name)))
+            } else {
+                throw UnsupportedTemporalTypeException("Unsupported unit: $unit")
+            }
+
+        override fun until(endExclusive: Temporal, unit: TemporalUnit): Long {
+            if (endExclusive !is JavaTemporalAdapter || unit !is ChronoUnit) {
+                throw UnsupportedTemporalTypeException("Unsupported unit: $unit")
+            }
+            return delegate.until(endExclusive.delegate, JavaChronoUnit.valueOf(unit.name))
+        }
     }
 }

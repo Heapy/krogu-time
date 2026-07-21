@@ -32,15 +32,18 @@ differential tests compare observable behavior with Java 21 `java.time`.
 Implemented foundations:
 
 - `DateTimeException`
+- `DateTimeParseException`
 - `DayOfWeek`
 - `Month`
-- `Duration` value model and exact addition/subtraction
+- `Duration` with the complete Java 21 public API surface, including parsing,
+  temporal integration, checked arithmetic, conversions, truncation, and
+  `between`
 - temporal interfaces and exceptions
 - `ValueRange`
 - `ChronoUnit`
 - `ChronoField`
 
-Remaining work includes the rest of `Duration`, temporal queries and
-adjusters, local and offset date/time types, instants and clocks, periods,
-zones and rules, formatters and parsers, alternate chronologies, and complete
+Remaining work includes temporal queries and adjusters, local and offset
+date/time types, instants and clocks, periods, zones and rules, formatters and
+parsers beyond duration parsing, alternate chronologies, and complete
 cross-type conformance coverage.

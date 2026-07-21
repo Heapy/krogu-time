@@ -9,6 +9,7 @@ import io.heapy.grogu.time.internal.Unsigned128
 import io.heapy.grogu.time.internal.unsignedMagnitude
 import io.heapy.grogu.time.internal.unsignedMultiplyAdd
 import io.heapy.grogu.time.temporal.ChronoUnit
+import io.heapy.grogu.time.temporal.ChronoField
 import io.heapy.grogu.time.temporal.Temporal
 import io.heapy.grogu.time.temporal.TemporalAmount
 import io.heapy.grogu.time.temporal.TemporalUnit
@@ -469,6 +470,27 @@ public class Duration private constructor(
                     exception,
                 )
             }
+        }
+
+        /** Calculates the duration from [startInclusive] to [endExclusive]. */
+        public fun between(startInclusive: Temporal, endExclusive: Temporal): Duration {
+            var seconds = startInclusive.until(endExclusive, ChronoUnit.SECONDS)
+            if (seconds == 0L) {
+                return ofNanos(startInclusive.until(endExclusive, ChronoUnit.NANOS))
+            }
+
+            val nanos = try {
+                endExclusive.getLong(ChronoField.NANO_OF_SECOND) -
+                    startInclusive.getLong(ChronoField.NANO_OF_SECOND)
+            } catch (_: DateTimeException) {
+                0
+            }
+            if (nanos < 0 && seconds > 0) {
+                seconds++
+            } else if (nanos > 0 && seconds < 0) {
+                seconds--
+            }
+            return ofSeconds(seconds, nanos)
         }
 
         /** Creates a duration from standard 24-hour days. */

@@ -2,6 +2,7 @@ package io.heapy.grogu.time
 
 import io.heapy.grogu.time.format.DateTimeParseException
 import io.heapy.grogu.time.temporal.ChronoUnit
+import io.heapy.grogu.time.temporal.ChronoField
 import io.heapy.grogu.time.temporal.Temporal
 import io.heapy.grogu.time.temporal.TemporalAmount
 import io.heapy.grogu.time.temporal.TemporalField
@@ -390,6 +391,39 @@ class DurationTest {
     }
 
     @Test
+    fun calculatesBetweenTemporalsUsingNanosWhenWholeSecondsAreZero() {
+        val start = BetweenTemporal(secondsUntil = 0, nanosUntil = 250_000_000, nanoOfSecond = 100)
+        val end = BetweenTemporal(nanoOfSecond = 200)
+
+        assertEquals(Duration.ofMillis(250), Duration.between(start, end))
+    }
+
+    @Test
+    fun calculatesBetweenTemporalsWithNanoOfSecondCorrectionAndFallback() {
+        assertEquals(
+            Duration.ofMillis(1_200),
+            Duration.between(
+                BetweenTemporal(secondsUntil = 1, nanoOfSecond = 900_000_000),
+                BetweenTemporal(nanoOfSecond = 100_000_000),
+            ),
+        )
+        assertEquals(
+            Duration.ofMillis(-1_200),
+            Duration.between(
+                BetweenTemporal(secondsUntil = -1, nanoOfSecond = 100_000_000),
+                BetweenTemporal(nanoOfSecond = 900_000_000),
+            ),
+        )
+        assertEquals(
+            Duration.ofSeconds(3),
+            Duration.between(
+                BetweenTemporal(secondsUntil = 3, supportsNanoOfSecond = false),
+                BetweenTemporal(nanoOfSecond = 100_000_000),
+            ),
+        )
+    }
+
+    @Test
     fun stringUsesIso8601SecondsRepresentation() {
         assertEquals("PT0S", Duration.ZERO.toString())
         assertEquals("PT48H", Duration.ofDays(2).toString())
@@ -418,6 +452,38 @@ class DurationTest {
 
         override fun until(endExclusive: Temporal, unit: TemporalUnit): Long =
             throw UnsupportedTemporalTypeException("Unsupported unit: $unit")
+    }
+
+    private data class BetweenTemporal(
+        val secondsUntil: Long = 0,
+        val nanosUntil: Long = 0,
+        val nanoOfSecond: Long = 0,
+        val supportsNanoOfSecond: Boolean = true,
+    ) : Temporal {
+        override fun isSupported(field: TemporalField): Boolean =
+            supportsNanoOfSecond && field === ChronoField.NANO_OF_SECOND
+
+        override fun isSupported(unit: TemporalUnit): Boolean =
+            unit === ChronoUnit.SECONDS || unit === ChronoUnit.NANOS
+
+        override fun getLong(field: TemporalField): Long =
+            if (isSupported(field)) {
+                nanoOfSecond
+            } else {
+                throw UnsupportedTemporalTypeException("Unsupported field: $field")
+            }
+
+        override fun with(field: TemporalField, newValue: Long): Temporal =
+            throw UnsupportedTemporalTypeException("Unsupported field: $field")
+
+        override fun plus(amountToAdd: Long, unit: TemporalUnit): Temporal =
+            throw UnsupportedTemporalTypeException("Unsupported unit: $unit")
+
+        override fun until(endExclusive: Temporal, unit: TemporalUnit): Long = when (unit) {
+            ChronoUnit.SECONDS -> secondsUntil
+            ChronoUnit.NANOS -> nanosUntil
+            else -> throw UnsupportedTemporalTypeException("Unsupported unit: $unit")
+        }
     }
 
     private companion object {
