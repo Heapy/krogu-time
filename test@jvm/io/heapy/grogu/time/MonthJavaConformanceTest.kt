@@ -1,6 +1,8 @@
 package io.heapy.grogu.time
 
 import java.time.Month as JavaMonth
+import java.time.temporal.ChronoField as JavaChronoField
+import io.heapy.grogu.time.temporal.ChronoField
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -24,6 +26,14 @@ class MonthJavaConformanceTest {
         Month.entries.forEach { month ->
             val javaMonth = JavaMonth.valueOf(month.name)
             assertEquals(javaMonth.value, month.value)
+            assertEquals(
+                javaMonth.isSupported(JavaChronoField.MONTH_OF_YEAR),
+                month.isSupported(ChronoField.MONTH_OF_YEAR),
+            )
+            assertEquals(
+                javaMonth.getLong(JavaChronoField.MONTH_OF_YEAR),
+                month.getLong(ChronoField.MONTH_OF_YEAR),
+            )
             assertEquals(javaMonth.minLength(), month.minLength())
             assertEquals(javaMonth.maxLength(), month.maxLength())
             assertEquals(javaMonth.firstMonthOfQuarter().name, month.firstMonthOfQuarter().name)

@@ -1,5 +1,11 @@
 package io.heapy.grogu.time
 
+import io.heapy.grogu.time.temporal.ChronoField
+import io.heapy.grogu.time.temporal.ChronoUnit
+import io.heapy.grogu.time.temporal.Temporal
+import io.heapy.grogu.time.temporal.TemporalField
+import io.heapy.grogu.time.temporal.TemporalUnit
+import io.heapy.grogu.time.temporal.UnsupportedTemporalTypeException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -74,5 +80,40 @@ class DayOfWeekTest {
     fun toStringUsesTheEnumConstantName() {
         assertEquals("MONDAY", DayOfWeek.MONDAY.toString())
         assertEquals("SUNDAY", DayOfWeek.SUNDAY.toString())
+    }
+
+    @Test
+    fun exposesTheDayOfWeekTemporalField() {
+        assertEquals(true, DayOfWeek.MONDAY.isSupported(ChronoField.DAY_OF_WEEK))
+        assertEquals(false, DayOfWeek.MONDAY.isSupported(ChronoField.DAY_OF_MONTH))
+        assertEquals(1, DayOfWeek.MONDAY.get(ChronoField.DAY_OF_WEEK))
+        assertEquals(7, DayOfWeek.SUNDAY.getLong(ChronoField.DAY_OF_WEEK))
+        assertFailsWith<UnsupportedTemporalTypeException> {
+            DayOfWeek.MONDAY.getLong(ChronoField.DAY_OF_MONTH)
+        }
+    }
+
+    @Test
+    fun adjustsTheDayOfWeekFieldOnATemporal() {
+        assertEquals(
+            AdjustableDay(5),
+            DayOfWeek.FRIDAY.adjustInto(AdjustableDay(1)),
+        )
+    }
+
+    private data class AdjustableDay(private val day: Long) : Temporal {
+        override fun isSupported(field: TemporalField): Boolean = field === ChronoField.DAY_OF_WEEK
+
+        override fun isSupported(unit: TemporalUnit): Boolean = unit === ChronoUnit.DAYS
+
+        override fun getLong(field: TemporalField): Long = day
+
+        override fun with(field: TemporalField, newValue: Long): Temporal = copy(day = newValue)
+
+        override fun plus(amountToAdd: Long, unit: TemporalUnit): Temporal =
+            copy(day = day + amountToAdd)
+
+        override fun until(endExclusive: Temporal, unit: TemporalUnit): Long =
+            (endExclusive as AdjustableDay).day - day
     }
 }

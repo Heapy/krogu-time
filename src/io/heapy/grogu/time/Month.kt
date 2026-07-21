@@ -1,9 +1,16 @@
 package io.heapy.grogu.time
 
+import io.heapy.grogu.time.temporal.ChronoField
+import io.heapy.grogu.time.temporal.Temporal
+import io.heapy.grogu.time.temporal.TemporalAccessor
+import io.heapy.grogu.time.temporal.TemporalAdjuster
+import io.heapy.grogu.time.temporal.TemporalField
+import io.heapy.grogu.time.temporal.UnsupportedTemporalTypeException
+
 /**
  * A month of the year in the ISO-8601 calendar system, from January to December.
  */
-public enum class Month {
+public enum class Month : TemporalAccessor, TemporalAdjuster {
     JANUARY,
     FEBRUARY,
     MARCH,
@@ -59,6 +66,21 @@ public enum class Month {
 
     /** Returns the first month of the quarter containing this month. */
     public fun firstMonthOfQuarter(): Month = entries[(ordinal / MONTHS_PER_QUARTER) * MONTHS_PER_QUARTER]
+
+    override fun isSupported(field: TemporalField): Boolean = if (field is ChronoField) {
+        field == ChronoField.MONTH_OF_YEAR
+    } else {
+        field.isSupportedBy(this)
+    }
+
+    override fun getLong(field: TemporalField): Long = when {
+        field == ChronoField.MONTH_OF_YEAR -> value.toLong()
+        field is ChronoField -> throw UnsupportedTemporalTypeException("Unsupported field: $field")
+        else -> field.getFrom(this)
+    }
+
+    override fun adjustInto(temporal: Temporal): Temporal =
+        temporal.with(ChronoField.MONTH_OF_YEAR, value.toLong())
 
     public companion object {
         private const val MONTHS_PER_QUARTER: Int = 3

@@ -1,5 +1,11 @@
 package io.heapy.grogu.time
 
+import io.heapy.grogu.time.temporal.ChronoField
+import io.heapy.grogu.time.temporal.ChronoUnit
+import io.heapy.grogu.time.temporal.Temporal
+import io.heapy.grogu.time.temporal.TemporalField
+import io.heapy.grogu.time.temporal.TemporalUnit
+import io.heapy.grogu.time.temporal.UnsupportedTemporalTypeException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -90,5 +96,40 @@ class MonthTest {
         assertSame(Month.APRIL, Month.JUNE.firstMonthOfQuarter())
         assertSame(Month.JULY, Month.SEPTEMBER.firstMonthOfQuarter())
         assertSame(Month.OCTOBER, Month.DECEMBER.firstMonthOfQuarter())
+    }
+
+    @Test
+    fun exposesTheMonthOfYearTemporalField() {
+        assertEquals(true, Month.JANUARY.isSupported(ChronoField.MONTH_OF_YEAR))
+        assertEquals(false, Month.JANUARY.isSupported(ChronoField.DAY_OF_MONTH))
+        assertEquals(1, Month.JANUARY.get(ChronoField.MONTH_OF_YEAR))
+        assertEquals(12, Month.DECEMBER.getLong(ChronoField.MONTH_OF_YEAR))
+        assertFailsWith<UnsupportedTemporalTypeException> {
+            Month.JANUARY.getLong(ChronoField.DAY_OF_MONTH)
+        }
+    }
+
+    @Test
+    fun adjustsTheMonthOfYearFieldOnATemporal() {
+        assertEquals(
+            AdjustableMonth(9),
+            Month.SEPTEMBER.adjustInto(AdjustableMonth(1)),
+        )
+    }
+
+    private data class AdjustableMonth(private val month: Long) : Temporal {
+        override fun isSupported(field: TemporalField): Boolean = field === ChronoField.MONTH_OF_YEAR
+
+        override fun isSupported(unit: TemporalUnit): Boolean = unit === ChronoUnit.MONTHS
+
+        override fun getLong(field: TemporalField): Long = month
+
+        override fun with(field: TemporalField, newValue: Long): Temporal = copy(month = newValue)
+
+        override fun plus(amountToAdd: Long, unit: TemporalUnit): Temporal =
+            copy(month = month + amountToAdd)
+
+        override fun until(endExclusive: Temporal, unit: TemporalUnit): Long =
+            (endExclusive as AdjustableMonth).month - month
     }
 }
