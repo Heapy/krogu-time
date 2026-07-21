@@ -234,6 +234,38 @@ class DurationTest {
     }
 
     @Test
+    fun truncatesTowardZeroToStandardAndCustomUnits() {
+        val positive = Duration.ofSeconds(90_061, 987_654_321)
+
+        assertSame(positive, positive.truncatedTo(ChronoUnit.NANOS))
+        assertEquals(Duration.ofSeconds(90_061, 987_654_000), positive.truncatedTo(ChronoUnit.MICROS))
+        assertEquals(Duration.ofSeconds(90_061, 987_000_000), positive.truncatedTo(ChronoUnit.MILLIS))
+        assertEquals(Duration.ofSeconds(90_061), positive.truncatedTo(ChronoUnit.SECONDS))
+        assertEquals(Duration.ofSeconds(90_060), positive.truncatedTo(ChronoUnit.MINUTES))
+        assertEquals(Duration.ofSeconds(90_000), positive.truncatedTo(ChronoUnit.HOURS))
+        assertEquals(Duration.ofSeconds(86_400), positive.truncatedTo(ChronoUnit.HALF_DAYS))
+        assertEquals(Duration.ofSeconds(86_400), positive.truncatedTo(ChronoUnit.DAYS))
+        assertEquals(Duration.ofSeconds(86_400), positive.truncatedTo(NINETY_MINUTES))
+
+        val negative = Duration.ofMillis(-61_750)
+        assertEquals(Duration.ofSeconds(-61), negative.truncatedTo(ChronoUnit.SECONDS))
+        assertEquals(Duration.ofSeconds(-60), negative.truncatedTo(ChronoUnit.MINUTES))
+    }
+
+    @Test
+    fun truncationRejectsUnitsThatAreTooLargeOrDoNotDivideTheDay() {
+        val tooLarge = assertFailsWith<UnsupportedTemporalTypeException> {
+            Duration.ofSeconds(1).truncatedTo(ChronoUnit.WEEKS)
+        }
+        assertEquals("Unit is too large to be used for truncation", tooLarge.message)
+
+        val uneven = assertFailsWith<UnsupportedTemporalTypeException> {
+            Duration.ofSeconds(1).truncatedTo(SEVEN_MINUTES)
+        }
+        assertEquals("Unit must divide into a standard day without remainder", uneven.message)
+    }
+
+    @Test
     fun createsDurationFromAnyTemporalAmount() {
         val amount = object : TemporalAmount {
             override val units: List<TemporalUnit> =
@@ -391,8 +423,21 @@ class DurationTest {
     private companion object {
         val ONE_SECOND: Duration = Duration.ofSeconds(1)
 
-        val ONE_AND_A_HALF_SECONDS: TemporalUnit = object : TemporalUnit {
-            override val duration: Duration = Duration.ofMillis(1_500)
+        val ONE_AND_A_HALF_SECONDS: TemporalUnit = exactUnit(
+            name = "OneAndAHalfSeconds",
+            duration = Duration.ofMillis(1_500),
+        )
+        val NINETY_MINUTES: TemporalUnit = exactUnit(
+            name = "NinetyMinutes",
+            duration = Duration.ofMinutes(90),
+        )
+        val SEVEN_MINUTES: TemporalUnit = exactUnit(
+            name = "SevenMinutes",
+            duration = Duration.ofMinutes(7),
+        )
+
+        fun exactUnit(name: String, duration: Duration): TemporalUnit = object : TemporalUnit {
+            override val duration: Duration = duration
             override val isDurationEstimated: Boolean = false
             override val isDateBased: Boolean = false
             override val isTimeBased: Boolean = false
@@ -407,7 +452,7 @@ class DurationTest {
                 temporal2Exclusive: Temporal,
             ): Long = temporal1Inclusive.until(temporal2Exclusive, this)
 
-            override fun toString(): String = "OneAndAHalfSeconds"
+            override fun toString(): String = name
         }
     }
 }

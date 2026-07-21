@@ -292,6 +292,29 @@ public class Duration private constructor(
     /** Returns the nanosecond part within the normalized second. */
     public fun toNanosPart(): Int = nano
 
+    /** Returns this duration truncated toward zero to a multiple of [unit]. */
+    public fun truncatedTo(unit: TemporalUnit): Duration {
+        if (unit === ChronoUnit.SECONDS && (seconds >= 0 || nano == 0)) {
+            return create(seconds, 0)
+        }
+        if (unit === ChronoUnit.NANOS) return this
+
+        val unitDuration = unit.duration
+        if (unitDuration.seconds > SECONDS_PER_DAY) {
+            throw UnsupportedTemporalTypeException("Unit is too large to be used for truncation")
+        }
+        val unitNanos = unitDuration.toNanos()
+        if (NANOS_PER_DAY % unitNanos != 0L) {
+            throw UnsupportedTemporalTypeException(
+                "Unit must divide into a standard day without remainder",
+            )
+        }
+        val nanosWithinDay =
+            (seconds % SECONDS_PER_DAY) * NANOS_PER_SECOND + nano
+        val truncatedNanos = nanosWithinDay / unitNanos * unitNanos
+        return plusNanos(truncatedNanos - nanosWithinDay)
+    }
+
     private fun toExactUnits(unitsPerSecond: Long, nanosPerUnit: Long): Long {
         val wholeSeconds: Long
         val fractionalNanos: Long
@@ -378,6 +401,7 @@ public class Duration private constructor(
         private const val NANOS_PER_MICRO: Long = 1_000
         private const val NANOS_PER_MILLI: Int = 1_000_000
         private const val NANOS_PER_SECOND: Long = 1_000_000_000
+        private const val NANOS_PER_DAY: Long = 86_400_000_000_000
         private const val MICROS_PER_SECOND: Long = 1_000_000
         private const val MILLIS_PER_SECOND: Long = 1_000
         private const val MINUTES_PER_HOUR: Long = 60

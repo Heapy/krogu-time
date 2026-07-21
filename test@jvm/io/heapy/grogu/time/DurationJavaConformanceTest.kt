@@ -267,6 +267,43 @@ class DurationJavaConformanceTest {
         }
     }
 
+    @Test
+    fun truncationMatchesJavaTime() {
+        val durations = listOf(
+            Duration.ofSeconds(Long.MIN_VALUE, 999_999_999),
+            Duration.ofSeconds(-90_062, 12_345_679),
+            Duration.ofMillis(-61_750),
+            Duration.ofNanos(-1),
+            Duration.ZERO,
+            Duration.ofNanos(1),
+            Duration.ofSeconds(90_061, 987_654_321),
+            Duration.ofSeconds(Long.MAX_VALUE, 999_999_999),
+        )
+        val units = listOf(
+            ChronoUnit.NANOS,
+            ChronoUnit.MICROS,
+            ChronoUnit.MILLIS,
+            ChronoUnit.SECONDS,
+            ChronoUnit.MINUTES,
+            ChronoUnit.HOURS,
+            ChronoUnit.HALF_DAYS,
+            ChronoUnit.DAYS,
+            ChronoUnit.WEEKS,
+            ChronoUnit.MONTHS,
+        )
+
+        durations.forEach { duration ->
+            val javaDuration = JavaDuration.ofSeconds(duration.seconds, duration.nano.toLong())
+            units.forEach { unit ->
+                val javaUnit = JavaChronoUnit.valueOf(unit.name)
+                assertSameOutcome(
+                    javaOperation = { javaDuration.truncatedTo(javaUnit).toString() },
+                    kotlinOperation = { duration.truncatedTo(unit).toString() },
+                )
+            }
+        }
+    }
+
     private fun assertSameOutcome(
         javaOperation: () -> Any?,
         kotlinOperation: () -> Any?,
