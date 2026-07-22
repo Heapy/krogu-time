@@ -3,6 +3,10 @@ package io.heapy.grogu.time.format
 import io.heapy.grogu.time.LocalDate
 import io.heapy.grogu.time.LocalDateTime
 import io.heapy.grogu.time.LocalTime
+import io.heapy.grogu.time.OffsetDateTime
+import io.heapy.grogu.time.ZoneId
+import io.heapy.grogu.time.ZoneOffset
+import io.heapy.grogu.time.ZonedDateTime
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -83,6 +87,42 @@ class DateTimeFormatterPatternTest {
         }
         assertFailsWith<IllegalArgumentException> {
             DateTimeFormatter.ofPattern("uuuu-ddd")
+        }
+    }
+
+    @Test
+    fun formatsAndParsesOffsetPatterns() {
+        val dateTime = OffsetDateTime.of(
+            LocalDateTime.of(2024, 3, 1, 5, 6, 7),
+            ZoneOffset.ofHoursMinutes(2, 30),
+        )
+        val formatter = DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ssXXX")
+
+        assertEquals("2024-03-01T05:06:07+02:30", formatter.format(dateTime))
+        assertEquals(
+            dateTime,
+            formatter.parse("2024-03-01T05:06:07+02:30", OffsetDateTime::from),
+        )
+        assertEquals("Z", DateTimeFormatter.ofPattern("X").format(ZoneOffset.UTC))
+        assertEquals("+00", DateTimeFormatter.ofPattern("x").format(ZoneOffset.UTC))
+        assertEquals("+0000", DateTimeFormatter.ofPattern("Z").format(ZoneOffset.UTC))
+    }
+
+    @Test
+    fun formatsAndParsesRegionZoneIds() {
+        val zoned = ZonedDateTime.of(
+            LocalDateTime.of(2024, 3, 1, 5, 6),
+            ZoneId.of("Europe/Paris"),
+        )
+        val formatter = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm VV")
+
+        assertEquals("2024-03-01 05:06 Europe/Paris", formatter.format(zoned))
+        assertEquals(
+            zoned,
+            formatter.parse("2024-03-01 05:06 Europe/Paris", ZonedDateTime::from),
+        )
+        assertFailsWith<IllegalArgumentException> {
+            DateTimeFormatter.ofPattern("V")
         }
     }
 }

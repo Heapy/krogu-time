@@ -1,6 +1,8 @@
 package io.heapy.grogu.time.format
 
 import io.heapy.grogu.time.LocalDateTime
+import io.heapy.grogu.time.OffsetDateTime
+import io.heapy.grogu.time.ZoneOffset
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -26,6 +28,27 @@ class DateTimeFormatterPatternJavaConformanceTest {
             assertEquals(
                 java.time.LocalDateTime.parse(javaText, javaFormatter).toString(),
                 groguFormatter.parse(groguText, LocalDateTime::from).toString(),
+                pattern,
+            )
+        }
+    }
+
+    @Test
+    fun offsetPatternsMatchJavaTime() {
+        val javaDateTime = java.time.OffsetDateTime.of(
+            java.time.LocalDateTime.of(2024, 3, 1, 5, 6, 7),
+            java.time.ZoneOffset.ofHoursMinutesSeconds(2, 30, 15),
+        )
+        val groguDateTime = OffsetDateTime.of(
+            LocalDateTime.of(2024, 3, 1, 5, 6, 7),
+            ZoneOffset.ofHoursMinutesSeconds(2, 30, 15),
+        )
+        val patterns = listOf("X", "XX", "XXX", "XXXX", "XXXXX", "x", "xx", "xxx", "Z", "ZZZ", "ZZZZZ")
+
+        patterns.forEach { pattern ->
+            assertEquals(
+                java.time.format.DateTimeFormatter.ofPattern(pattern).format(javaDateTime),
+                DateTimeFormatter.ofPattern(pattern).format(groguDateTime),
                 pattern,
             )
         }

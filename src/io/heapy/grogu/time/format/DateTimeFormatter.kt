@@ -686,6 +686,8 @@ private fun validatePatternField(symbol: Char, count: Int) {
             "Too many pattern letters: $symbol"
         }
         'S' -> require(count <= 9) { "Minimum width must be from 0 to 9 inclusive but was $count" }
+        'X', 'x', 'Z' -> require(count <= 5) { "Too many pattern letters: $symbol" }
+        'V' -> require(count == 2) { "Pattern letter count must be 2: V" }
         else -> throw IllegalArgumentException("Unknown pattern letter: $symbol")
     }
 }
@@ -717,7 +719,51 @@ private fun formatPatternField(
         .toString()
         .padStart(9, '0')
         .take(token.count)
+    'X', 'x', 'Z' -> formatPatternOffset(
+        offset = ZoneOffset.from(temporal),
+        symbol = token.symbol,
+        count = token.count,
+    )
+    'V' -> temporal.query(TemporalQueries.zoneId())?.id
+        ?: throw DateTimeException("Unable to extract ZoneId from temporal $temporal")
     else -> error("Unsupported pattern field: ${token.symbol}")
+}
+
+private fun formatPatternOffset(
+    offset: ZoneOffset,
+    symbol: Char,
+    count: Int,
+): String {
+    if (offset == ZoneOffset.UTC) {
+        return when {
+            symbol == 'X' -> "Z"
+            symbol == 'Z' && count == 4 -> "GMT"
+            symbol == 'Z' && count == 5 -> "Z"
+            symbol == 'Z' -> "+0000"
+            count == 1 -> "+00"
+            count == 3 || count == 5 -> "+00:00"
+            else -> "+0000"
+        }
+    }
+
+    val totalSeconds = kotlin.math.abs(offset.totalSeconds)
+    val hours = totalSeconds / 3_600
+    val minutes = totalSeconds / 60 % 60
+    val seconds = totalSeconds % 60
+    val sign = if (offset.totalSeconds < 0) '-' else '+'
+    val hourText = hours.toString().padStart(2, '0')
+    val minuteText = minutes.toString().padStart(2, '0')
+    val secondText = seconds.toString().padStart(2, '0')
+    return when {
+        symbol == 'Z' && count in 1..3 -> "$sign$hourText$minuteText"
+        symbol == 'Z' && count == 4 -> "GMT$sign$hourText:$minuteText" +
+            if (seconds == 0) "" else ":$secondText"
+        count == 1 -> "$sign$hourText" + if (minutes == 0) "" else minuteText
+        count == 2 -> "$sign$hourText$minuteText"
+        count == 3 -> "$sign$hourText:$minuteText"
+        count == 4 -> "$sign$hourText$minuteText" + if (seconds == 0) "" else secondText
+        else -> "$sign$hourText:$minuteText" + if (seconds == 0) "" else ":$secondText"
+    }
 }
 
 private fun formatPatternNumber(value: Int, count: Int): String =
@@ -746,8 +792,10 @@ private fun parsePattern(
     resolverStyle: ResolverStyle,
 ): TemporalAccessor {
     val values = mutableMapOf<Char, Long>()
+    var offset: ZoneOffset? = null
+    var zone: ZoneId? = null
     var index = 0
-    tokens.forEach { token ->
+    tokens.forEachIndexed { tokenIndex, token ->
         when (token) {
             is PatternToken.Literal -> {
                 if (!text.startsWith(token.text, index)) {
@@ -760,23 +808,140 @@ private fun parsePattern(
                 index += token.text.length
             }
             is PatternToken.Field -> {
-                val parsed = parsePatternField(token, text, index)
-                val previous = values.put(token.symbol, parsed.value)
-                if (previous != null && previous != parsed.value) {
-                    throw DateTimeParseException(
-                        "Conflict found for pattern field ${token.symbol}",
-                        text,
-                        index,
-                    )
+                when (token.symbol) {
+                    'X', 'x', 'Z' -> {
+                        val parsed = parsePatternOffset(token, text, index)
+                        if (offset != null && offset != parsed.offset) {
+                            throw DateTimeParseException("Conflict found for offset", text, index)
+                        }
+                        offset = parsed.offset
+                        index = parsed.endIndex
+                    }
+                    'V' -> {
+                        val parsed = parsePatternZone(tokens, tokenIndex, text, index)
+                        if (zone != null && zone != parsed.zone) {
+                            throw DateTimeParseException("Conflict found for zone", text, index)
+                        }
+                        zone = parsed.zone
+                        index = parsed.endIndex
+                    }
+                    else -> {
+                        val parsed = parsePatternField(token, text, index)
+                        val previous = values.put(token.symbol, parsed.value)
+                        if (previous != null && previous != parsed.value) {
+                            throw DateTimeParseException(
+                                "Conflict found for pattern field ${token.symbol}",
+                                text,
+                                index,
+                            )
+                        }
+                        index = parsed.endIndex
+                    }
                 }
-                index = parsed.endIndex
             }
         }
     }
     if (index != text.length) {
         throw DateTimeParseException("Text could not be parsed, unparsed text found", text, index)
     }
-    return resolvePatternValues(values, text, resolverStyle)
+    return resolvePatternValues(values, text, resolverStyle, offset, zone)
+}
+
+private data class ParsedPatternOffset(
+    val offset: ZoneOffset,
+    val endIndex: Int,
+)
+
+private fun parsePatternOffset(
+    token: PatternToken.Field,
+    text: String,
+    startIndex: Int,
+): ParsedPatternOffset {
+    val firstCharacter = text.getOrNull(startIndex)
+    if (firstCharacter == 'Z' || firstCharacter == 'z') {
+        if (token.symbol == 'x' || token.symbol == 'Z' && token.count != 5) {
+            throw DateTimeParseException("Text could not be parsed at index $startIndex", text, startIndex)
+        }
+        return ParsedPatternOffset(ZoneOffset.UTC, startIndex + 1)
+    }
+    if (token.symbol == 'Z' && token.count == 4) {
+        if (!text.startsWith("GMT", startIndex)) {
+            throw DateTimeParseException("Text could not be parsed at index $startIndex", text, startIndex)
+        }
+        val offsetStart = startIndex + 3
+        if (offsetStart == text.length) return ParsedPatternOffset(ZoneOffset.UTC, offsetStart)
+        val end = patternOffsetEnd(text, offsetStart, colon = true, optionalSeconds = true)
+        return ParsedPatternOffset(parsePatternZoneOffset(text, offsetStart, end), end)
+    }
+
+    val colon = token.count == 3 || token.count == 5
+    val optionalSeconds = token.count == 4 || token.count == 5
+    val end = when {
+        token.symbol == 'Z' && token.count in 1..3 -> startIndex + 5
+        token.count == 1 -> {
+            val minuteEnd = startIndex + 5
+            if (minuteEnd <= text.length && text.substring(startIndex + 3, minuteEnd).all { it in '0'..'9' }) {
+                minuteEnd
+            } else {
+                startIndex + 3
+            }
+        }
+        else -> patternOffsetEnd(text, startIndex, colon, optionalSeconds)
+    }
+    if (end > text.length) {
+        throw DateTimeParseException("Text could not be parsed at index $startIndex", text, startIndex)
+    }
+    return ParsedPatternOffset(parsePatternZoneOffset(text, startIndex, end), end)
+}
+
+private fun patternOffsetEnd(
+    text: String,
+    startIndex: Int,
+    colon: Boolean,
+    optionalSeconds: Boolean,
+): Int {
+    val minuteEnd = startIndex + if (colon) 6 else 5
+    if (!optionalSeconds) return minuteEnd
+    val secondEnd = minuteEnd + if (colon) 3 else 2
+    return if (secondEnd <= text.length) secondEnd else minuteEnd
+}
+
+private fun parsePatternZoneOffset(
+    text: String,
+    startIndex: Int,
+    endIndex: Int,
+): ZoneOffset = try {
+    ZoneOffset.of(text.substring(startIndex, endIndex))
+} catch (exception: RuntimeException) {
+    throw DateTimeParseException("Invalid offset", text, startIndex, exception)
+}
+
+private data class ParsedPatternZone(
+    val zone: ZoneId,
+    val endIndex: Int,
+)
+
+private fun parsePatternZone(
+    tokens: List<PatternToken>,
+    tokenIndex: Int,
+    text: String,
+    startIndex: Int,
+): ParsedPatternZone {
+    val nextLiteral = tokens.drop(tokenIndex + 1)
+        .filterIsInstance<PatternToken.Literal>()
+        .firstOrNull { it.text.isNotEmpty() }
+    val endIndex = nextLiteral?.let { literal -> text.indexOf(literal.text, startIndex) }
+        ?.takeIf { it >= startIndex }
+        ?: text.length
+    if (endIndex == startIndex) {
+        throw DateTimeParseException("Text could not be parsed at index $startIndex", text, startIndex)
+    }
+    val zone = try {
+        ZoneId.of(text.substring(startIndex, endIndex))
+    } catch (exception: RuntimeException) {
+        throw DateTimeParseException("Invalid zone", text, startIndex, exception)
+    }
+    return ParsedPatternZone(zone, endIndex)
 }
 
 private data class ParsedPatternField(
@@ -826,6 +991,8 @@ private fun resolvePatternValues(
     values: Map<Char, Long>,
     text: String,
     resolverStyle: ResolverStyle,
+    offset: ZoneOffset?,
+    zone: ZoneId?,
 ): TemporalAccessor {
     val year = values['u'] ?: values['y']
     val month = values['M']
@@ -872,6 +1039,8 @@ private fun resolvePatternValues(
     return ParsedTemporalAccessor(
         date = resolvedDate,
         time = resolvedTime?.time,
+        offset = offset,
+        zone = zone,
         excessDays = if (date == null) resolvedTime?.excessDays ?: Period.ZERO else Period.ZERO,
     )
 }
@@ -1775,7 +1944,7 @@ private class ParsedTemporalAccessor(
     override fun isSupported(field: TemporalField): Boolean = when (field) {
         ChronoField.INSTANT_SECONDS ->
             instant != null || date != null && time != null && (offset != null || zone != null)
-        ChronoField.OFFSET_SECONDS -> offset != null
+        ChronoField.OFFSET_SECONDS -> offset != null || zone is ZoneOffset
         is ChronoField if date != null && field.isDateBased -> date.isSupported(field)
         is ChronoField if time != null && field.isTimeBased -> time.isSupported(field)
         is ChronoField if instant != null -> instant.isSupported(field)
@@ -1802,7 +1971,8 @@ private class ParsedTemporalAccessor(
             val resolvedOffset = offset ?: zone?.rules?.getOffset(dateTime) ?: unsupported(field)
             dateTime.toEpochSecond(resolvedOffset)
         }
-        ChronoField.OFFSET_SECONDS -> offset?.totalSeconds?.toLong() ?: unsupported(field)
+        ChronoField.OFFSET_SECONDS ->
+            (offset ?: (zone as? ZoneOffset))?.totalSeconds?.toLong() ?: unsupported(field)
         is ChronoField if date != null && field.isDateBased -> date.getLong(field)
         is ChronoField if time != null && field.isTimeBased -> time.getLong(field)
         is ChronoField if instant != null -> instant.getLong(field)
@@ -1815,7 +1985,7 @@ private class ParsedTemporalAccessor(
             TemporalQueries.chronology() -> chronology
             TemporalQueries.localDate() -> date?.let { LocalDate.ofEpochDay(it.toEpochDay()) }
             TemporalQueries.localTime() -> time
-            TemporalQueries.offset() -> offset
+            TemporalQueries.offset() -> offset ?: (zone as? ZoneOffset)
             TemporalQueries.zoneId() -> zone
             TemporalQueries.precision() -> instant?.query(TemporalQueries.precision())
             else -> return super<TemporalAccessor>.query(query)
