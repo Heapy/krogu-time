@@ -3,7 +3,11 @@
 `grogu-time` is a Kotlin Multiplatform port of the Java 21 `java.time` API under
 the `io.heapy.grogu.time` package.
 
-The project is under active development and is not yet a complete port.
+The public Java 21 API surface is feature-complete, translated into idiomatic
+Kotlin where JavaBean accessors map naturally to properties. Platform-specific
+JDK integration, such as `java.text.Format`, is provided on JVM and Android;
+the date-time model, chronology, formatting, temporal, and zone APIs are common
+Kotlin shared by every target.
 
 ## Build
 
@@ -18,6 +22,12 @@ The current module targets JVM, Android, iOS ARM64, iOS Simulator ARM64, and
 iOS x64. Production code and behavioral tests live in common Kotlin. JVM-only
 differential tests compare observable behavior with Java 21 `java.time`.
 
+The current verification baseline is 709 JVM tests, 461 Android tests, and 460
+iOS tests, followed by a successful build of every configured target. The JVM
+suite includes exhaustive and all-pairs differential matrices for standard
+fields, units, amounts, queries, adjustments, conversions, intervals,
+chronology factories, and chronology-aware ordering.
+
 ## Compatibility contract
 
 - Package root: `io.heapy.grogu.time`
@@ -29,7 +39,7 @@ differential tests compare observable behavior with Java 21 `java.time`.
 
 ## Coverage
 
-Implemented foundations:
+Implemented public surface and foundations:
 
 - `DateTimeException`
 - `DateTimeParseException`
@@ -267,8 +277,9 @@ Implemented foundations:
 - `ChronoField` metadata, validation, temporal dispatch, canonical names, and
   locale-backed display names with Java-compatible fallbacks
 
-Remaining work includes formatters and parsers beyond the implemented ISO
-defaults and amount parsers, and complete cross-type conformance coverage.
+Ongoing work is compatibility hardening: expanding differential inputs,
+tracking future Java and timezone-data releases, and improving platform locale
+coverage without changing Java 21 semantics.
 
 The bundled TZDB source is generated reproducibly from the OpenJDK 21
 `lib/tzdb.dat` file by `tools/generate-tzdb-data.rb`.
