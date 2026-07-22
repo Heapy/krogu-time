@@ -13,6 +13,14 @@ import kotlin.test.assertTrue
 
 class MonthDayTest {
     @Test
+    fun convertsNonIsoTemporalsThroughTheIsoEpochDay() {
+        val hijrahDate = HijrahDate.of(1445, 9, 1)
+        val isoDate = LocalDate.ofEpochDay(hijrahDate.toEpochDay())
+
+        assertEquals(MonthDay.of(isoDate.month, isoDate.dayOfMonth), MonthDay.from(hijrahDate))
+    }
+
+    @Test
     fun validatesAndExposesMonthDayValues() {
         val leapDay = MonthDay.of(Month.FEBRUARY, 29)
         assertEquals(Month.FEBRUARY, leapDay.month)

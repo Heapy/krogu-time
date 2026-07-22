@@ -17,6 +17,14 @@ import kotlin.test.assertTrue
 
 class YearTest {
     @Test
+    fun convertsNonIsoTemporalsThroughTheIsoEpochDay() {
+        val hijrahDate = HijrahDate.of(1445, 9, 1)
+        val isoDate = LocalDate.ofEpochDay(hijrahDate.toEpochDay())
+
+        assertEquals(Year.of(isoDate.year), Year.from(hijrahDate))
+    }
+
+    @Test
     fun validatesTheSupportedYearRange() {
         assertEquals(Year.MIN_VALUE, Year.of(Year.MIN_VALUE).value)
         assertEquals(Year.MAX_VALUE, Year.of(Year.MAX_VALUE).value)

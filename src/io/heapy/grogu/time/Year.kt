@@ -205,8 +205,22 @@ public class Year private constructor(
             Year(ChronoField.YEAR.checkValidIntValue(isoYear.toLong()))
 
         /** Obtains a year from a temporal accessor. */
-        public fun from(temporal: TemporalAccessor): Year =
-            if (temporal is Year) temporal else of(temporal.get(ChronoField.YEAR))
+        public fun from(temporal: TemporalAccessor): Year {
+            if (temporal is Year) return temporal
+            return try {
+                val isoTemporal = if (Chronology.from(temporal) == IsoChronology) {
+                    temporal
+                } else {
+                    LocalDate.from(temporal)
+                }
+                of(isoTemporal.get(ChronoField.YEAR))
+            } catch (exception: DateTimeException) {
+                throw DateTimeException(
+                    "Unable to obtain Year from TemporalAccessor: $temporal",
+                    exception,
+                )
+            }
+        }
 
         /** Parses a year using the default ISO year format. */
         public fun parse(text: CharSequence): Year {

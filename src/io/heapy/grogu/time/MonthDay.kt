@@ -153,9 +153,14 @@ public class MonthDay private constructor(
         public fun from(temporal: TemporalAccessor): MonthDay {
             if (temporal is MonthDay) return temporal
             return try {
+                val isoTemporal = if (Chronology.from(temporal) == IsoChronology) {
+                    temporal
+                } else {
+                    LocalDate.from(temporal)
+                }
                 of(
-                    temporal.get(ChronoField.MONTH_OF_YEAR),
-                    temporal.get(ChronoField.DAY_OF_MONTH),
+                    isoTemporal.get(ChronoField.MONTH_OF_YEAR),
+                    isoTemporal.get(ChronoField.DAY_OF_MONTH),
                 )
             } catch (exception: DateTimeException) {
                 throw DateTimeException(

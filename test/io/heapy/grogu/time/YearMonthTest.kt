@@ -15,6 +15,14 @@ import kotlin.test.assertTrue
 
 class YearMonthTest {
     @Test
+    fun convertsNonIsoTemporalsThroughTheIsoEpochDay() {
+        val hijrahDate = HijrahDate.of(1445, 9, 1)
+        val isoDate = LocalDate.ofEpochDay(hijrahDate.toEpochDay())
+
+        assertEquals(YearMonth.of(isoDate.year, isoDate.month), YearMonth.from(hijrahDate))
+    }
+
+    @Test
     fun validatesAndExposesYearMonthValues() {
         val yearMonth = YearMonth.of(2024, Month.FEBRUARY)
         assertEquals(2024, yearMonth.year)

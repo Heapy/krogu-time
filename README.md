@@ -142,19 +142,20 @@ Implemented foundations:
 - `ChronoPeriod` chronology, unit, sign, arithmetic, normalization, application,
   and generic date-difference contracts, with `Period` integration
 - `Year` core value, leap-year, temporal-field, year-scale arithmetic, and
-  comparison behavior, including ISO-guarded temporal adjustment, default
-  parsing, and `atDay` date production plus system-default/injected-clock/
-  explicit-zone current-value factories and `MonthDay` validation/date
-  production and formatter-based parsing/formatting
-- `MonthDay` value, factories, temporal fields, replacement, year validation,
-  date production and ISO-guarded adjustment, ordering, strict ISO parsing, and
-  ISO text output, including system-default/injected-clock/explicit-zone
-  current-value factories and formatter-based parsing/formatting
-- `YearMonth` value, factories, temporal fields, replacement, checked
-  month/year-scale arithmetic, complete-unit differences, date production and
-  ISO-guarded adjustment, ordering, strict ISO parsing, ISO text output, and
+  comparison behavior, including non-ISO epoch-day conversion, ISO-guarded
+  temporal adjustment, default parsing, and `atDay` date production plus
   system-default/injected-clock/explicit-zone current-value factories and
-  formatter-based parsing/formatting
+  `MonthDay` validation/date production and formatter-based parsing/formatting
+- `MonthDay` value, factories, temporal fields, replacement, year validation,
+  non-ISO epoch-day conversion, date production and ISO-guarded adjustment,
+  ordering, strict ISO parsing, and ISO text output, including system-default/
+  injected-clock/explicit-zone current-value factories and formatter-based
+  parsing/formatting
+- `YearMonth` value, factories, temporal fields, replacement, checked
+  month/year-scale arithmetic, complete-unit differences, non-ISO epoch-day
+  conversion, date production and ISO-guarded adjustment, ordering, strict ISO
+  parsing, ISO text output, and system-default/injected-clock/explicit-zone
+  current-value factories and formatter-based parsing/formatting
 - `LocalDate` core value, full-range epoch and instant/zone conversion, temporal fields,
   replacement, checked calendar arithmetic, complete-unit differences, and
   timeline and calendar-period comparison, with lazy exclusive date sequences

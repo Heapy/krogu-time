@@ -269,9 +269,14 @@ public class YearMonth private constructor(
         public fun from(temporal: TemporalAccessor): YearMonth {
             if (temporal is YearMonth) return temporal
             return try {
+                val isoTemporal = if (Chronology.from(temporal) == IsoChronology) {
+                    temporal
+                } else {
+                    LocalDate.from(temporal)
+                }
                 of(
-                    temporal.get(ChronoField.YEAR),
-                    temporal.get(ChronoField.MONTH_OF_YEAR),
+                    isoTemporal.get(ChronoField.YEAR),
+                    isoTemporal.get(ChronoField.MONTH_OF_YEAR),
                 )
             } catch (exception: DateTimeException) {
                 throw DateTimeException(
