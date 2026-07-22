@@ -72,8 +72,12 @@ Implemented foundations:
   adjustment, ordering, hashing, strict ISO parsing, and ISO text output (clock
   factories, queries, and zone-region composition remain)
 - `ZoneOffset` factories, validation, normalized ID parsing and formatting,
-  quarter-hour canonicalization, offset-field/query integration, adjustment,
-  and Java-compatible ordering (the `ZoneId` hierarchy and rules remain)
+  quarter-hour canonicalization, `ZoneId` integration, offset-field/query
+  integration, adjustment, and Java-compatible ordering
+- `ZoneId` fixed-offset and `UTC`/`GMT`/`UT` prefixed identifiers, alias-map
+  resolution, normalization, fixed `ZoneRules`, and zone/zone-offset temporal
+  queries (region IDs, system defaults, display names, and rule providers
+  remain)
 - `OffsetTime` immutable composition, factories, local and offset fields,
   offset conversion with same-local and same-instant semantics, replacement,
   truncation, wraparound arithmetic, complete-unit differences, timeline and
@@ -90,8 +94,7 @@ Implemented foundations:
 - `ChronoUnit`
 - `ChronoField`
 
-Remaining work includes standard temporal queries, zoned date/time types,
-clocks, chronology integration, zones
-and rules, formatters and parsers beyond the implemented ISO defaults and
-amount parsers, alternate chronologies, and complete cross-type conformance
-coverage.
+Remaining work includes the other standard temporal queries, zoned date/time
+types, clocks, chronology integration, region-backed zone rules, formatters and
+parsers beyond the implemented ISO defaults and amount parsers, alternate
+chronologies, and complete cross-type conformance coverage.

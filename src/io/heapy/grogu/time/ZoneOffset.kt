@@ -8,14 +8,19 @@ import io.heapy.grogu.time.temporal.TemporalField
 import io.heapy.grogu.time.temporal.TemporalQueries
 import io.heapy.grogu.time.temporal.TemporalQuery
 import io.heapy.grogu.time.temporal.UnsupportedTemporalTypeException
+import io.heapy.grogu.time.zone.ZoneRules
 import kotlin.math.abs
 
 /** A fixed offset from UTC in the range -18:00 to +18:00. */
 public class ZoneOffset private constructor(
     public val totalSeconds: Int,
-) : TemporalAccessor, TemporalAdjuster, Comparable<ZoneOffset> {
+) : ZoneId(), TemporalAccessor, TemporalAdjuster, Comparable<ZoneOffset> {
     /** The normalized textual identifier for this offset. */
-    public val id: String = buildId(totalSeconds)
+    override val id: String = buildId(totalSeconds)
+
+    /** The fixed rules represented by this offset. */
+    override val rules: ZoneRules
+        get() = ZoneRules.of(this)
 
     override fun isSupported(field: TemporalField): Boolean =
         if (field is ChronoField) field === ChronoField.OFFSET_SECONDS else field.isSupportedBy(this)
