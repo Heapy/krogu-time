@@ -89,6 +89,25 @@ public class DateTimeFormatter private constructor(
                     "[Fraction(NanoOfSecond,0,9,DecimalPoint)]]",
         )
 
+        /** The strict ISO formatter for a time with an optional offset. */
+        public val ISO_TIME: DateTimeFormatter = DateTimeFormatter(
+            printer = { temporal ->
+                buildString {
+                    append(formatIsoLocalTime(LocalTime.from(temporal)))
+                    if (temporal.isSupported(ChronoField.OFFSET_SECONDS)) {
+                        append(ZoneOffset.from(temporal))
+                    }
+                }
+            },
+            parser = { text -> parseIsoTime(text) },
+            description =
+                "ParseCaseSensitive(false)" +
+                    "(Value(HourOfDay,2)':'Value(MinuteOfHour,2)" +
+                    "[':'Value(SecondOfMinute,2)" +
+                    "[Fraction(NanoOfSecond,0,9,DecimalPoint)]])" +
+                    "[Offset(+HH:MM:ss,'Z')]",
+        )
+
         /** The strict ISO formatter for a date-time without an offset. */
         public val ISO_LOCAL_DATE_TIME: DateTimeFormatter = DateTimeFormatter(
             printer = { temporal ->
@@ -102,6 +121,33 @@ public class DateTimeFormatter private constructor(
                     "(Value(HourOfDay,2)':'Value(MinuteOfHour,2)" +
                     "[':'Value(SecondOfMinute,2)" +
                     "[Fraction(NanoOfSecond,0,9,DecimalPoint)]])",
+        )
+
+        /** The strict ISO formatter for a date-time with an optional offset and region zone. */
+        public val ISO_DATE_TIME: DateTimeFormatter = DateTimeFormatter(
+            printer = { temporal ->
+                buildString {
+                    append(formatIsoLocalDateTime(LocalDateTime.from(temporal)))
+                    if (temporal.isSupported(ChronoField.OFFSET_SECONDS)) {
+                        append(ZoneOffset.from(temporal))
+                        temporal.query(TemporalQueries.zoneId())?.let { zone ->
+                            append('[')
+                            append(zone)
+                            append(']')
+                        }
+                    }
+                }
+            },
+            parser = { text -> parseIsoDateTime(text) },
+            description =
+                "(ParseCaseSensitive(false)" +
+                    "(Value(Year,4,10,EXCEEDS_PAD)'-'Value(MonthOfYear,2)" +
+                    "'-'Value(DayOfMonth,2))'T'" +
+                    "(Value(HourOfDay,2)':'Value(MinuteOfHour,2)" +
+                    "[':'Value(SecondOfMinute,2)" +
+                    "[Fraction(NanoOfSecond,0,9,DecimalPoint)]]))" +
+                    "[Offset(+HH:MM:ss,'Z')" +
+                    "['['ParseCaseSensitive(true)ZoneRegionId()']']]",
         )
 
         /** The strict ISO formatter for an instant in UTC. */
@@ -210,6 +256,102 @@ private fun parseIsoDate(
         }
     }
     return ParsedTemporalAccessor(date = date, offset = offset)
+}
+
+private fun parseIsoTime(text: CharSequence): TemporalAccessor {
+    val input = text.toString()
+    val offsetStart = isoOffsetStart(input)
+    val time = try {
+        LocalTime.parse(input.substring(0, offsetStart ?: input.length))
+    } catch (exception: DateTimeParseException) {
+        throw DateTimeParseException(
+            "Text cannot be parsed to an ISO time",
+            input,
+            exception.errorIndex,
+            exception,
+        )
+    }
+    val offset = offsetStart?.let { index -> parseIsoOffset(input, index, "ISO time") }
+    return ParsedTemporalAccessor(time = time, offset = offset)
+}
+
+private fun parseIsoDateTime(text: CharSequence): TemporalAccessor {
+    val input = text.toString()
+    val bracketStart = input.lastIndexOf('[')
+    val hasBracket = bracketStart >= 0 || ']' in input
+    val zone = if (hasBracket) {
+        if (bracketStart < 0 || !input.endsWith(']') || bracketStart == input.lastIndex) {
+            throw DateTimeParseException(
+                "Text cannot be parsed to an ISO date-time",
+                input,
+                maxOf(bracketStart, 0),
+            )
+        }
+        val zoneText = input.substring(bracketStart + 1, input.lastIndex)
+        try {
+            ZoneId.of(zoneText).also { parsedZone ->
+                if (parsedZone is ZoneOffset) {
+                    throw DateTimeParseException(
+                        "Text cannot be parsed to an ISO date-time",
+                        input,
+                        bracketStart + 1,
+                    )
+                }
+            }
+        } catch (exception: DateTimeParseException) {
+            throw exception
+        } catch (exception: RuntimeException) {
+            throw DateTimeParseException(
+                "Text cannot be parsed to an ISO date-time",
+                input,
+                bracketStart + 1,
+                exception,
+            )
+        }
+    } else {
+        null
+    }
+    val mainEnd = if (hasBracket) bracketStart else input.length
+    val mainText = input.substring(0, mainEnd)
+    val offsetStart = isoOffsetStart(mainText)
+    if (zone != null && offsetStart == null) {
+        throw DateTimeParseException(
+            "Text cannot be parsed to an ISO date-time",
+            input,
+            bracketStart,
+        )
+    }
+    val dateTime = try {
+        LocalDateTime.parse(mainText.substring(0, offsetStart ?: mainText.length))
+    } catch (exception: DateTimeParseException) {
+        throw DateTimeParseException(
+            "Text cannot be parsed to an ISO date-time",
+            input,
+            exception.errorIndex,
+            exception,
+        )
+    }
+    val offset = offsetStart?.let { index -> parseIsoOffset(mainText, index, "ISO date-time") }
+    return ParsedTemporalAccessor(
+        date = dateTime.date,
+        time = dateTime.time,
+        offset = offset,
+        zone = zone,
+    )
+}
+
+private fun parseIsoOffset(input: String, offsetStart: Int, target: String): ZoneOffset {
+    val offsetText = input.substring(offsetStart)
+    return try {
+        ZoneOffset.of(if (offsetText.equals("z", ignoreCase = true)) "Z" else offsetText)
+    } catch (exception: RuntimeException) {
+        throw DateTimeParseException(
+            "Text cannot be parsed to an $target",
+            input,
+            offsetStart,
+            exception,
+        )
+    }
 }
 
 private fun isoOffsetStart(input: String): Int? {
