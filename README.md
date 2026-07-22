@@ -50,8 +50,8 @@ Implemented foundations:
 - `LocalDate` core value, full-range epoch conversion, temporal fields,
   replacement, checked calendar arithmetic, complete-unit differences, and
   timeline and calendar-period comparison, including local time composition,
-  strict ISO parsing, and ISO text output (clock, formatter overloads, queries,
-  and zone-region APIs remain)
+  earliest-valid zoned start-of-day composition, strict ISO parsing, and ISO
+  text output (clock, formatter overloads, and queries remain)
 - `Period` factories, parsing, value behavior, temporal integration, checked
   arithmetic, normalization, and `between` (chronology integration remains)
 - `LocalTime` core value, validated factories, day conversions, temporal
@@ -97,16 +97,17 @@ Implemented foundations:
   structural ordering, epoch-second conversion, strict ISO parsing, and ISO
   text output (clock/zone factories and formatter overloads remain)
 - `OffsetDateTime` immutable composition, factories, fixed-offset/instant
-  conversion, all standard fields and units, replacement, truncation, checked
-  local arithmetic, complete-unit differences across offsets, timeline and
-  structural ordering, strict ISO parsing, and ISO text output (clock/zone
-  factories and formatter overloads remain)
+  conversion, same-instant/similar-local region-zone composition, all standard
+  fields and units, replacement, truncation, checked local arithmetic,
+  complete-unit differences across offsets, timeline and structural ordering,
+  strict ISO parsing, and ISO text output (clock factories and formatter
+  overloads remain)
 - `ZonedDateTime` local, strict, and instant factories; gap shifting and
   overlap preference/switching; date-based versus elapsed-time arithmetic;
   temporal fields, replacement, truncation, complete-unit differences, zone
   conversion, instant/offset conversion, timeline and structural ordering,
-  queries, and Java-compatible text output (clock factories, parsing, and
-  formatter overloads remain)
+  queries, strict ISO parsing, and Java-compatible text output (clock factories
+  and formatter overloads remain)
 - temporal interfaces and exceptions, plus the standard offset query
 - `TemporalAdjusters` complete date-adjuster utility surface
 - `ValueRange`

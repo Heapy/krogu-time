@@ -1,6 +1,7 @@
 package io.heapy.grogu.time
 
 import io.heapy.grogu.time.zone.ZoneRules
+import io.heapy.grogu.time.zone.ZoneRulesProvider
 import io.heapy.grogu.time.temporal.ChronoUnit
 import java.time.LocalDateTime as JavaLocalDateTime
 import java.time.ZoneId as JavaZoneId
@@ -81,6 +82,32 @@ class ZonedDateTimeJavaConformanceTest {
         )
     }
 
+    @Test
+    fun parsingAndOffsetDateTimeZoneCompositionMatchJavaTime() {
+        val zoneId = "Test/ZonedDateTimeParserJvm"
+        ZoneRulesProvider.registerProvider(TestProvider(zoneId, ZonedDateTimeTest.europeanRules()))
+        val ourTexts = listOf(
+            "2024-03-31T02:30+01:00[$zoneId]",
+            "2024-10-27T02:30+02:00[$zoneId]",
+            "2024-10-27T02:30+01:00[$zoneId]",
+        )
+        ourTexts.forEach { text ->
+            val actual = ZonedDateTime.parse(text)
+            val expected = JavaZonedDateTime.parse(text.replace(zoneId, "Europe/Paris"))
+            assertEquals(expected.toInstant().toString(), actual.toInstant().toString(), text)
+            assertEquals(expected.toLocalDateTime().toString(), actual.dateTime.toString(), text)
+            assertEquals(expected.offset.toString(), actual.offset.toString(), text)
+        }
+
+        val ours = OffsetDateTime.parse("2024-06-01T12:00+01:00")
+        val java = java.time.OffsetDateTime.parse("2024-06-01T12:00+01:00")
+        val zone = testZone()
+        val javaZone = JavaZoneId.of("Europe/Paris")
+        assertEquals(java.atZoneSameInstant(javaZone).toString(), ours.atZoneSameInstant(zone).toString())
+        assertEquals(java.atZoneSimilarLocal(javaZone).toString(), ours.atZoneSimilarLocal(zone).toString())
+        assertEquals(java.toZonedDateTime().toString(), ours.toZonedDateTime().toString())
+    }
+
     private fun testZone(): ZoneId = object : ZoneId() {
         override val id: String = "Europe/Paris"
         override val rules: ZoneRules = ZonedDateTimeTest.europeanRules()
@@ -97,6 +124,23 @@ class ZonedDateTimeJavaConformanceTest {
     )
 
     private fun ZoneOffset.toJava(): JavaZoneOffset = JavaZoneOffset.ofTotalSeconds(totalSeconds)
+
+    private class TestProvider(
+        private val zoneId: String,
+        private val zoneRules: ZoneRules,
+    ) : ZoneRulesProvider() {
+        override fun provideZoneIds(): Set<String> = setOf(zoneId)
+
+        override fun provideRules(zoneId: String, forCaching: Boolean): ZoneRules {
+            require(zoneId == this.zoneId)
+            return zoneRules
+        }
+
+        override fun provideVersions(zoneId: String): Map<String, ZoneRules> {
+            require(zoneId == this.zoneId)
+            return mapOf("test" to zoneRules)
+        }
+    }
 
     private companion object {
         val STANDARD: ZoneOffset = ZoneOffset.ofHours(1)

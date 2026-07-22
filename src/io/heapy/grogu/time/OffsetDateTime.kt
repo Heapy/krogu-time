@@ -171,6 +171,18 @@ public class OffsetDateTime private constructor(
     }
 
     public fun toOffsetTime(): OffsetTime = OffsetTime.of(time, offset)
+
+    /** Combines this date-time with [zone] while retaining the instant. */
+    public fun atZoneSameInstant(zone: ZoneId): ZonedDateTime =
+        ZonedDateTime.ofInstant(dateTime, offset, zone)
+
+    /** Combines this date-time with [zone], retaining the local fields where possible. */
+    public fun atZoneSimilarLocal(zone: ZoneId): ZonedDateTime =
+        ZonedDateTime.ofLocal(dateTime, zone, offset)
+
+    /** Converts this date-time to a zoned date-time using its offset as the zone ID. */
+    public fun toZonedDateTime(): ZonedDateTime = ZonedDateTime.of(dateTime, offset)
+
     public fun toInstant(): Instant = dateTime.toInstant(offset)
     public fun toEpochSecond(): Long = dateTime.toEpochSecond(offset)
 

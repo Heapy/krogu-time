@@ -3,9 +3,11 @@ package io.heapy.grogu.time
 import io.heapy.grogu.time.temporal.TemporalQueries
 import io.heapy.grogu.time.temporal.ChronoField
 import io.heapy.grogu.time.temporal.ChronoUnit
+import io.heapy.grogu.time.format.DateTimeParseException
 import io.heapy.grogu.time.zone.ZoneOffsetTransition
 import io.heapy.grogu.time.zone.ZoneOffsetTransitionRule
 import io.heapy.grogu.time.zone.ZoneRules
+import io.heapy.grogu.time.zone.ZoneRulesProvider
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -90,12 +92,80 @@ class ZonedDateTimeTest {
         assertEquals(earlier.toInstant().plusSeconds(3_600), later.toInstant())
     }
 
+    @Test
+    fun parsesOffsetAndProviderBackedRegionZonesUsingTheParsedInstant() {
+        val zoneId = "Test/ZonedDateTimeParser"
+        ZoneRulesProvider.registerProvider(TestProvider(zoneId, europeanRules()))
+
+        val parsed = ZonedDateTime.parse("2024-06-01T12:00:00.123456789+02:00[$zoneId]")
+        assertEquals("2024-06-01T12:00:00.123456789+02:00[$zoneId]", parsed.toString())
+
+        val conflictingOffset = ZonedDateTime.parse("2024-06-01T12:00+01:00[$zoneId]")
+        assertEquals("2024-06-01T13:00+02:00[$zoneId]", conflictingOffset.toString())
+
+        val fixed = ZonedDateTime.parse("2024-06-01T12:00+02:00")
+        assertSame(fixed.offset, fixed.zone)
+        assertEquals("2024-06-01T12:00+02:00", fixed.toString())
+        assertFailsWith<DateTimeParseException> {
+            ZonedDateTime.parse("2024-06-01T12:00+02:00[]")
+        }
+    }
+
+    @Test
+    fun composesDatesAndOffsetDateTimesWithZones() {
+        val midnightGap = ZoneOffsetTransition.of(
+            LocalDateTime.of(2024, 1, 1, 23, 30),
+            ZoneOffset.UTC,
+            STANDARD,
+        )
+        val midnightZone = TestZoneId(
+            "Test/MidnightGap",
+            ZoneRules.of(
+                ZoneOffset.UTC,
+                ZoneOffset.UTC,
+                emptyList(),
+                listOf(midnightGap),
+                emptyList(),
+            ),
+        )
+        assertEquals(
+            "2024-01-02T00:30+01:00[Test/MidnightGap]",
+            LocalDate.of(2024, 1, 2).atStartOfDay(midnightZone).toString(),
+        )
+
+        val zone = testZone()
+        val offsetDateTime = OffsetDateTime.of(
+            LocalDateTime.of(2024, 6, 1, 12, 0),
+            STANDARD,
+        )
+        assertEquals("2024-06-01T13:00+02:00[Test/Europe]", offsetDateTime.atZoneSameInstant(zone).toString())
+        assertEquals("2024-06-01T12:00+02:00[Test/Europe]", offsetDateTime.atZoneSimilarLocal(zone).toString())
+        assertEquals("2024-06-01T12:00+01:00", offsetDateTime.toZonedDateTime().toString())
+    }
+
     private fun testZone(): ZoneId = TestZoneId("Test/Europe", europeanRules())
 
     private class TestZoneId(
         override val id: String,
         override val rules: ZoneRules,
     ) : ZoneId()
+
+    private class TestProvider(
+        private val zoneId: String,
+        private val zoneRules: ZoneRules,
+    ) : ZoneRulesProvider() {
+        override fun provideZoneIds(): Set<String> = setOf(zoneId)
+
+        override fun provideRules(zoneId: String, forCaching: Boolean): ZoneRules {
+            require(zoneId == this.zoneId)
+            return zoneRules
+        }
+
+        override fun provideVersions(zoneId: String): Map<String, ZoneRules> {
+            require(zoneId == this.zoneId)
+            return mapOf("test" to zoneRules)
+        }
+    }
 
     companion object {
         val STANDARD: ZoneOffset = ZoneOffset.ofHours(1)

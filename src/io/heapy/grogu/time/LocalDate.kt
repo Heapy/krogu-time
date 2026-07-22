@@ -319,6 +319,18 @@ public class LocalDate private constructor(
     /** Returns this date at midnight. */
     public fun atStartOfDay(): LocalDateTime = atTime(LocalTime.MIDNIGHT)
 
+    /** Returns this date at the earliest valid local time in [zone]. */
+    public fun atStartOfDay(zone: ZoneId): ZonedDateTime {
+        var dateTime = atStartOfDay()
+        if (zone !is ZoneOffset) {
+            val transition = zone.rules.getTransition(dateTime)
+            if (transition?.isGap == true) {
+                dateTime = transition.dateTimeAfter
+            }
+        }
+        return ZonedDateTime.of(dateTime, zone)
+    }
+
     override fun compareTo(other: LocalDate): Int {
         val yearComparison = year - other.year
         if (yearComparison != 0) return yearComparison

@@ -1,5 +1,6 @@
 package io.heapy.grogu.time
 
+import io.heapy.grogu.time.format.DateTimeParseException
 import io.heapy.grogu.time.temporal.ChronoField
 import io.heapy.grogu.time.temporal.ChronoUnit
 import io.heapy.grogu.time.temporal.Temporal
@@ -376,7 +377,55 @@ public class ZonedDateTime private constructor(
             }
         }
 
+        /** Parses a date-time using the strict ISO zoned-date-time format. */
+        public fun parse(text: CharSequence): ZonedDateTime {
+            val input = text.toString()
+            val bracketStart = input.lastIndexOf('[')
+            val hasBracket = bracketStart >= 0 || ']' in input
+            if (!hasBracket) {
+                return parseOffsetDateTime(input, input).toZonedDateTime()
+            }
+            if (bracketStart < 0 || !input.endsWith(']') || bracketStart == input.lastIndex) {
+                throw parseFailure(input, maxOf(bracketStart, 0))
+            }
+
+            val zoneText = input.substring(bracketStart + 1, input.lastIndex)
+            if (zoneText.isEmpty()) throw parseFailure(input, bracketStart + 1)
+            val offsetDateTime = parseOffsetDateTime(
+                input.substring(0, bracketStart),
+                input,
+            )
+            val zone = try {
+                ZoneId.of(zoneText)
+            } catch (exception: DateTimeException) {
+                throw DateTimeParseException(
+                    "Text cannot be parsed to a ZonedDateTime",
+                    input,
+                    bracketStart + 1,
+                    exception,
+                )
+            }
+            return ofInstant(offsetDateTime.toInstant(), zone)
+        }
+
         /** Returns a comparator that compares zoned date-times only by instant. */
         public fun timeLineOrder(): Comparator<ZonedDateTime> = TIME_LINE_ORDER
+
+        private fun parseOffsetDateTime(
+            offsetText: String,
+            completeText: String,
+        ): OffsetDateTime = try {
+            OffsetDateTime.parse(offsetText)
+        } catch (exception: DateTimeParseException) {
+            throw DateTimeParseException(
+                "Text cannot be parsed to a ZonedDateTime",
+                completeText,
+                exception.errorIndex,
+                exception,
+            )
+        }
+
+        private fun parseFailure(input: String, errorIndex: Int): DateTimeParseException =
+            DateTimeParseException("Text cannot be parsed to a ZonedDateTime", input, errorIndex)
     }
 }
