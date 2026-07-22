@@ -39,10 +39,14 @@ Implemented foundations:
 - `Year` core value, leap-year, temporal-field, year-scale arithmetic, and
   comparison behavior, including default parsing and `atDay` date production
   plus `MonthDay` validation and date production (clock, formatter overloads,
-  and `YearMonth` APIs remain)
+  and temporal-query integration remain)
 - `MonthDay` value, factories, temporal fields, replacement, year validation,
   date production and adjustment, ordering, strict ISO parsing, and ISO text
   output (clock and formatter overloads remain)
+- `YearMonth` value, factories, temporal fields, replacement, checked
+  month/year-scale arithmetic, complete-unit differences, date production and
+  adjustment, ordering, strict ISO parsing, and ISO text output (clock,
+  formatter overloads, and temporal-query integration remain)
 - `LocalDate` core value, full-range epoch conversion, temporal fields,
   replacement, checked calendar arithmetic, complete-unit differences, and
   timeline and calendar-period comparison, including local time composition,

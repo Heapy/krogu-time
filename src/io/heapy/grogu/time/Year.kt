@@ -36,6 +36,12 @@ public class Year private constructor(
     /** Combines this year with [monthDay]. */
     public fun atMonthDay(monthDay: MonthDay): LocalDate = monthDay.atYear(value)
 
+    /** Combines this year with [month]. */
+    public fun atMonth(month: Month): YearMonth = YearMonth.of(value, month)
+
+    /** Combines this year with a month number. */
+    public fun atMonth(month: Int): YearMonth = YearMonth.of(value, month)
+
     override fun isSupported(field: TemporalField): Boolean =
         if (field is ChronoField) {
             field === ChronoField.YEAR ||
