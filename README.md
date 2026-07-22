@@ -51,9 +51,11 @@ Implemented foundations:
   composition, sign/width controls, integer- and chronology-base-date reduced
   value windows, fixed-range fractions, immutable custom field-text maps,
   default and explicit-width instant formatting/parsing, all custom offset-ID
-  patterns, explicit region/zone/offset query modes, adjacent fixed-width parsing,
-  one-shot custom-character padding and `p` pattern modifiers, nested optional
-  sections through builder methods and bracket patterns, required and optional
+  patterns, explicit region/zone/offset query modes, chronology-ID
+  formatting/parsing with chronology-aware date and reduced-value resolution,
+  adjacent fixed-width parsing, one-shot custom-character padding and `p`
+  pattern modifiers, nested optional sections through builder methods and bracket
+  patterns, required and optional
   reuse of complete formatter graphs through `append` and `appendOptional`
   with outer resolver/chronology/zone/decimal overrides and shared sequential
   parser settings,

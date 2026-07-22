@@ -256,8 +256,13 @@ public class DateTimeFormatter private constructor(
 
     private fun applyOverrides(parsed: TemporalAccessor): TemporalAccessor {
         if (parsed is ParsedTemporalAccessor) {
+            val effectiveChronology = if (patternTokens != null) {
+                parsed.query(TemporalQueries.chronology()) ?: IsoChronology
+            } else {
+                chronology ?: IsoChronology
+            }
             return parsed
-                .withChronology(chronology ?: IsoChronology, resolverStyle)
+                .withChronology(effectiveChronology, resolverStyle)
                 .let { resolved -> zone?.let(resolved::withDefaultZone) ?: resolved }
         }
 
@@ -928,6 +933,8 @@ internal sealed interface PatternToken {
 
     data class ZoneId(val queryMode: ZoneQueryMode) : PatternToken
 
+    data object ChronologyId : PatternToken
+
     data class ParseSetting(val setting: ParserSetting) : PatternToken
 
     data class DefaultValue(
@@ -1131,6 +1138,7 @@ private fun formatPattern(
             is PatternToken.Composite -> append(formatPattern(token.tokens, temporal))
             is PatternToken.Offset -> append(formatBuilderOffset(token, temporal))
             is PatternToken.ZoneId -> append(formatBuilderZoneId(token, temporal))
+            PatternToken.ChronologyId -> append(formatBuilderChronologyId(temporal))
             is PatternToken.Optional -> try {
                 append(formatPattern(token.tokens, temporal))
             } catch (_: DateTimeException) {
@@ -1161,6 +1169,10 @@ private fun formatPatternText(
     val value = temporal.getLong(token.field)
     return token.textLookup[value] ?: value.toString()
 }
+
+private fun formatBuilderChronologyId(temporal: TemporalAccessor): String =
+    temporal.query(TemporalQueries.chronology())?.id
+        ?: throw DateTimeException("Unable to extract chronology from temporal $temporal")
 
 private fun formatPatternInstant(
     token: PatternToken.Instant,
@@ -1405,10 +1417,22 @@ private fun parsePattern(
     val values = mutableMapOf<TemporalField, Long>()
     var offset: ZoneOffset? = null
     var zone: ZoneId? = null
+    var parsedChronology: Chronology? = null
     var leapSecond = false
+    val chronologySensitiveReducedValues = mutableListOf<ParsedChronologySensitiveReducedValue>()
     var index = 0
     var caseSensitive = true
     var strict = true
+    fun effectiveChronology(): Chronology = parsedChronology ?: chronology ?: IsoChronology
+    fun refreshChronologySensitiveReducedValues() {
+        chronologySensitiveReducedValues.forEach { reduced ->
+            values[reduced.token.field] = reduced.token.resolveReducedValue(
+                rawValue = reduced.rawValue,
+                digitCount = reduced.digitCount,
+                chronology = effectiveChronology(),
+            )
+        }
+    }
     fun storeOffset(
         parsed: ParsedPatternOffset,
         errorIndex: Int,
@@ -1489,7 +1513,7 @@ private fun parsePattern(
                         token,
                         input,
                         index,
-                        chronology ?: IsoChronology,
+                        effectiveChronology(),
                         strict,
                     )
                     val previous = values.put(token.field, parsed.value)
@@ -1498,6 +1522,13 @@ private fun parsePattern(
                             "Conflict found for field ${token.field}",
                             input,
                             index,
+                        )
+                    }
+                    if (token.base is ReducedValueBase.Date) {
+                        chronologySensitiveReducedValues += ParsedChronologySensitiveReducedValue(
+                            token = token,
+                            rawValue = parsed.rawValue,
+                            digitCount = parsed.digitCount,
                         )
                     }
                     index = parsed.endIndex
@@ -1559,11 +1590,19 @@ private fun parsePattern(
                     zone = parsed.zone
                     index = parsed.endIndex
                 }
+                PatternToken.ChronologyId -> {
+                    val parsed = parsePatternChronology(input, index, caseSensitive)
+                    parsedChronology = parsed.chronology
+                    refreshChronologySensitiveReducedValues()
+                    index = parsed.endIndex
+                }
                 is PatternToken.Optional -> {
                     val previousValues = values.toMap()
                     val previousOffset = offset
                     val previousZone = zone
+                    val previousChronology = parsedChronology
                     val previousLeapSecond = leapSecond
+                    val previousReducedValueCount = chronologySensitiveReducedValues.size
                     val previousIndex = index
                     try {
                         parseTokens(token.tokens, input)
@@ -1572,7 +1611,11 @@ private fun parsePattern(
                         values.putAll(previousValues)
                         offset = previousOffset
                         zone = previousZone
+                        parsedChronology = previousChronology
                         leapSecond = previousLeapSecond
+                        while (chronologySensitiveReducedValues.size > previousReducedValueCount) {
+                            chronologySensitiveReducedValues.removeLast()
+                        }
                         index = previousIndex
                     }
                 }
@@ -1630,7 +1673,36 @@ private fun parsePattern(
     if (index != text.length) {
         throw DateTimeParseException("Text could not be parsed, unparsed text found", text, index)
     }
-    return resolvePatternValues(values, text, resolverStyle, offset, zone, leapSecond)
+    return resolvePatternValues(
+        values = values,
+        text = text,
+        resolverStyle = resolverStyle,
+        chronology = effectiveChronology(),
+        offset = offset,
+        zone = zone,
+        leapSecond = leapSecond,
+    )
+}
+
+private data class ParsedPatternChronology(
+    val chronology: Chronology,
+    val endIndex: Int,
+)
+
+private fun parsePatternChronology(
+    text: String,
+    startIndex: Int,
+    caseSensitive: Boolean,
+): ParsedPatternChronology {
+    val chronology = Chronology.getAvailableChronologies()
+        .filter { candidate -> text.matchesAt(startIndex, candidate.id, caseSensitive) }
+        .maxByOrNull { candidate -> candidate.id.length }
+        ?: throw DateTimeParseException(
+            "Text could not be parsed at index $startIndex",
+            text,
+            startIndex,
+        )
+    return ParsedPatternChronology(chronology, startIndex + chronology.id.length)
 }
 
 private data class ParsedPatternInstant(
@@ -2115,12 +2187,26 @@ private fun PatternToken.adjacentFixedNumericWidth(): Int? = when (this) {
     is PatternToken.Composite,
     is PatternToken.Offset,
     is PatternToken.ZoneId,
+    PatternToken.ChronologyId,
     is PatternToken.ParseSetting,
     is PatternToken.DefaultValue,
     is PatternToken.Optional,
     is PatternToken.Padded,
     is PatternToken.Literal -> null
 }
+
+private data class ParsedReducedPatternField(
+    val value: Long,
+    val endIndex: Int,
+    val rawValue: Long,
+    val digitCount: Int,
+)
+
+private data class ParsedChronologySensitiveReducedValue(
+    val token: PatternToken.ReducedValue,
+    val rawValue: Long,
+    val digitCount: Int,
+)
 
 private fun parsePatternReducedValue(
     tokens: List<PatternToken>,
@@ -2130,7 +2216,7 @@ private fun parsePatternReducedValue(
     startIndex: Int,
     chronology: Chronology,
     strict: Boolean,
-): ParsedPatternField {
+): ParsedReducedPatternField {
     var digitRunEnd = startIndex
     while (digitRunEnd < text.length && text[digitRunEnd] in '0'..'9') digitRunEnd++
     val reservedWidth = tokens.drop(tokenIndex + 1)
@@ -2145,17 +2231,29 @@ private fun parsePatternReducedValue(
     }
 
     val endIndex = startIndex + digitCount
-    var value = text.substring(startIndex, endIndex).toLongOrNull()
+    val rawValue = text.substring(startIndex, endIndex).toLongOrNull()
         ?: throw DateTimeParseException("Invalid numeric value", text, startIndex)
-    if (digitCount == token.minWidth) {
-        val baseValue = token.resolveBaseValue(chronology)
-        val range = reducedPowerOfTen(token.minWidth)
-        val lastPart = baseValue % range
-        val basePart = baseValue - lastPart
-        value = if (baseValue > 0) basePart + value else basePart - value
-        if (value < baseValue) value += range
-    }
-    return ParsedPatternField(value, endIndex)
+    return ParsedReducedPatternField(
+        value = token.resolveReducedValue(rawValue, digitCount, chronology),
+        endIndex = endIndex,
+        rawValue = rawValue,
+        digitCount = digitCount,
+    )
+}
+
+private fun PatternToken.ReducedValue.resolveReducedValue(
+    rawValue: Long,
+    digitCount: Int,
+    chronology: Chronology,
+): Long {
+    if (digitCount != minWidth) return rawValue
+    val baseValue = resolveBaseValue(chronology)
+    val range = reducedPowerOfTen(minWidth)
+    val lastPart = baseValue % range
+    val basePart = baseValue - lastPart
+    var value = if (baseValue > 0) basePart + rawValue else basePart - rawValue
+    if (value < baseValue) value += range
+    return value
 }
 
 private fun PatternToken.ReducedValue.resolveBaseValue(chronology: Chronology): Int =
@@ -2208,6 +2306,7 @@ private fun resolvePatternValues(
     values: Map<TemporalField, Long>,
     text: String,
     resolverStyle: ResolverStyle,
+    chronology: Chronology,
     offset: ZoneOffset?,
     zone: ZoneId?,
     leapSecond: Boolean,
@@ -2227,18 +2326,25 @@ private fun resolvePatternValues(
             throw DateTimeParseException("Invalid instant fields", text, 0, exception)
         }
     }
-    val year = values[ChronoField.YEAR] ?: values[ChronoField.YEAR_OF_ERA]
+    val year = try {
+        resolvePatternYear(values, chronology, resolverStyle)
+    } catch (exception: RuntimeException) {
+        throw DateTimeParseException("Text cannot be parsed to a date", text, 0, exception)
+    }
     val month = values[ChronoField.MONTH_OF_YEAR]
     val day = values[ChronoField.DAY_OF_MONTH]
     val date = if (year != null && month != null && day != null) {
-        resolveIsoDateFields(
-            year = year.toPatternInt('u', text),
-            month = month.toPatternInt('M', text),
-            day = day.toPatternInt('d', text),
-            resolverStyle = resolverStyle,
-            input = text,
-            target = "date",
-        )
+        try {
+            resolveDateFieldsInChronology(
+                chronology = chronology,
+                year = year.toPatternInt('u', text),
+                month = month.toPatternInt('M', text),
+                day = day.toPatternInt('d', text),
+                resolverStyle = resolverStyle,
+            )
+        } catch (exception: RuntimeException) {
+            throw DateTimeParseException("Text cannot be parsed to a date", text, 0, exception)
+        }
     } else {
         null
     }
@@ -2261,7 +2367,7 @@ private fun resolvePatternValues(
     }
 
     val resolvedDate = if (date != null && resolvedTime != null) {
-        date.plusDays(resolvedTime.excessDays.days.toLong())
+        date.plus(resolvedTime.excessDays.days.toLong(), ChronoUnit.DAYS)
     } else {
         date
     }
@@ -2271,10 +2377,57 @@ private fun resolvePatternValues(
         offset = resolvedOffset,
         zone = zone,
         instant = instant,
+        chronology = chronology,
         fields = values,
         excessDays = if (date == null) resolvedTime?.excessDays ?: Period.ZERO else Period.ZERO,
         leapSecond = leapSecond,
     )
+}
+
+private fun resolvePatternYear(
+    values: Map<TemporalField, Long>,
+    chronology: Chronology,
+    resolverStyle: ResolverStyle,
+): Long? {
+    val prolepticYear = values[ChronoField.YEAR]
+    val yearOfEraValue = values[ChronoField.YEAR_OF_ERA]
+    val eraValue = values[ChronoField.ERA]
+    if (yearOfEraValue == null) {
+        eraValue?.let { chronology.range(ChronoField.ERA).checkValidValue(it, ChronoField.ERA) }
+        return prolepticYear
+    }
+
+    val yearOfEra = if (resolverStyle == ResolverStyle.LENIENT) {
+        yearOfEraValue.toInt().takeIf { it.toLong() == yearOfEraValue }
+            ?: throw DateTimeException("Invalid value for YearOfEra: $yearOfEraValue")
+    } else {
+        chronology.range(ChronoField.YEAR_OF_ERA)
+            .checkValidIntValue(yearOfEraValue, ChronoField.YEAR_OF_ERA)
+    }
+    val resolvedYear = when {
+        eraValue != null -> {
+            val era = chronology.eraOf(
+                chronology.range(ChronoField.ERA)
+                    .checkValidIntValue(eraValue, ChronoField.ERA),
+            )
+            chronology.prolepticYear(era, yearOfEra).toLong()
+        }
+        prolepticYear != null -> {
+            val year = chronology.range(ChronoField.YEAR)
+                .checkValidIntValue(prolepticYear, ChronoField.YEAR)
+            chronology.prolepticYear(chronology.dateYearDay(year, 1).era, yearOfEra).toLong()
+        }
+        resolverStyle == ResolverStyle.STRICT -> return null
+        else -> chronology.eras().lastOrNull()
+            ?.let { era -> chronology.prolepticYear(era, yearOfEra).toLong() }
+            ?: yearOfEra.toLong()
+    }
+    if (prolepticYear != null && prolepticYear != resolvedYear) {
+        throw DateTimeException(
+            "Conflict found: Year $prolepticYear differs from YearOfEra $yearOfEraValue",
+        )
+    }
+    return resolvedYear
 }
 
 private fun Char.toPatternField(): TemporalField = when (this) {
@@ -2391,6 +2544,7 @@ private fun describePattern(tokens: List<PatternToken>): String = buildString {
                     ZoneQueryMode.ZONE_OR_OFFSET -> "ZoneOrOffsetId()"
                 },
             )
+            PatternToken.ChronologyId -> append("ChronologyId()")
             is PatternToken.ParseSetting -> append(
                 when (token.setting) {
                     ParserSetting.CASE_SENSITIVE -> "ParseCaseSensitive(true)"
@@ -3230,24 +3384,33 @@ private fun resolveDateInChronology(
     parsedDate: ChronoLocalDate,
     chronology: Chronology,
     resolverStyle: ResolverStyle,
-): ChronoLocalDate {
-    val year = parsedDate.get(ChronoField.YEAR)
-    val month = parsedDate.get(ChronoField.MONTH_OF_YEAR)
-    val day = parsedDate.get(ChronoField.DAY_OF_MONTH)
-    return when (resolverStyle) {
-        ResolverStyle.STRICT -> chronology.date(year, month, day)
-        ResolverStyle.SMART -> {
-            chronology.range(ChronoField.YEAR).checkValidValue(year.toLong(), ChronoField.YEAR)
-            chronology.range(ChronoField.MONTH_OF_YEAR)
-                .checkValidValue(month.toLong(), ChronoField.MONTH_OF_YEAR)
-            ChronoField.DAY_OF_MONTH.checkValidValue(day.toLong())
-            val firstOfMonth = chronology.date(year, month, 1)
-            chronology.date(year, month, minOf(day, firstOfMonth.lengthOfMonth()))
-        }
-        ResolverStyle.LENIENT -> chronology.date(year, 1, 1)
-            .plus(month.toLong() - 1, ChronoUnit.MONTHS)
-            .plus(day.toLong() - 1, ChronoUnit.DAYS)
+): ChronoLocalDate = resolveDateFieldsInChronology(
+    chronology = chronology,
+    year = parsedDate.get(ChronoField.YEAR),
+    month = parsedDate.get(ChronoField.MONTH_OF_YEAR),
+    day = parsedDate.get(ChronoField.DAY_OF_MONTH),
+    resolverStyle = resolverStyle,
+)
+
+private fun resolveDateFieldsInChronology(
+    chronology: Chronology,
+    year: Int,
+    month: Int,
+    day: Int,
+    resolverStyle: ResolverStyle,
+): ChronoLocalDate = when (resolverStyle) {
+    ResolverStyle.STRICT -> chronology.date(year, month, day)
+    ResolverStyle.SMART -> {
+        chronology.range(ChronoField.YEAR).checkValidValue(year.toLong(), ChronoField.YEAR)
+        chronology.range(ChronoField.MONTH_OF_YEAR)
+            .checkValidValue(month.toLong(), ChronoField.MONTH_OF_YEAR)
+        ChronoField.DAY_OF_MONTH.checkValidValue(day.toLong())
+        val firstOfMonth = chronology.date(year, month, 1)
+        chronology.date(year, month, minOf(day, firstOfMonth.lengthOfMonth()))
     }
+    ResolverStyle.LENIENT -> chronology.date(year, 1, 1)
+        .plus(month.toLong() - 1, ChronoUnit.MONTHS)
+        .plus(day.toLong() - 1, ChronoUnit.DAYS)
 }
 
 private class ParsedTemporalAccessor(
