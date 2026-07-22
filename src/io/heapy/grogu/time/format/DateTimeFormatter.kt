@@ -290,6 +290,7 @@ public class DateTimeFormatter private constructor(
                     "Value(Year,4,10,EXCEEDS_PAD)'-'Value(DayOfYear,3)" +
                     "[Offset(+HH:MM:ss,'Z')]",
             decimalStyleScope = DecimalStyleScope.BEFORE_ISO_OFFSET,
+            resolverParser = { text, style -> parseIsoOrdinalDate(text, style) },
         )
 
         /** The strict ISO formatter for a week-based date with an optional offset. */
@@ -312,6 +313,7 @@ public class DateTimeFormatter private constructor(
                     "Value(WeekOfWeekBasedYear,2)'-'Value(DayOfWeek,1)" +
                     "[Offset(+HH:MM:ss,'Z')]",
             decimalStyleScope = DecimalStyleScope.BEFORE_ISO_OFFSET,
+            resolverParser = { text, style -> parseIsoWeekDate(text, style) },
         )
 
         /** The strict basic ISO date formatter with an optional compact offset. */
@@ -336,6 +338,7 @@ public class DateTimeFormatter private constructor(
                     "Value(MonthOfYear,2)Value(DayOfMonth,2)" +
                     "[ParseStrict(false)Offset(+HHMMss,'Z')ParseStrict(true)]",
             decimalStyleScope = DecimalStyleScope.BASIC_DATE,
+            resolverParser = { text, style -> parseBasicIsoDate(text, style) },
         )
 
         /** The English RFC 1123 date-time formatter. */
@@ -350,6 +353,7 @@ public class DateTimeFormatter private constructor(
                     "Value(HourOfDay,2)':'Value(MinuteOfHour,2)" +
                     "[':'Value(SecondOfMinute,2)]' 'Offset(+HHMM,'GMT')",
             decimalStyleScope = DecimalStyleScope.BEFORE_RFC_OFFSET,
+            resolverParser = { text, style -> parseRfc1123(text, style) },
             resolverStyle = ResolverStyle.SMART,
         )
 
@@ -622,7 +626,17 @@ private fun parseResolvedIsoDate(
     val month = parseFixedDigits(input, monthSeparator + 1, 2, input, target)
     val day = parseFixedDigits(input, daySeparator + 1, 2, input, target)
 
-    return try {
+    return resolveIsoDateFields(year, month, day, resolverStyle, input, target)
+}
+
+private fun resolveIsoDateFields(
+    year: Int,
+    month: Int,
+    day: Int,
+    resolverStyle: ResolverStyle,
+    input: String,
+    target: String,
+): LocalDate = try {
         when (resolverStyle) {
             ResolverStyle.STRICT -> LocalDate.of(year, month, day)
             ResolverStyle.SMART -> {
@@ -643,7 +657,6 @@ private fun parseResolvedIsoDate(
             exception,
         )
     }
-}
 
 private data class ResolvedTime(
     val time: LocalTime,
@@ -885,7 +898,10 @@ private fun parseIsoDateTime(
     )
 }
 
-private fun parseIsoOrdinalDate(text: CharSequence): TemporalAccessor {
+private fun parseIsoOrdinalDate(
+    text: CharSequence,
+    resolverStyle: ResolverStyle = ResolverStyle.STRICT,
+): TemporalAccessor {
     val input = text.toString()
     val offsetStart = isoOffsetStart(input)
     val mainText = input.substring(0, offsetStart ?: input.length)
@@ -902,7 +918,11 @@ private fun parseIsoOrdinalDate(text: CharSequence): TemporalAccessor {
         "ISO ordinal date",
     )
     val date = try {
-        LocalDate.ofYearDay(year, dayOfYear)
+        if (resolverStyle == ResolverStyle.LENIENT) {
+            LocalDate.of(year, 1, 1).plusDays(dayOfYear.toLong() - 1)
+        } else {
+            LocalDate.ofYearDay(year, dayOfYear)
+        }
     } catch (exception: RuntimeException) {
         throw DateTimeParseException(
             "Text cannot be parsed to an ISO ordinal date",
@@ -915,7 +935,10 @@ private fun parseIsoOrdinalDate(text: CharSequence): TemporalAccessor {
     return ParsedTemporalAccessor(date = date, offset = offset)
 }
 
-private fun parseIsoWeekDate(text: CharSequence): TemporalAccessor {
+private fun parseIsoWeekDate(
+    text: CharSequence,
+    resolverStyle: ResolverStyle = ResolverStyle.STRICT,
+): TemporalAccessor {
     val input = text.toString()
     val offsetStart = isoOffsetStart(input)
     val mainText = input.substring(0, offsetStart ?: input.length)
@@ -933,17 +956,33 @@ private fun parseIsoWeekDate(text: CharSequence): TemporalAccessor {
     val week = parseFixedDigits(mainText, marker + 2, 2, input, "ISO week date")
     val dayOfWeek = parseFixedDigits(mainText, marker + 5, 1, input, "ISO week date")
     val date = try {
-        if (week !in 1..53 || dayOfWeek !in 1..7) throw DateTimeException("Invalid ISO week date")
-        val januaryFourth = LocalDate.of(weekBasedYear, 1, 4)
-        val firstMonday = januaryFourth.minusDays((januaryFourth.dayOfWeek.value - 1).toLong())
-        firstMonday.plusWeeks((week - 1).toLong()).plusDays((dayOfWeek - 1).toLong()).also {
-            if (
-                it.get(IsoFields.WEEK_BASED_YEAR) != weekBasedYear ||
-                it.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR) != week
-            ) {
-                throw DateTimeException("Invalid ISO week date")
+        var base = LocalDate.of(weekBasedYear, 1, 4)
+        var normalizedDay = dayOfWeek
+        if (resolverStyle == ResolverStyle.LENIENT) {
+            if (normalizedDay > 7) {
+                base = base.plusWeeks(((normalizedDay - 1) / 7).toLong())
+                normalizedDay = (normalizedDay - 1) % 7 + 1
+            } else if (normalizedDay < 1) {
+                base = base.plusWeeks(((normalizedDay - 7) / 7).toLong())
+                normalizedDay = (normalizedDay + 6) % 7 + 1
             }
+        } else {
+            if (normalizedDay !in 1..7) throw DateTimeException("Invalid ISO week date")
+            if (week !in 1..53) throw DateTimeException("Invalid ISO week date")
         }
+        base.plusWeeks((week - 1).toLong())
+            .plusDays((normalizedDay - base.dayOfWeek.value).toLong())
+            .also {
+                if (
+                    resolverStyle == ResolverStyle.STRICT &&
+                    (
+                        it.get(IsoFields.WEEK_BASED_YEAR) != weekBasedYear ||
+                            it.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR) != week
+                    )
+                ) {
+                    throw DateTimeException("Invalid ISO week date")
+                }
+            }
     } catch (exception: RuntimeException) {
         throw DateTimeParseException(
             "Text cannot be parsed to an ISO week date",
@@ -956,7 +995,10 @@ private fun parseIsoWeekDate(text: CharSequence): TemporalAccessor {
     return ParsedTemporalAccessor(date = date, offset = offset)
 }
 
-private fun parseBasicIsoDate(text: CharSequence): TemporalAccessor {
+private fun parseBasicIsoDate(
+    text: CharSequence,
+    resolverStyle: ResolverStyle = ResolverStyle.STRICT,
+): TemporalAccessor {
     val input = text.toString()
     if (input.length < 8) {
         throw DateTimeParseException("Text cannot be parsed to a basic ISO date", input, input.length)
@@ -964,16 +1006,14 @@ private fun parseBasicIsoDate(text: CharSequence): TemporalAccessor {
     val year = parseFixedDigits(input, 0, 4, input, "basic ISO date")
     val month = parseFixedDigits(input, 4, 2, input, "basic ISO date")
     val day = parseFixedDigits(input, 6, 2, input, "basic ISO date")
-    val date = try {
-        LocalDate.of(year, month, day)
-    } catch (exception: RuntimeException) {
-        throw DateTimeParseException(
-            "Text cannot be parsed to a basic ISO date",
-            input,
-            0,
-            exception,
-        )
-    }
+    val date = resolveIsoDateFields(
+        year,
+        month,
+        day,
+        resolverStyle,
+        input,
+        "basic ISO date",
+    )
     val offset = if (input.length == 8) {
         null
     } else {
@@ -999,7 +1039,10 @@ private fun parseBasicIsoDate(text: CharSequence): TemporalAccessor {
     return ParsedTemporalAccessor(date = date, offset = offset)
 }
 
-private fun parseRfc1123(text: CharSequence): TemporalAccessor {
+private fun parseRfc1123(
+    text: CharSequence,
+    resolverStyle: ResolverStyle = ResolverStyle.SMART,
+): TemporalAccessor {
     val input = text.toString()
     var remaining = input
     val weekday = if (input.length >= 5 && input[3] == ',' && input[4] == ' ') {
@@ -1032,27 +1075,23 @@ private fun parseRfc1123(text: CharSequence): TemporalAccessor {
         throw rfcParseFailure(input, input.indexOf(parts[3]))
     }
 
-    var date = try {
-        LocalDate.of(yearText.toInt(), month, dayText.toInt())
-    } catch (exception: RuntimeException) {
-        throw rfcParseFailure(input, 0, exception)
-    }
+    var date = resolveIsoDateFields(
+        yearText.toInt(),
+        month,
+        dayText.toInt(),
+        resolverStyle,
+        input,
+        "RFC 1123 date-time",
+    )
     if (weekday != null && date.dayOfWeek.value != weekday) {
         throw rfcParseFailure(input, 0)
     }
-    val hour = timeParts[0].toInt()
-    val minute = timeParts[1].toInt()
-    val second = timeParts.getOrNull(2)?.toInt() ?: 0
-    val time = try {
-        if (hour == 24 && minute == 0 && second == 0) {
-            date = date.plusDays(1)
-            LocalTime.MIDNIGHT
-        } else {
-            LocalTime.of(hour, minute, second)
-        }
-    } catch (exception: RuntimeException) {
-        throw rfcParseFailure(input, input.indexOf(parts[3]), exception)
-    }
+    val resolvedTime = parseResolvedIsoTime(
+        parts[3],
+        resolverStyle,
+        "RFC 1123 date-time",
+    )
+    date = date.plusDays(resolvedTime.excessDays.days.toLong())
     val offsetText = parts[4]
     val validOffset = offsetText.equals("GMT", ignoreCase = true) ||
         offsetText.length in listOf(3, 5) &&
@@ -1064,7 +1103,7 @@ private fun parseRfc1123(text: CharSequence): TemporalAccessor {
     } catch (exception: RuntimeException) {
         throw rfcParseFailure(input, input.lastIndexOf(offsetText), exception)
     }
-    return ParsedTemporalAccessor(date = date, time = time, offset = offset)
+    return ParsedTemporalAccessor(date = date, time = resolvedTime.time, offset = offset)
 }
 
 private fun rfcParseFailure(

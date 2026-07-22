@@ -86,4 +86,38 @@ class DateTimeFormatterResolverStyleTest {
                 ),
         )
     }
+
+    @Test
+    fun resolvesAlternativeIsoDatesAndRfcDateTimes() {
+        assertEquals(
+            LocalDate.of(2020, 1, 1),
+            DateTimeFormatter.ISO_ORDINAL_DATE
+                .withResolverStyle(ResolverStyle.LENIENT)
+                .parse("2019-366", TemporalQuery(LocalDate::from)),
+        )
+        assertEquals(
+            LocalDate.of(2019, 12, 30),
+            DateTimeFormatter.ISO_WEEK_DATE
+                .withResolverStyle(ResolverStyle.SMART)
+                .parse("2019-W53-1", TemporalQuery(LocalDate::from)),
+        )
+        assertEquals(
+            LocalDate.of(2019, 2, 28),
+            DateTimeFormatter.BASIC_ISO_DATE
+                .withResolverStyle(ResolverStyle.SMART)
+                .parse("20190229", TemporalQuery(LocalDate::from)),
+        )
+        assertEquals(
+            OffsetDateTime.parse("2019-02-28T12:00Z"),
+            DateTimeFormatter.RFC_1123_DATE_TIME.parse(
+                "29 Feb 2019 12:00 GMT",
+                TemporalQuery(OffsetDateTime::from),
+            ),
+        )
+        assertFailsWith<DateTimeParseException> {
+            DateTimeFormatter.RFC_1123_DATE_TIME
+                .withResolverStyle(ResolverStyle.STRICT)
+                .parse("29 Feb 2019 12:00 GMT")
+        }
+    }
 }
