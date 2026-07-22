@@ -2,5 +2,5 @@
 
 package io.heapy.grogu.time.format
 
-/** Android interoperability with the classic text parsing cursor. */
+/** JVM and Android interoperability with the classic text parsing cursor. */
 public actual typealias ParsePosition = java.text.ParsePosition
