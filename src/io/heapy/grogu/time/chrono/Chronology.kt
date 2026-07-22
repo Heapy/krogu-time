@@ -6,6 +6,9 @@ import io.heapy.grogu.time.Instant
 import io.heapy.grogu.time.LocalDate
 import io.heapy.grogu.time.LocalTime
 import io.heapy.grogu.time.ZoneId
+import io.heapy.grogu.time.ZoneOffset
+import io.heapy.grogu.time.internal.addExact
+import io.heapy.grogu.time.internal.multiplyExact
 import io.heapy.grogu.time.temporal.ChronoField
 import io.heapy.grogu.time.temporal.TemporalAccessor
 import io.heapy.grogu.time.temporal.TemporalQueries
@@ -91,6 +94,47 @@ public interface Chronology : Comparable<Chronology> {
     /** Obtains the current date from [clock]. */
     public fun dateNow(clock: Clock): ChronoLocalDate = date(LocalDate.now(clock))
 
+    /** Converts chronology-specific date-time fields at [zoneOffset] to epoch seconds. */
+    public fun epochSecond(
+        prolepticYear: Int,
+        month: Int,
+        dayOfMonth: Int,
+        hour: Int,
+        minute: Int,
+        second: Int,
+        zoneOffset: ZoneOffset,
+    ): Long {
+        ChronoField.HOUR_OF_DAY.checkValidValue(hour.toLong())
+        ChronoField.MINUTE_OF_HOUR.checkValidValue(minute.toLong())
+        ChronoField.SECOND_OF_MINUTE.checkValidValue(second.toLong())
+        val daysInSeconds = multiplyExact(
+            date(prolepticYear, month, dayOfMonth).toEpochDay(),
+            SECONDS_PER_DAY,
+        )
+        val timeInSeconds = (hour * 60L + minute) * 60 + second
+        return addExact(daysInSeconds, timeInSeconds - zoneOffset.totalSeconds)
+    }
+
+    /** Converts chronology-specific era-based date-time fields at [zoneOffset] to epoch seconds. */
+    public fun epochSecond(
+        era: Era,
+        yearOfEra: Int,
+        month: Int,
+        dayOfMonth: Int,
+        hour: Int,
+        minute: Int,
+        second: Int,
+        zoneOffset: ZoneOffset,
+    ): Long = epochSecond(
+        prolepticYear(era, yearOfEra),
+        month,
+        dayOfMonth,
+        hour,
+        minute,
+        second,
+        zoneOffset,
+    )
+
     /** Returns whether [prolepticYear] is a leap year in this chronology. */
     public fun isLeapYear(prolepticYear: Long): Boolean
 
@@ -112,6 +156,8 @@ public interface Chronology : Comparable<Chronology> {
     override fun compareTo(other: Chronology): Int = id.compareTo(other.id)
 
     public companion object {
+        private const val SECONDS_PER_DAY: Long = 86_400
+
         /** Obtains a chronology from [temporal], defaulting to ISO when none is queried. */
         public fun from(temporal: TemporalAccessor): Chronology =
             temporal.query(TemporalQueries.chronology()) ?: IsoChronology

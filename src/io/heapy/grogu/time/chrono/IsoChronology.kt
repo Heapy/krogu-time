@@ -91,7 +91,7 @@ public object IsoChronology : Chronology {
         Period.of(years, months, days)
 
     /** Converts ISO date-time fields at [zoneOffset] to an epoch-second count. */
-    public fun epochSecond(
+    override fun epochSecond(
         prolepticYear: Int,
         month: Int,
         dayOfMonth: Int,
@@ -109,7 +109,7 @@ public object IsoChronology : Chronology {
     ).toEpochSecond(zoneOffset)
 
     /** Converts era-based ISO date-time fields at [zoneOffset] to epoch seconds. */
-    public fun epochSecond(
+    override fun epochSecond(
         era: Era,
         yearOfEra: Int,
         month: Int,
