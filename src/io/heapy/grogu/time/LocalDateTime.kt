@@ -1,5 +1,6 @@
 package io.heapy.grogu.time
 
+import io.heapy.grogu.time.format.DateTimeParseException
 import io.heapy.grogu.time.internal.addExact
 import io.heapy.grogu.time.internal.floorDiv
 import io.heapy.grogu.time.internal.floorMod
@@ -404,5 +405,53 @@ public class LocalDateTime private constructor(
                 )
             }
         }
+
+        /** Parses a date-time using the strict ISO local-date-time format. */
+        public fun parse(text: CharSequence): LocalDateTime {
+            val input = text.toString()
+            val separatorIndex = input.indexOfFirst { it == 'T' || it == 't' }
+            if (separatorIndex < 0) {
+                try {
+                    LocalDate.parse(input)
+                } catch (exception: DateTimeParseException) {
+                    throw translatedFailure(input, exception, 0)
+                }
+                throw parseFailure(input, input.length)
+            }
+
+            val date = try {
+                LocalDate.parse(input.substring(0, separatorIndex))
+            } catch (exception: DateTimeParseException) {
+                throw translatedFailure(input, exception, 0)
+            }
+            val timeStart = separatorIndex + 1
+            val time = try {
+                LocalTime.parse(input.substring(timeStart))
+            } catch (exception: DateTimeParseException) {
+                throw translatedFailure(input, exception, timeStart)
+            }
+            return of(date, time)
+        }
+
+        private fun translatedFailure(
+            input: String,
+            exception: DateTimeParseException,
+            offset: Int,
+        ): DateTimeParseException {
+            val errorIndex = if (exception.cause == null) {
+                offset + exception.errorIndex
+            } else {
+                0
+            }
+            return DateTimeParseException(
+                "Text cannot be parsed to a LocalDateTime",
+                input,
+                errorIndex,
+                exception,
+            )
+        }
+
+        private fun parseFailure(input: String, errorIndex: Int): DateTimeParseException =
+            DateTimeParseException("Text cannot be parsed to a LocalDateTime", input, errorIndex)
     }
 }

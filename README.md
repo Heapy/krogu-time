@@ -51,8 +51,8 @@ Implemented foundations:
   overloads, queries, and offset/zone APIs remain)
 - `LocalDateTime` immutable composition, factories, local field access,
   conversion, replacement, truncation, checked date/time arithmetic,
-  complete-unit differences, boundaries, ordering, and ISO text output
-  (parsing/formatters, queries, and zone APIs remain)
+  complete-unit differences, boundaries, ordering, strict ISO parsing, and ISO
+  text output (formatter overloads, queries, and zone APIs remain)
 - `Duration` with the complete Java 21 public API surface, including parsing,
   temporal integration, checked arithmetic, conversions, truncation, and
   `between`
