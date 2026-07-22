@@ -4,6 +4,8 @@ import io.heapy.grogu.time.DateTimeException
 import io.heapy.grogu.time.Locale
 import io.heapy.grogu.time.format.TextStyle
 import io.heapy.grogu.time.temporal.ChronoField
+import io.heapy.grogu.time.temporal.ChronoUnit
+import io.heapy.grogu.time.temporal.TemporalQueries
 import io.heapy.grogu.time.temporal.ValueRange
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -12,6 +14,21 @@ import kotlin.test.assertNotSame
 import kotlin.test.assertSame
 
 class AlternateEraTest {
+    @Test
+    fun everyEraReportsEraPrecision() {
+        val eras = buildList<Era> {
+            addAll(IsoEra.entries)
+            addAll(JapaneseEra.values())
+            add(HijrahEra.AH)
+            addAll(MinguoEra.entries)
+            addAll(ThaiBuddhistEra.entries)
+        }
+
+        eras.forEach { era ->
+            assertSame(ChronoUnit.ERAS, era.query(TemporalQueries.precision()))
+        }
+    }
+
     @Test
     fun erasExposeLocalizedDisplayNames() {
         assertEquals("Anno Domini", IsoEra.CE.getDisplayName(TextStyle.FULL, Locale.ENGLISH))

@@ -109,7 +109,7 @@ Implemented foundations:
 - `Month` ISO numbering, temporal conversion including epoch-day conversion
   from non-ISO chronologies, ISO-guarded adjustment, chronology/month precision
   queries, calendar metadata, wraparound arithmetic, and localized display names
-- `Era` and `IsoEra`, including localized display names
+- `Era` and `IsoEra`, including era precision and localized display names
 - `MinguoEra`, `ThaiBuddhistEra`, `JapaneseEra`, and `HijrahEra`, including
   Java-compatible numeric values, Japanese title-case lookup and defensive era
   enumeration, the single-era Hijrah range, and chronology-specific localized

@@ -1,8 +1,10 @@
 package io.heapy.grogu.time.chrono
 
+import io.heapy.grogu.time.temporal.ChronoField
+import io.heapy.grogu.time.temporal.TemporalQueries
 import java.time.chrono.IsoEra as JavaIsoEra
 import java.time.temporal.ChronoField as JavaChronoField
-import io.heapy.grogu.time.temporal.ChronoField
+import java.time.temporal.TemporalQueries as JavaTemporalQueries
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -14,6 +16,10 @@ class IsoEraJavaConformanceTest {
 
             assertEquals(javaEra.value, era.value)
             assertEquals(javaEra.toString(), era.toString())
+            assertEquals(
+                javaEra.query(JavaTemporalQueries.precision()).toString(),
+                era.query(TemporalQueries.precision()).toString(),
+            )
             ChronoField.entries.forEach { field ->
                 val javaField = JavaChronoField.valueOf(field.name)
                 assertEquals(javaEra.isSupported(javaField), era.isSupported(field))
