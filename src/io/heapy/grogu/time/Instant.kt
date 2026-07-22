@@ -195,6 +195,9 @@ public class Instant private constructor(
     /** Combines this instant with [offset]. */
     public fun atOffset(offset: ZoneOffset): OffsetDateTime = OffsetDateTime.ofInstant(this, offset)
 
+    /** Combines this instant with [zone]. */
+    public fun atZone(zone: ZoneId): ZonedDateTime = ZonedDateTime.ofInstant(this, zone)
+
     override fun compareTo(other: Instant): Int {
         val secondsComparison = epochSecond.compareTo(other.epochSecond)
         return if (secondsComparison != 0) secondsComparison else nano.compareTo(other.nano)

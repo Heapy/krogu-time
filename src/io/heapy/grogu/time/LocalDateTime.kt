@@ -88,6 +88,9 @@ public class LocalDateTime private constructor(
     /** Combines this local date-time with [offset]. */
     public fun atOffset(offset: ZoneOffset): OffsetDateTime = OffsetDateTime.of(this, offset)
 
+    /** Resolves this local date-time in [zone]. */
+    public fun atZone(zone: ZoneId): ZonedDateTime = ZonedDateTime.of(this, zone)
+
     override fun with(adjuster: TemporalAdjuster): LocalDateTime = when (adjuster) {
         is LocalDate -> with(adjuster, time)
         is LocalTime -> with(date, adjuster)
