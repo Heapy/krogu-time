@@ -1,6 +1,7 @@
 package io.heapy.grogu.time
 
 import io.heapy.grogu.time.chrono.IsoChronology
+import io.heapy.grogu.time.format.DateTimeFormatter
 import io.heapy.grogu.time.format.DateTimeParseException
 import io.heapy.grogu.time.internal.addExact
 import io.heapy.grogu.time.internal.floorDiv
@@ -43,6 +44,9 @@ public class YearMonth private constructor(
 
     /** Returns the number of days in this year. */
     public fun lengthOfYear(): Int = if (isLeapYear) 366 else 365
+
+    /** Formats this year-month using [formatter]. */
+    public fun format(formatter: DateTimeFormatter): String = formatter.format(this)
 
     override fun isSupported(field: TemporalField): Boolean =
         if (field is ChronoField) {
@@ -330,6 +334,10 @@ public class YearMonth private constructor(
                 )
             }
         }
+
+        /** Parses a year-month from [text] using [formatter]. */
+        public fun parse(text: CharSequence, formatter: DateTimeFormatter): YearMonth =
+            formatter.parse(text, TemporalQuery(::from))
 
         private fun hasTwoDigits(input: String, index: Int): Boolean =
             index + 1 < input.length &&

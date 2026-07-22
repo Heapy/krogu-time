@@ -1,6 +1,7 @@
 package io.heapy.grogu.time
 
 import io.heapy.grogu.time.chrono.IsoChronology
+import io.heapy.grogu.time.format.DateTimeFormatter
 import io.heapy.grogu.time.format.DateTimeParseException
 import io.heapy.grogu.time.internal.addExact
 import io.heapy.grogu.time.internal.multiplyExact
@@ -44,6 +45,9 @@ public class Year private constructor(
 
     /** Combines this year with a month number. */
     public fun atMonth(month: Int): YearMonth = YearMonth.of(value, month)
+
+    /** Formats this year using [formatter]. */
+    public fun format(formatter: DateTimeFormatter): String = formatter.format(this)
 
     override fun isSupported(field: TemporalField): Boolean =
         if (field is ChronoField) {
@@ -241,6 +245,10 @@ public class Year private constructor(
                 )
             }
         }
+
+        /** Parses a year from [text] using [formatter]. */
+        public fun parse(text: CharSequence, formatter: DateTimeFormatter): Year =
+            formatter.parse(text, TemporalQuery(::from))
 
         /** Returns whether [year] is a leap year in the proleptic Gregorian calendar. */
         public fun isLeap(year: Long): Boolean =
