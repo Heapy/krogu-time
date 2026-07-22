@@ -648,6 +648,19 @@ internal sealed interface PatternToken {
         val decimalPoint: Boolean,
     ) : PatternToken
 
+    data class Text(
+        val field: TemporalField,
+        val textLookup: Map<Long, String>,
+    ) : PatternToken {
+        val parseLookup: List<Pair<String, Long>> = run {
+            val valueByText = linkedMapOf<String, Long>()
+            textLookup.forEach { (value, fieldText) -> valueByText[fieldText] = value }
+            valueByText.entries
+                .sortedByDescending { (fieldText) -> fieldText.length }
+                .map { (fieldText, value) -> fieldText to value }
+        }
+    }
+
     data class Instant(val fractionalDigits: Int) : PatternToken
 
     data class Offset(
@@ -869,6 +882,7 @@ private fun formatPattern(
             is PatternToken.Value -> append(formatPatternValue(token, temporal))
             is PatternToken.ReducedValue -> append(formatPatternReducedValue(token, temporal))
             is PatternToken.Fraction -> append(formatPatternFraction(token, temporal))
+            is PatternToken.Text -> append(formatPatternText(token, temporal))
             is PatternToken.Instant -> append(formatPatternInstant(token, temporal))
             is PatternToken.Offset -> append(formatBuilderOffset(token, temporal))
             is PatternToken.ZoneId -> append(formatBuilderZoneId(token, temporal))
@@ -893,6 +907,14 @@ private fun formatPattern(
             -> Unit
         }
     }
+}
+
+private fun formatPatternText(
+    token: PatternToken.Text,
+    temporal: TemporalAccessor,
+): String {
+    val value = temporal.getLong(token.field)
+    return token.textLookup[value] ?: value.toString()
 }
 
 private fun formatPatternInstant(
@@ -1246,6 +1268,18 @@ private fun parsePattern(
                                 index,
                             )
                         }
+                    }
+                    index = parsed.endIndex
+                }
+                is PatternToken.Text -> {
+                    val parsed = parsePatternText(token, input, index, caseSensitive, strict)
+                    val previous = values.put(token.field, parsed.value)
+                    if (previous != null && previous != parsed.value) {
+                        throw DateTimeParseException(
+                            "Conflict found for field ${token.field}",
+                            input,
+                            index,
+                        )
                     }
                     index = parsed.endIndex
                 }
@@ -1683,6 +1717,35 @@ private data class ParsedPatternField(
     val endIndex: Int,
 )
 
+private fun parsePatternText(
+    token: PatternToken.Text,
+    text: String,
+    startIndex: Int,
+    caseSensitive: Boolean,
+    strict: Boolean,
+): ParsedPatternField {
+    token.parseLookup
+        .firstOrNull { (fieldText) -> text.matchesAt(startIndex, fieldText, caseSensitive) }
+        ?.let { (fieldText, value) ->
+            return ParsedPatternField(value, startIndex + fieldText.length)
+        }
+    if (strict) {
+        throw DateTimeParseException(
+            "Text could not be parsed at index $startIndex",
+            text,
+            startIndex,
+        )
+    }
+    return parsePatternValue(
+        tokens = emptyList(),
+        tokenIndex = 0,
+        token = PatternToken.Value(token.field, 1, 19, SignStyle.NORMAL),
+        text = text,
+        startIndex = startIndex,
+        strict = false,
+    )
+}
+
 private data class ParsedPatternFraction(
     val value: Long?,
     val endIndex: Int,
@@ -1801,6 +1864,7 @@ private fun PatternToken.adjacentFixedNumericWidth(): Int? = when (this) {
     is PatternToken.Fraction -> minWidth.takeIf {
         minWidth == maxWidth && !decimalPoint
     }
+    is PatternToken.Text,
     is PatternToken.Instant,
     is PatternToken.Offset,
     is PatternToken.ZoneId,
@@ -2058,6 +2122,9 @@ private fun describePattern(tokens: List<PatternToken>): String = buildString {
                 .append(token.maxWidth)
                 .append(',')
                 .append(if (token.decimalPoint) "DecimalPoint" else "")
+                .append(')')
+            is PatternToken.Text -> append("Text(")
+                .append(token.field)
                 .append(')')
             is PatternToken.Instant -> append("Instant()")
             is PatternToken.Offset -> append("Offset(")

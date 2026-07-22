@@ -49,9 +49,9 @@ Implemented foundations:
   fields, quoted literals, ISO/RFC-style offsets, and region zone IDs;
   `DateTimeFormatterBuilder` pattern/literal and generic numeric-value
   composition, sign/width controls, integer- and chronology-base-date reduced
-  value windows, fixed-range fractions, default and explicit-width instant
-  formatting/parsing, all custom offset-ID patterns,
-  explicit region/zone/offset query modes, adjacent fixed-width parsing,
+  value windows, fixed-range fractions, immutable custom field-text maps,
+  default and explicit-width instant formatting/parsing, all custom offset-ID
+  patterns, explicit region/zone/offset query modes, adjacent fixed-width parsing,
   one-shot custom-character padding and `p` pattern modifiers, nested optional
   sections through builder methods and bracket patterns,
   sequential case/strictness parser controls, parse defaults, unresolved field

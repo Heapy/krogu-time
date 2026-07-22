@@ -169,6 +169,16 @@ public class DateTimeFormatterBuilder {
         activeSection.appendToken(PatternToken.Fraction(field, minWidth, maxWidth, decimalPoint))
     }
 
+    /** Appends field text supplied by an immutable snapshot of [textLookup]. */
+    public fun appendText(
+        field: TemporalField,
+        textLookup: Map<Long, String>,
+    ): DateTimeFormatterBuilder = apply {
+        val snapshot = linkedMapOf<Long, String>()
+        snapshot.putAll(textLookup)
+        activeSection.appendToken(PatternToken.Text(field, snapshot))
+    }
+
     /** Appends an instant using zero, three, six, or nine fractional digits as needed. */
     public fun appendInstant(): DateTimeFormatterBuilder = apply {
         activeSection.appendToken(PatternToken.Instant(-2))
