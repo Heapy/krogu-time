@@ -46,6 +46,10 @@ Implemented foundations:
   chronology factories, covariant arithmetic, standard queries, epoch/instant
   conversion, adjustment, chronology-aware and local-timeline ordering, with
   `LocalDateTime` integration
+- `ChronoZonedDateTime` chronology/local/offset/zone contracts, generic
+  conversion and chronology factories, covariant arithmetic and zone changes,
+  standard queries, instant conversion, structural and instant-timeline
+  ordering, with `ZonedDateTime` integration
 - `ChronoPeriod` chronology, unit, sign, arithmetic, normalization, application,
   and generic date-difference contracts, with `Period` integration
 - `Year` core value, leap-year, temporal-field, year-scale arithmetic, and
@@ -141,8 +145,7 @@ Implemented foundations:
 - `ChronoUnit`
 - `ChronoField`
 
-Remaining work includes the generic chronology zoned-date-time type hierarchy,
-no-argument system-default current-value
-factories and system-default-zone lookup, a bundled region time-zone database,
-formatters and parsers beyond the implemented ISO defaults and amount parsers,
-alternate chronologies, and complete cross-type conformance coverage.
+Remaining work includes no-argument system-default current-value factories and
+system-default-zone lookup, a bundled region time-zone database, formatters and
+parsers beyond the implemented ISO defaults and amount parsers, alternate
+chronologies, and complete cross-type conformance coverage.

@@ -1,5 +1,6 @@
 package io.heapy.grogu.time
 
+import io.heapy.grogu.time.chrono.ChronoZonedDateTime
 import io.heapy.grogu.time.chrono.IsoChronology
 import io.heapy.grogu.time.format.DateTimeParseException
 import io.heapy.grogu.time.temporal.ChronoField
@@ -16,12 +17,12 @@ import io.heapy.grogu.time.temporal.ValueRange
 
 /** A date-time with a time-zone in the ISO-8601 calendar system. */
 public class ZonedDateTime private constructor(
-    public val dateTime: LocalDateTime,
-    public val offset: ZoneOffset,
-    public val zone: ZoneId,
-) : Temporal, Comparable<ZonedDateTime> {
-    public val date: LocalDate get() = dateTime.date
-    public val time: LocalTime get() = dateTime.time
+    override val dateTime: LocalDateTime,
+    override val offset: ZoneOffset,
+    override val zone: ZoneId,
+) : ChronoZonedDateTime<LocalDate> {
+    override val date: LocalDate get() = dateTime.date
+    override val time: LocalTime get() = dateTime.time
     public val year: Int get() = dateTime.year
     public val monthValue: Int get() = dateTime.monthValue
     public val month: Month get() = dateTime.month
@@ -55,7 +56,7 @@ public class ZonedDateTime private constructor(
     }
 
     /** Returns a copy using the earlier offset during a local timeline overlap. */
-    public fun withEarlierOffsetAtOverlap(): ZonedDateTime {
+    override fun withEarlierOffsetAtOverlap(): ZonedDateTime {
         val transition = zone.rules.getTransition(dateTime)
         return if (transition?.isOverlap == true) {
             resolveOffset(transition.offsetBefore)
@@ -65,7 +66,7 @@ public class ZonedDateTime private constructor(
     }
 
     /** Returns a copy using the later offset during a local timeline overlap. */
-    public fun withLaterOffsetAtOverlap(): ZonedDateTime {
+    override fun withLaterOffsetAtOverlap(): ZonedDateTime {
         val transition = zone.rules.getTransition(dateTime)
         return if (transition?.isOverlap == true) {
             resolveOffset(transition.offsetAfter)
@@ -75,20 +76,20 @@ public class ZonedDateTime private constructor(
     }
 
     /** Returns a copy in [zone] retaining the local date-time where possible. */
-    public fun withZoneSameLocal(zone: ZoneId): ZonedDateTime =
+    override fun withZoneSameLocal(zone: ZoneId): ZonedDateTime =
         if (this.zone == zone) this else ofLocal(dateTime, zone, offset)
 
     /** Returns a copy in [zone] representing the same instant. */
-    public fun withZoneSameInstant(zone: ZoneId): ZonedDateTime =
+    override fun withZoneSameInstant(zone: ZoneId): ZonedDateTime =
         if (this.zone == zone) this else ofInstant(toInstant(), zone)
 
     /** Returns a copy whose zone ID is the current fixed offset. */
     public fun withFixedOffsetZone(): ZonedDateTime =
         if (zone == offset) this else ZonedDateTime(dateTime, offset, offset)
 
-    public fun toLocalDateTime(): LocalDateTime = dateTime
-    public fun toLocalDate(): LocalDate = date
-    public fun toLocalTime(): LocalTime = time
+    override fun toLocalDateTime(): LocalDateTime = dateTime
+    override fun toLocalDate(): LocalDate = date
+    override fun toLocalTime(): LocalTime = time
 
     override fun with(adjuster: TemporalAdjuster): ZonedDateTime = when (adjuster) {
         is LocalDate -> resolveLocal(LocalDateTime.of(adjuster, time))
@@ -195,7 +196,7 @@ public class ZonedDateTime private constructor(
             @Suppress("UNCHECKED_CAST")
             return ChronoUnit.NANOS as R
         }
-        return super<Temporal>.query(query)
+        return super<ChronoZonedDateTime>.query(query)
     }
 
     override fun until(endExclusive: Temporal, unit: TemporalUnit): Long {
@@ -210,19 +211,20 @@ public class ZonedDateTime private constructor(
     }
 
     public fun toOffsetDateTime(): OffsetDateTime = OffsetDateTime.of(dateTime, offset)
-    public fun toInstant(): Instant = dateTime.toInstant(offset)
-    public fun toEpochSecond(): Long = dateTime.toEpochSecond(offset)
+    override fun toInstant(): Instant = dateTime.toInstant(offset)
+    override fun toEpochSecond(): Long = dateTime.toEpochSecond(offset)
 
-    override fun compareTo(other: ZonedDateTime): Int {
+    override fun compareTo(other: ChronoZonedDateTime<*>): Int {
+        if (other !is ZonedDateTime) return super<ChronoZonedDateTime>.compareTo(other)
         val instantComparison = compareInstant(other)
         if (instantComparison != 0) return instantComparison
         val localComparison = dateTime.compareTo(other.dateTime)
         return if (localComparison != 0) localComparison else zone.id.compareTo(other.zone.id)
     }
 
-    public fun isAfter(other: ZonedDateTime): Boolean = compareInstant(other) > 0
-    public fun isBefore(other: ZonedDateTime): Boolean = compareInstant(other) < 0
-    public fun isEqual(other: ZonedDateTime): Boolean = compareInstant(other) == 0
+    override fun isAfter(other: ChronoZonedDateTime<*>): Boolean = compareInstant(other) > 0
+    override fun isBefore(other: ChronoZonedDateTime<*>): Boolean = compareInstant(other) < 0
+    override fun isEqual(other: ChronoZonedDateTime<*>): Boolean = compareInstant(other) == 0
 
     override fun equals(other: Any?): Boolean =
         this === other ||
@@ -257,9 +259,9 @@ public class ZonedDateTime private constructor(
             ZonedDateTime(dateTime, newOffset, zone)
         }
 
-    private fun compareInstant(other: ZonedDateTime): Int {
+    private fun compareInstant(other: ChronoZonedDateTime<*>): Int {
         val secondsComparison = toEpochSecond().compareTo(other.toEpochSecond())
-        return if (secondsComparison != 0) secondsComparison else nano.compareTo(other.nano)
+        return if (secondsComparison != 0) secondsComparison else nano.compareTo(other.time.nano)
     }
 
     public companion object {

@@ -3,6 +3,7 @@ package io.heapy.grogu.time.chrono
 import io.heapy.grogu.time.DateTimeException
 import io.heapy.grogu.time.Instant
 import io.heapy.grogu.time.LocalTime
+import io.heapy.grogu.time.ZoneId
 import io.heapy.grogu.time.ZoneOffset
 import io.heapy.grogu.time.temporal.ChronoField
 import io.heapy.grogu.time.temporal.ChronoUnit
@@ -77,6 +78,9 @@ public interface ChronoLocalDateTime<out D : ChronoLocalDate> :
     /** Combines this local date-time with [offset] to create an instant. */
     public fun toInstant(offset: ZoneOffset): Instant =
         Instant.ofEpochSecond(toEpochSecond(offset), time.nano.toLong())
+
+    /** Resolves this local date-time in [zone]. */
+    public fun atZone(zone: ZoneId): ChronoZonedDateTime<D>
 
     override fun compareTo(other: ChronoLocalDateTime<*>): Int {
         val dateComparison = date.compareTo(other.date)

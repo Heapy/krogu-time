@@ -1,7 +1,8 @@
 package io.heapy.grogu.time.chrono
 
-import io.heapy.grogu.time.DateTimeException
 import io.heapy.grogu.time.Clock
+import io.heapy.grogu.time.DateTimeException
+import io.heapy.grogu.time.Instant
 import io.heapy.grogu.time.LocalDate
 import io.heapy.grogu.time.LocalTime
 import io.heapy.grogu.time.ZoneId
@@ -62,6 +63,24 @@ public interface Chronology : Comparable<Chronology> {
             exception,
         )
     }
+
+    /** Converts [temporal] to a zoned date-time in this chronology. */
+    public fun zonedDateTime(temporal: TemporalAccessor): ChronoZonedDateTime<*> = try {
+        val zone = ZoneId.from(temporal)
+        try {
+            zonedDateTime(Instant.from(temporal), zone)
+        } catch (_: DateTimeException) {
+            localDateTime(temporal).atZone(zone)
+        }
+    } catch (exception: DateTimeException) {
+        throw DateTimeException(
+            "Unable to obtain ChronoZonedDateTime from TemporalAccessor: $temporal",
+            exception,
+        )
+    }
+
+    /** Obtains a zoned date-time for [instant] in [zone]. */
+    public fun zonedDateTime(instant: Instant, zone: ZoneId): ChronoZonedDateTime<*>
 
     /** Obtains the current date using the system clock in [zone]. */
     public fun dateNow(zone: ZoneId): ChronoLocalDate = dateNow(Clock.system(zone))

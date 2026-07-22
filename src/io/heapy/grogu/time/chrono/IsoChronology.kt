@@ -62,11 +62,11 @@ public object IsoChronology : Chronology {
         LocalDateTime.from(temporal)
 
     /** Converts [temporal] to an ISO zoned date-time. */
-    public fun zonedDateTime(temporal: TemporalAccessor): ZonedDateTime =
+    override fun zonedDateTime(temporal: TemporalAccessor): ZonedDateTime =
         ZonedDateTime.from(temporal)
 
     /** Obtains an ISO zoned date-time for [instant] in [zone]. */
-    public fun zonedDateTime(instant: Instant, zone: ZoneId): ZonedDateTime =
+    override fun zonedDateTime(instant: Instant, zone: ZoneId): ZonedDateTime =
         ZonedDateTime.ofInstant(instant, zone)
 
     override fun isLeapYear(prolepticYear: Long): Boolean =
