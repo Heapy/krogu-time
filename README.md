@@ -70,7 +70,10 @@ Implemented foundations:
   complete-unit and duration differences, epoch-millisecond conversion,
   adjustment, ordering, hashing, strict ISO parsing, and ISO text output (clock
   factories, queries, and offset/zone composition remain)
-- temporal interfaces and exceptions
+- `ZoneOffset` factories, validation, normalized ID parsing and formatting,
+  quarter-hour canonicalization, offset-field/query integration, adjustment,
+  and Java-compatible ordering (the `ZoneId` hierarchy and rules remain)
+- temporal interfaces and exceptions, plus the standard offset query
 - `TemporalAdjusters` complete date-adjuster utility surface
 - `ValueRange`
 - `ChronoUnit`
