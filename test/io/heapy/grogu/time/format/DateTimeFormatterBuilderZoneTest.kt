@@ -2,6 +2,7 @@ package io.heapy.grogu.time.format
 
 import io.heapy.grogu.time.DateTimeException
 import io.heapy.grogu.time.LocalDateTime
+import io.heapy.grogu.time.Locale
 import io.heapy.grogu.time.OffsetDateTime
 import io.heapy.grogu.time.OffsetTime
 import io.heapy.grogu.time.ZoneId
@@ -64,6 +65,39 @@ class DateTimeFormatterBuilderZoneTest {
             .toFormatter()
         assertEquals("Europe/Paris]", bracketed.format(zoned))
         assertEquals(region, bracketed.parse("Europe/Paris]", ZoneId::from))
+    }
+
+    @Test
+    fun appendsSpecificAndGenericLocalizedZoneText() {
+        val zoned = ZonedDateTime.of(
+            LocalDateTime.of(2024, 7, 1, 5, 6),
+            ZoneId.of("America/New_York"),
+        )
+        val specific = DateTimeFormatterBuilder()
+            .appendZoneText(TextStyle.FULL)
+            .toFormatter(Locale.US)
+        val generic = DateTimeFormatterBuilder()
+            .appendGenericZoneText(TextStyle.SHORT)
+            .toFormatter(Locale.US)
+
+        listOf(specific, generic).forEach { formatter ->
+            val text = formatter.format(zoned)
+            assertEquals("America/New_York", ZoneId.from(formatter.parse(text)).id)
+        }
+        assertEquals("ZoneText(FULL)", specific.toString())
+        assertEquals("ZoneText(SHORT)", generic.toString())
+    }
+
+    @Test
+    fun zoneTextPatternWidthsAreValidated() {
+        listOf("z", "zz", "zzz", "zzzz", "v", "vvvv").forEach { pattern ->
+            DateTimeFormatter.ofPattern(pattern)
+        }
+        listOf("zzzzz", "vv", "vvv", "vvvvv").forEach { pattern ->
+            assertFailsWith<IllegalArgumentException>(pattern) {
+                DateTimeFormatter.ofPattern(pattern)
+            }
+        }
     }
 
     @Test

@@ -364,6 +364,31 @@ public class DateTimeFormatter private constructor(
     override fun toString(): String = description
 
     public companion object {
+        /** Returns a locale-specific date formatter for the ISO chronology. */
+        public fun ofLocalizedDate(dateStyle: FormatStyle): DateTimeFormatter =
+            localizedFormatter(dateStyle, null)
+
+        /** Returns a locale-specific time formatter for the ISO chronology. */
+        public fun ofLocalizedTime(timeStyle: FormatStyle): DateTimeFormatter =
+            localizedFormatter(null, timeStyle)
+
+        /** Returns a locale-specific date-time formatter using one style for both parts. */
+        public fun ofLocalizedDateTime(dateTimeStyle: FormatStyle): DateTimeFormatter =
+            localizedFormatter(dateTimeStyle, dateTimeStyle)
+
+        /** Returns a locale-specific date-time formatter using independent styles. */
+        public fun ofLocalizedDateTime(
+            dateStyle: FormatStyle,
+            timeStyle: FormatStyle,
+        ): DateTimeFormatter = localizedFormatter(dateStyle, timeStyle)
+
+        private fun localizedFormatter(
+            dateStyle: FormatStyle?,
+            timeStyle: FormatStyle?,
+        ): DateTimeFormatter = fromPatternTokens(
+            listOf(PatternToken.Localized(dateStyle, timeStyle)),
+        ).withChronology(IsoChronology)
+
         /** Creates a formatter from a date-time pattern. */
         public fun ofPattern(pattern: String): DateTimeFormatter =
             ofPattern(pattern, Locale.getDefault())
@@ -1033,6 +1058,11 @@ internal sealed interface PatternToken {
         val count: Int,
     ) : PatternToken
 
+    data class Localized(
+        val dateStyle: FormatStyle?,
+        val timeStyle: FormatStyle?,
+    ) : PatternToken
+
     data class Instant(val fractionalDigits: Int) : PatternToken
 
     data class Composite(
@@ -1046,6 +1076,11 @@ internal sealed interface PatternToken {
     ) : PatternToken
 
     data class LocalizedOffset(val style: TextStyle) : PatternToken
+
+    data class ZoneText(
+        val style: TextStyle,
+        val generic: Boolean,
+    ) : PatternToken
 
     data class ZoneId(val queryMode: ZoneQueryMode) : PatternToken
 
@@ -1253,6 +1288,10 @@ private fun validatePatternField(symbol: Char, count: Int) {
             "Pattern letter count must be 1 or 4: $symbol"
         }
         'X', 'x', 'Z' -> require(count <= 5) { "Too many pattern letters: $symbol" }
+        'z' -> require(count <= 4) { "Too many pattern letters: $symbol" }
+        'v' -> require(count == 1 || count == 4) {
+            "Pattern letter count must be 1 or 4: $symbol"
+        }
         'V' -> require(count == 2) { "Pattern letter count must be 2: V" }
         else -> throw IllegalArgumentException("Unknown pattern letter: $symbol")
     }
@@ -1268,6 +1307,14 @@ private fun createPatternFieldToken(
     } else {
         PatternToken.Field(symbol, count)
     }
+    'z' -> PatternToken.ZoneText(
+        style = if (count == 4) TextStyle.FULL else TextStyle.SHORT,
+        generic = false,
+    )
+    'v' -> PatternToken.ZoneText(
+        style = if (count == 4) TextStyle.FULL else TextStyle.SHORT,
+        generic = true,
+    )
     'D' -> when (count) {
         1 -> variablePatternValue(ChronoField.DAY_OF_YEAR)
         2 -> PatternToken.Value(ChronoField.DAY_OF_YEAR, 2, 3, SignStyle.NOT_NEGATIVE)
@@ -1348,10 +1395,14 @@ private fun formatPattern(
             is PatternToken.Text -> append(formatPatternText(token, temporal))
             is PatternToken.LocalizedText -> append(formatPatternLocalizedText(token, temporal, locale))
             is PatternToken.LocalizedWeek -> append(formatPatternLocalizedWeek(token, temporal, locale))
+            is PatternToken.Localized -> append(
+                formatPattern(token.patternTokens(locale, temporal.chronologyId()), temporal, locale),
+            )
             is PatternToken.Instant -> append(formatPatternInstant(token, temporal))
             is PatternToken.Composite -> append(formatPattern(token.tokens, temporal, locale))
             is PatternToken.Offset -> append(formatBuilderOffset(token, temporal))
             is PatternToken.LocalizedOffset -> append(formatBuilderLocalizedOffset(token, temporal))
+            is PatternToken.ZoneText -> append(formatPatternZoneText(token, temporal, locale))
             is PatternToken.ZoneId -> append(formatBuilderZoneId(token, temporal))
             PatternToken.ChronologyId -> append(formatBuilderChronologyId(temporal))
             is PatternToken.Optional -> try {
@@ -1440,9 +1491,60 @@ private fun PatternToken.LocalizedWeek.numericToken(locale: Locale): PatternToke
     }
 }
 
+private fun PatternToken.Localized.patternTokens(
+    locale: Locale,
+    chronologyId: String,
+): List<PatternToken> = compilePattern(
+    localizedDateTimePattern(
+        languageTag = locale.toLanguageTag(),
+        chronologyId = chronologyId,
+        dateStyle = dateStyle,
+        timeStyle = timeStyle,
+    ),
+)
+
+private fun TemporalAccessor.chronologyId(): String =
+    query(TemporalQueries.chronology())?.id ?: IsoChronology.id
+
 private fun formatBuilderChronologyId(temporal: TemporalAccessor): String =
     temporal.query(TemporalQueries.chronology())?.id
         ?: throw DateTimeException("Unable to extract chronology from temporal $temporal")
+
+private fun formatPatternZoneText(
+    token: PatternToken.ZoneText,
+    temporal: TemporalAccessor,
+    locale: Locale,
+): String {
+    val zone = temporal.query(TemporalQueries.zoneId())
+        ?: throw DateTimeException("Unable to extract ZoneId from temporal $temporal")
+    if (zone is ZoneOffset) return zone.id
+
+    val epochSecond = when {
+        token.generic -> null
+        temporal.isSupported(ChronoField.INSTANT_SECONDS) ->
+            temporal.getLong(ChronoField.INSTANT_SECONDS)
+        temporal.isSupported(ChronoField.EPOCH_DAY) &&
+            temporal.isSupported(ChronoField.NANO_OF_DAY) -> {
+            val dateTime = LocalDateTime.of(
+                LocalDate.ofEpochDay(temporal.getLong(ChronoField.EPOCH_DAY)),
+                LocalTime.ofNanoOfDay(temporal.getLong(ChronoField.NANO_OF_DAY)),
+            )
+            if (zone.rules.getTransition(dateTime) == null) {
+                ZonedDateTime.of(dateTime, zone).toEpochSecond()
+            } else {
+                null
+            }
+        }
+        else -> null
+    }
+    return formatLocaleZoneText(
+        languageTag = locale.toLanguageTag(),
+        zoneId = zone.id,
+        epochSecond = epochSecond,
+        style = token.style,
+        generic = token.generic,
+    ) ?: zone.id
+}
 
 private fun formatPatternInstant(
     token: PatternToken.Instant,
@@ -1904,6 +2006,10 @@ private fun parsePattern(
                     }
                     index = parsedEndIndex
                 }
+                is PatternToken.Localized -> parseTokens(
+                    token.patternTokens(locale, effectiveChronology().id),
+                    input,
+                )
                 is PatternToken.Instant -> {
                     val parsed = parsePatternInstant(token, input, index, caseSensitive, strict)
                     mapOf(
@@ -1944,6 +2050,20 @@ private fun parsePattern(
                         strict = strict,
                     )
                     storeOffset(parsed, startIndex, input)
+                }
+                is PatternToken.ZoneText -> {
+                    val parsed = parsePatternZoneText(
+                        token = token,
+                        text = input,
+                        startIndex = index,
+                        locale = locale,
+                        caseSensitive = caseSensitive,
+                    )
+                    if (zone != null && zone != parsed.zone) {
+                        throw DateTimeParseException("Conflict found for zone", input, index)
+                    }
+                    zone = parsed.zone
+                    index = parsed.endIndex
                 }
                 is PatternToken.ZoneId -> {
                     val parsed = parsePatternZone(input, index, caseSensitive)
@@ -2361,6 +2481,32 @@ private fun parsePatternZone(
     throw DateTimeParseException("Invalid zone", text, startIndex)
 }
 
+private fun parsePatternZoneText(
+    token: PatternToken.ZoneText,
+    text: String,
+    startIndex: Int,
+    locale: Locale,
+    caseSensitive: Boolean,
+): ParsedPatternZone {
+    val localized = parseLocaleZoneText(
+        languageTag = locale.toLanguageTag(),
+        text = text,
+        startIndex = startIndex,
+        style = token.style,
+        generic = token.generic,
+        caseSensitive = caseSensitive,
+    )
+    if (localized != null) {
+        val parsedZone = try {
+            ZoneId.of(localized.zoneId)
+        } catch (exception: RuntimeException) {
+            throw DateTimeParseException("Invalid zone", text, startIndex, exception)
+        }
+        return ParsedPatternZone(parsedZone, localized.endIndex)
+    }
+    return parsePatternZone(text, startIndex, caseSensitive)
+}
+
 private fun parseZoneCandidate(
     candidate: String,
     caseSensitive: Boolean,
@@ -2601,10 +2747,12 @@ private fun PatternToken.adjacentFixedNumericWidth(): Int? = when (this) {
     }
     is PatternToken.Text,
     is PatternToken.LocalizedText,
+    is PatternToken.Localized,
     is PatternToken.Instant,
     is PatternToken.Composite,
     is PatternToken.Offset,
     is PatternToken.LocalizedOffset,
+    is PatternToken.ZoneText,
     is PatternToken.ZoneId,
     PatternToken.ChronologyId,
     is PatternToken.ParseSetting,
@@ -3290,6 +3438,11 @@ private fun describePattern(tokens: List<PatternToken>): String = buildString {
                 }
                 .append(')')
             is PatternToken.LocalizedWeek -> append(describeLocalizedWeek(token))
+            is PatternToken.Localized -> append("Localized(")
+                .append(token.dateStyle ?: "")
+                .append(',')
+                .append(token.timeStyle ?: "")
+                .append(')')
             is PatternToken.Instant -> append("Instant()")
             is PatternToken.Composite -> append('(')
                 .append(token.description)
@@ -3300,6 +3453,9 @@ private fun describePattern(tokens: List<PatternToken>): String = buildString {
                 .append(token.noOffsetText.replace("'", "''"))
                 .append("')")
             is PatternToken.LocalizedOffset -> append("LocalizedOffset(")
+                .append(token.style)
+                .append(')')
+            is PatternToken.ZoneText -> append("ZoneText(")
                 .append(token.style)
                 .append(')')
             is PatternToken.ZoneId -> append(

@@ -3,6 +3,7 @@ package io.heapy.grogu.time.format
 import io.heapy.grogu.time.DateTimeException
 import io.heapy.grogu.time.Locale
 import io.heapy.grogu.time.chrono.ChronoLocalDate
+import io.heapy.grogu.time.chrono.Chronology
 import io.heapy.grogu.time.temporal.TemporalField
 
 /**
@@ -204,6 +205,17 @@ public class DateTimeFormatterBuilder {
         activeSection.appendToken(PatternToken.LocalizedText(field, textStyle))
     }
 
+    /** Appends a locale- and chronology-specific date and/or time style. */
+    public fun appendLocalized(
+        dateStyle: FormatStyle?,
+        timeStyle: FormatStyle?,
+    ): DateTimeFormatterBuilder = apply {
+        require(dateStyle != null || timeStyle != null) {
+            "Either the date or time style must be non-null"
+        }
+        activeSection.appendToken(PatternToken.Localized(dateStyle, timeStyle))
+    }
+
     /** Appends an instant using zero, three, six, or nine fractional digits as needed. */
     public fun appendInstant(): DateTimeFormatterBuilder = apply {
         activeSection.appendToken(PatternToken.Instant(-2))
@@ -235,6 +247,16 @@ public class DateTimeFormatterBuilder {
             "Style must be either full or short"
         }
         activeSection.appendToken(PatternToken.LocalizedOffset(style))
+    }
+
+    /** Appends a localized, daylight-aware zone name. */
+    public fun appendZoneText(textStyle: TextStyle): DateTimeFormatterBuilder = apply {
+        activeSection.appendToken(PatternToken.ZoneText(textStyle, generic = false))
+    }
+
+    /** Appends a localized generic zone name. */
+    public fun appendGenericZoneText(textStyle: TextStyle): DateTimeFormatterBuilder = apply {
+        activeSection.appendToken(PatternToken.ZoneText(textStyle, generic = true))
     }
 
     /** Appends an explicit zone ID, without falling back to a bare offset. */
@@ -293,6 +315,26 @@ public class DateTimeFormatterBuilder {
     public fun toFormatter(locale: Locale): DateTimeFormatter {
         while (optionalSections.isNotEmpty()) optionalEnd()
         return DateTimeFormatter.fromPatternTokens(rootSection.tokens, locale)
+    }
+
+    public companion object {
+        /** Returns the localized pattern selected for the supplied styles, chronology, and locale. */
+        public fun getLocalizedDateTimePattern(
+            dateStyle: FormatStyle?,
+            timeStyle: FormatStyle?,
+            chronology: Chronology,
+            locale: Locale,
+        ): String {
+            require(dateStyle != null || timeStyle != null) {
+                "Either dateStyle or timeStyle must be non-null"
+            }
+            return localizedDateTimePattern(
+                languageTag = locale.toLanguageTag(),
+                chronologyId = chronology.id,
+                dateStyle = dateStyle,
+                timeStyle = timeStyle,
+            )
+        }
     }
 }
 

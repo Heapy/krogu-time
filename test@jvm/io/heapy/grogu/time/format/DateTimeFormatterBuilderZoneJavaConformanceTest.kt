@@ -2,6 +2,8 @@ package io.heapy.grogu.time.format
 
 import io.heapy.grogu.time.ZoneId
 import io.heapy.grogu.time.ZoneOffset
+import java.time.format.TextStyle as JavaTextStyle
+import java.util.Locale as JavaLocale
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -81,6 +83,50 @@ class DateTimeFormatterBuilderZoneJavaConformanceTest {
                     ZoneId.from(groguFormatter.parse(input)).id,
                     input,
                 )
+            }
+        }
+    }
+
+    @Test
+    fun specificAndGenericZoneTextMatchJavaTime() {
+        val javaValues = listOf(
+            java.time.ZonedDateTime.of(2024, 1, 1, 5, 6, 0, 0, java.time.ZoneId.of("America/New_York")),
+            java.time.ZonedDateTime.of(2024, 7, 1, 5, 6, 0, 0, java.time.ZoneId.of("America/New_York")),
+            java.time.ZonedDateTime.of(2024, 7, 1, 5, 6, 0, 0, java.time.ZoneId.of("Europe/Paris")),
+        )
+        val groguValues = listOf(
+            io.heapy.grogu.time.ZonedDateTime.of(2024, 1, 1, 5, 6, 0, 0, ZoneId.of("America/New_York")),
+            io.heapy.grogu.time.ZonedDateTime.of(2024, 7, 1, 5, 6, 0, 0, ZoneId.of("America/New_York")),
+            io.heapy.grogu.time.ZonedDateTime.of(2024, 7, 1, 5, 6, 0, 0, ZoneId.of("Europe/Paris")),
+        )
+
+        listOf("en-US", "fr-FR", "de-DE").forEach { languageTag ->
+            listOf(false, true).forEach { generic ->
+                listOf(TextStyle.SHORT, TextStyle.FULL).forEach { style ->
+                    val javaBuilder = java.time.format.DateTimeFormatterBuilder()
+                    val builder = DateTimeFormatterBuilder()
+                    if (generic) {
+                        javaBuilder.appendGenericZoneText(JavaTextStyle.valueOf(style.name))
+                        builder.appendGenericZoneText(style)
+                    } else {
+                        javaBuilder.appendZoneText(JavaTextStyle.valueOf(style.name))
+                        builder.appendZoneText(style)
+                    }
+                    val javaFormatter = javaBuilder.toFormatter(JavaLocale.forLanguageTag(languageTag))
+                    val formatter = builder.toFormatter(io.heapy.grogu.time.Locale.forLanguageTag(languageTag))
+
+                    assertEquals(javaFormatter.toString(), formatter.toString())
+                    javaValues.zip(groguValues).forEach { (javaValue, value) ->
+                        val javaText = javaFormatter.format(javaValue)
+                        val text = formatter.format(value)
+                        assertEquals(javaText, text, "$languageTag $generic $style $value")
+                        assertEquals(
+                            java.time.ZoneId.from(javaFormatter.parse(javaText)).id,
+                            ZoneId.from(formatter.parse(text)).id,
+                            "$languageTag $generic $style parsing $text",
+                        )
+                    }
+                }
             }
         }
     }
