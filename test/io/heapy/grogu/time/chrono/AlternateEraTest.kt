@@ -6,6 +6,7 @@ import io.heapy.grogu.time.temporal.ValueRange
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNotSame
 import kotlin.test.assertSame
 
 class AlternateEraTest {
@@ -32,5 +33,27 @@ class AlternateEraTest {
         assertSame(HijrahEra.AH, HijrahEra.of(1))
         assertEquals(ValueRange.of(1, 1), HijrahEra.AH.range(ChronoField.ERA))
         assertFailsWith<DateTimeException> { HijrahEra.of(0) }
+    }
+
+    @Test
+    fun japaneseErasExposeHistoricalValuesNamesAndDefensiveCopies() {
+        val expected = listOf(
+            JapaneseEra.MEIJI,
+            JapaneseEra.TAISHO,
+            JapaneseEra.SHOWA,
+            JapaneseEra.HEISEI,
+            JapaneseEra.REIWA,
+        )
+        assertEquals(listOf(-1, 0, 1, 2, 3), expected.map(Era::value))
+        assertEquals(listOf("Meiji", "Taisho", "Showa", "Heisei", "Reiwa"), expected.map(Any::toString))
+        assertEquals(expected, JapaneseEra.values().toList())
+        assertNotSame(JapaneseEra.values(), JapaneseEra.values())
+        expected.forEach { era ->
+            assertSame(era, JapaneseEra.of(era.value))
+            assertSame(era, JapaneseEra.valueOf(era.toString()))
+            assertEquals("-1 - 3", era.range(ChronoField.ERA).toString())
+        }
+        assertFailsWith<DateTimeException> { JapaneseEra.of(4) }
+        assertFailsWith<IllegalArgumentException> { JapaneseEra.valueOf("REIWA") }
     }
 }

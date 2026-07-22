@@ -2,6 +2,7 @@ package io.heapy.grogu.time.chrono
 
 import io.heapy.grogu.time.temporal.ChronoField
 import java.time.chrono.HijrahEra as JavaHijrahEra
+import java.time.chrono.JapaneseEra as JavaJapaneseEra
 import java.time.chrono.MinguoEra as JavaMinguoEra
 import java.time.chrono.ThaiBuddhistEra as JavaThaiBuddhistEra
 import java.time.temporal.ChronoField as JavaChronoField
@@ -29,5 +30,11 @@ class AlternateEraJavaConformanceTest {
             JavaHijrahEra.AH.range(JavaChronoField.ERA).toString(),
             HijrahEra.AH.range(ChronoField.ERA).toString(),
         )
+        JavaJapaneseEra.values().zip(JapaneseEra.values()).forEach { (expected, actual) ->
+            assertEquals(expected.value, actual.value)
+            assertEquals(expected.toString(), actual.toString())
+            assertEquals(expected.getLong(JavaChronoField.ERA), actual.getLong(ChronoField.ERA))
+            assertEquals(expected.range(JavaChronoField.ERA).toString(), actual.range(ChronoField.ERA).toString())
+        }
     }
 }
