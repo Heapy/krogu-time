@@ -33,6 +33,8 @@ Implemented foundations:
 
 - `DateTimeException`
 - `DateTimeParseException`
+- `ResolverStyle`, `FormatStyle`, `SignStyle`, and `TextStyle` formatter
+  configuration enums
 - `DayOfWeek`
 - `Month`
 - `Era` and `IsoEra`
