@@ -214,6 +214,19 @@ public class DateTimeFormatter private constructor(
                     "[ParseStrict(false)Offset(+HHMMss,'Z')ParseStrict(true)]",
         )
 
+        /** The English RFC 1123 date-time formatter. */
+        public val RFC_1123_DATE_TIME: DateTimeFormatter = DateTimeFormatter(
+            printer = { temporal -> formatRfc1123(temporal) },
+            parser = { text -> parseRfc1123(text) },
+            description =
+                "ParseCaseSensitive(false)ParseStrict(false)" +
+                    "[Text(DayOfWeek)', ']" +
+                    "Value(DayOfMonth,1,2,NOT_NEGATIVE)' '" +
+                    "Text(MonthOfYear)' 'Value(Year,4)' '" +
+                    "Value(HourOfDay,2)':'Value(MinuteOfHour,2)" +
+                    "[':'Value(SecondOfMinute,2)]' 'Offset(+HHMM,'GMT')",
+        )
+
         /** The strict ISO formatter for an instant in UTC. */
         public val ISO_INSTANT: DateTimeFormatter = DateTimeFormatter(
             printer = { temporal -> Instant.from(temporal).toString() },
@@ -310,6 +323,45 @@ private fun formatBasicOffset(offset: ZoneOffset): String {
         append(hours.toString().padStart(2, '0'))
         append(minutes.toString().padStart(2, '0'))
         if (seconds != 0) append(seconds.toString().padStart(2, '0'))
+    }
+}
+
+private fun formatRfc1123(temporal: TemporalAccessor): String {
+    val date = LocalDate.from(temporal)
+    val time = LocalTime.from(temporal)
+    val offset = ZoneOffset.from(temporal)
+    if (date.year !in 0..9_999) {
+        throw DateTimeException("Year cannot be printed as four digits: ${date.year}")
+    }
+    if (offset.totalSeconds % 60 != 0) {
+        throw DateTimeException("Offset seconds cannot be printed by RFC 1123: $offset")
+    }
+    return buildString {
+        append(RFC_DAY_NAMES[date.dayOfWeek.value - 1])
+        append(", ")
+        append(date.dayOfMonth)
+        append(' ')
+        append(RFC_MONTH_NAMES[date.monthValue - 1])
+        append(' ')
+        append(date.year.toString().padStart(4, '0'))
+        append(' ')
+        append(time.hour.toString().padStart(2, '0'))
+        append(':')
+        append(time.minute.toString().padStart(2, '0'))
+        append(':')
+        append(time.second.toString().padStart(2, '0'))
+        append(' ')
+        append(formatRfc1123Offset(offset))
+    }
+}
+
+private fun formatRfc1123Offset(offset: ZoneOffset): String {
+    if (offset == ZoneOffset.UTC) return "GMT"
+    val totalMinutes = kotlin.math.abs(offset.totalSeconds) / 60
+    return buildString {
+        append(if (offset.totalSeconds < 0) '-' else '+')
+        append((totalMinutes / 60).toString().padStart(2, '0'))
+        append((totalMinutes % 60).toString().padStart(2, '0'))
     }
 }
 
@@ -545,6 +597,85 @@ private fun parseBasicIsoDate(text: CharSequence): TemporalAccessor {
     return ParsedTemporalAccessor(date = date, offset = offset)
 }
 
+private fun parseRfc1123(text: CharSequence): TemporalAccessor {
+    val input = text.toString()
+    var remaining = input
+    val weekday = if (input.length >= 5 && input[3] == ',' && input[4] == ' ') {
+        val dayName = input.substring(0, 3)
+        val dayIndex = RFC_DAY_NAMES.indexOfFirst { it.equals(dayName, ignoreCase = true) }
+        if (dayIndex < 0) throw rfcParseFailure(input, 0)
+        remaining = input.substring(5)
+        dayIndex + 1
+    } else {
+        null
+    }
+
+    val parts = remaining.split(' ')
+    if (parts.size != 5 || parts.any(String::isEmpty)) throw rfcParseFailure(input, 0)
+    val dayText = parts[0]
+    if (dayText.length !in 1..2 || dayText.any { it !in '0'..'9' }) {
+        throw rfcParseFailure(input, 0)
+    }
+    val month = RFC_MONTH_NAMES.indexOfFirst { it.equals(parts[1], ignoreCase = true) } + 1
+    if (month == 0) throw rfcParseFailure(input, input.indexOf(parts[1]))
+    val yearText = parts[2]
+    if (yearText.length != 4 || yearText.any { it !in '0'..'9' }) {
+        throw rfcParseFailure(input, input.indexOf(yearText))
+    }
+    val timeParts = parts[3].split(':')
+    if (
+        timeParts.size !in 2..3 ||
+        timeParts.any { component -> component.length != 2 || component.any { it !in '0'..'9' } }
+    ) {
+        throw rfcParseFailure(input, input.indexOf(parts[3]))
+    }
+
+    var date = try {
+        LocalDate.of(yearText.toInt(), month, dayText.toInt())
+    } catch (exception: RuntimeException) {
+        throw rfcParseFailure(input, 0, exception)
+    }
+    if (weekday != null && date.dayOfWeek.value != weekday) {
+        throw rfcParseFailure(input, 0)
+    }
+    val hour = timeParts[0].toInt()
+    val minute = timeParts[1].toInt()
+    val second = timeParts.getOrNull(2)?.toInt() ?: 0
+    val time = try {
+        if (hour == 24 && minute == 0 && second == 0) {
+            date = date.plusDays(1)
+            LocalTime.MIDNIGHT
+        } else {
+            LocalTime.of(hour, minute, second)
+        }
+    } catch (exception: RuntimeException) {
+        throw rfcParseFailure(input, input.indexOf(parts[3]), exception)
+    }
+    val offsetText = parts[4]
+    val validOffset = offsetText.equals("GMT", ignoreCase = true) ||
+        offsetText.length in listOf(3, 5) &&
+        offsetText[0] in "+-" &&
+        offsetText.drop(1).all { it in '0'..'9' }
+    if (!validOffset) throw rfcParseFailure(input, input.lastIndexOf(offsetText))
+    val offset = try {
+        ZoneOffset.of(if (offsetText.equals("GMT", ignoreCase = true)) "Z" else offsetText)
+    } catch (exception: RuntimeException) {
+        throw rfcParseFailure(input, input.lastIndexOf(offsetText), exception)
+    }
+    return ParsedTemporalAccessor(date = date, time = time, offset = offset)
+}
+
+private fun rfcParseFailure(
+    input: String,
+    errorIndex: Int,
+    cause: Throwable? = null,
+): DateTimeParseException = DateTimeParseException(
+    "Text cannot be parsed to an RFC 1123 date-time",
+    input,
+    errorIndex,
+    cause,
+)
+
 private fun parseIsoYear(text: String, input: String, target: String): Int = try {
     LocalDate.parse("$text-01-01").year
 } catch (exception: RuntimeException) {
@@ -684,3 +815,20 @@ private class ParsedTemporalAccessor(
     private fun unsupported(field: TemporalField): Nothing =
         throw UnsupportedTemporalTypeException("Unsupported field: $field")
 }
+
+private val RFC_DAY_NAMES: List<String> = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+
+private val RFC_MONTH_NAMES: List<String> = listOf(
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+)
