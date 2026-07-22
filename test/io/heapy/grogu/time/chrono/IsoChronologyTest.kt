@@ -26,7 +26,7 @@ class IsoChronologyTest {
         assertSame(IsoChronology, Chronology.of("ISO"))
         assertSame(IsoChronology, Chronology.of("iso8601"))
         assertEquals(
-            setOf(IsoChronology, MinguoChronology),
+            setOf(IsoChronology, MinguoChronology, ThaiBuddhistChronology),
             Chronology.getAvailableChronologies(),
         )
         assertSame(IsoChronology, Chronology.from(LocalDate.of(2024, 6, 1)))

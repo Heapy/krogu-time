@@ -39,11 +39,12 @@ Implemented foundations:
 - `MinguoEra`, `ThaiBuddhistEra`, and `HijrahEra`, including their Java-compatible
   numeric values and the single-era Hijrah range
 - `Chronology` identity, lookup, ordering, era/leap/range contracts, plus the
-  `IsoChronology` and `MinguoChronology` singletons with generic date/date-time
-  factories, clock injection, period creation, and epoch-second conversion
-- `MinguoDate` factories, fields and refined ranges, calendar arithmetic,
-  periods, generic local/zoned date-time composition, and Java-compatible value
-  semantics across the full ISO-backed date range
+  `IsoChronology`, `MinguoChronology`, and `ThaiBuddhistChronology` singletons
+  with generic date/date-time factories, clock injection, period creation, and
+  epoch-second conversion
+- `MinguoDate` and `ThaiBuddhistDate` factories, fields and refined ranges,
+  calendar arithmetic, periods, generic local/zoned date-time composition, and
+  Java-compatible value semantics across their full ISO-backed date ranges
 - `ChronoLocalDate` chronology, era, leap-year and length contracts, generic
   conversion, covariant date arithmetic, standard queries, epoch-day adjustment,
   chronology-aware and timeline ordering, with `LocalDate` integration
