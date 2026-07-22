@@ -184,7 +184,8 @@ Implemented foundations:
   rule-list value semantics
 - `ZoneRulesProvider` registration, conflict detection, region/rule/version
   lookup, dynamic no-cache rules, refresh support, and automatic registration
-  of the bundled IANA TZDB 2025a database (service loading remains)
+  of the bundled IANA TZDB 2025a database, plus `ServiceLoader` discovery on
+  JVM and Android
 - `ZoneOffsetTransition` gap/overlap values, validated factories, instant and
   local timeline conversion, duration, offset validation, ordering, hashing,
   and Java-compatible text output

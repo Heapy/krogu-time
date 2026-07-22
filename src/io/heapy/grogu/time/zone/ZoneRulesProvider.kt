@@ -20,6 +20,7 @@ public abstract class ZoneRulesProvider protected constructor() {
 
         init {
             registerProvider(TzdbZoneRulesProvider())
+            loadZoneRulesProviders().forEach(::registerProvider)
         }
 
         /** Returns a snapshot of all registered region IDs. */
