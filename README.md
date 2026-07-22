@@ -222,23 +222,24 @@ Implemented foundations:
 - `InstantSource` system, fixed, offset, and tick sources, default millisecond
   conversion, arbitrary-source zone-to-clock bridging, and Java-compatible
   reuse of clock implementations
-- temporal interfaces and exceptions, including `TemporalField` parsed-field
-  resolution, plus all standard chronology, zone, offset, local-date,
-  local-time, and precision queries
+- temporal interfaces and exceptions, including `TemporalField` localized-name
+  defaults and parsed-field resolution, plus all standard chronology, zone,
+  offset, local-date, local-time, and precision queries
 - `TemporalAdjusters` complete date-adjuster utility surface
 - `JulianFields` Julian day, modified Julian day, and Rata Die fields with
   full-range epoch conversion, adjustment, and chronology-aware parsed-field
   resolution
 - `IsoFields` quarter-of-year and ISO week-based-year fields and units, with
   leap-year ranges, field adjustment, calendar arithmetic, and strict/smart/
-  lenient quarter and week-date resolution
+  lenient quarter and week-date resolution plus localized week display names
 - `WeekFields` canonical explicit week definitions for every first-day and
   minimal-days combination, locale-backed rule selection through JVM,
   Android, and iOS locale data, all five localized computed fields, and
   strict/smart/lenient parsed-field resolution
 - `ValueRange`
 - `ChronoUnit`
-- `ChronoField`
+- `ChronoField` metadata, validation, temporal dispatch, canonical names, and
+  locale-backed display names with Java-compatible fallbacks
 
 Remaining work includes formatters and parsers beyond the implemented ISO
 defaults and amount parsers, and complete cross-type conformance coverage.

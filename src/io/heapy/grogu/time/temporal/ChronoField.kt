@@ -1,11 +1,14 @@
 package io.heapy.grogu.time.temporal
 
+import io.heapy.grogu.time.Locale
+
 /** The standard set of date-time fields. */
 public enum class ChronoField(
     private val displayName: String,
     override val baseUnit: ChronoUnit,
     override val rangeUnit: ChronoUnit,
     override val range: ValueRange,
+    private val displayNameKey: String? = null,
 ) : TemporalField {
     NANO_OF_SECOND(
         "NanoOfSecond",
@@ -48,6 +51,7 @@ public enum class ChronoField(
         ChronoUnit.SECONDS,
         ChronoUnit.MINUTES,
         ValueRange.of(0, 59),
+        "second",
     ),
     SECOND_OF_DAY(
         "SecondOfDay",
@@ -60,6 +64,7 @@ public enum class ChronoField(
         ChronoUnit.MINUTES,
         ChronoUnit.HOURS,
         ValueRange.of(0, 59),
+        "minute",
     ),
     MINUTE_OF_DAY(
         "MinuteOfDay",
@@ -84,6 +89,7 @@ public enum class ChronoField(
         ChronoUnit.HOURS,
         ChronoUnit.DAYS,
         ValueRange.of(0, 23),
+        "hour",
     ),
     CLOCK_HOUR_OF_DAY(
         "ClockHourOfDay",
@@ -96,12 +102,14 @@ public enum class ChronoField(
         ChronoUnit.HALF_DAYS,
         ChronoUnit.DAYS,
         ValueRange.of(0, 1),
+        "dayperiod",
     ),
     DAY_OF_WEEK(
         "DayOfWeek",
         ChronoUnit.DAYS,
         ChronoUnit.WEEKS,
         ValueRange.of(1, 7),
+        "weekday",
     ),
     ALIGNED_DAY_OF_WEEK_IN_MONTH(
         "AlignedDayOfWeekInMonth",
@@ -120,6 +128,7 @@ public enum class ChronoField(
         ChronoUnit.DAYS,
         ChronoUnit.MONTHS,
         ValueRange.of(1, 28, 31),
+        "day",
     ),
     DAY_OF_YEAR(
         "DayOfYear",
@@ -150,6 +159,7 @@ public enum class ChronoField(
         ChronoUnit.MONTHS,
         ChronoUnit.YEARS,
         ValueRange.of(1, 12),
+        "month",
     ),
     PROLEPTIC_MONTH(
         "ProlepticMonth",
@@ -168,12 +178,14 @@ public enum class ChronoField(
         ChronoUnit.YEARS,
         ChronoUnit.FOREVER,
         ValueRange.of(-999_999_999, 999_999_999),
+        "year",
     ),
     ERA(
         "Era",
         ChronoUnit.ERAS,
         ChronoUnit.FOREVER,
         ValueRange.of(0, 1),
+        "era",
     ),
     INSTANT_SECONDS(
         "InstantSeconds",
@@ -193,6 +205,10 @@ public enum class ChronoField(
 
     override val isTimeBased: Boolean
         get() = this < DAY_OF_WEEK
+
+    override fun getDisplayName(locale: Locale): String = displayNameKey
+        ?.let { key -> localizedFieldDisplayName(locale.toLanguageTag(), key) }
+        ?: displayName
 
     override fun isSupportedBy(temporal: TemporalAccessor): Boolean = temporal.isSupported(this)
 

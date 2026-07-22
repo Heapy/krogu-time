@@ -1,6 +1,7 @@
 package io.heapy.grogu.time.temporal
 
 import io.heapy.grogu.time.Duration
+import io.heapy.grogu.time.Locale
 import io.heapy.grogu.time.format.ResolverStyle
 
 /** A strategy for querying information from a [TemporalAccessor]. */
@@ -79,6 +80,9 @@ public interface TemporalUnit {
 
 /** A field of date-time, such as month-of-year or hour-of-day. */
 public interface TemporalField {
+    /** Returns a localized field name, falling back to this field's string representation. */
+    public fun getDisplayName(locale: Locale): String = toString()
+
     public val baseUnit: TemporalUnit
     public val rangeUnit: TemporalUnit
     public val range: ValueRange

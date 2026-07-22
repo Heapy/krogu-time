@@ -4,6 +4,7 @@ import io.heapy.grogu.time.DayOfWeek
 import io.heapy.grogu.time.DateTimeException
 import io.heapy.grogu.time.Duration
 import io.heapy.grogu.time.LocalDate
+import io.heapy.grogu.time.Locale
 import io.heapy.grogu.time.chrono.Chronology
 import io.heapy.grogu.time.chrono.IsoChronology
 import io.heapy.grogu.time.format.ResolverStyle
@@ -69,6 +70,13 @@ public object IsoFields {
 
         override val isTimeBased: Boolean
             get() = false
+
+        override fun getDisplayName(locale: Locale): String =
+            if (this == WEEK_OF_WEEK_BASED_YEAR) {
+                localizedFieldDisplayName(locale.toLanguageTag(), "week") ?: displayName
+            } else {
+                displayName
+            }
 
         override fun isSupportedBy(temporal: TemporalAccessor): Boolean = when (this) {
             DAY_OF_QUARTER ->

@@ -89,6 +89,13 @@ public class WeekFields private constructor(
         override val isTimeBased: Boolean
             get() = false
 
+        override fun getDisplayName(locale: Locale): String =
+            if (rangeUnit === ChronoUnit.YEARS) {
+                localizedFieldDisplayName(locale.toLanguageTag(), "week") ?: displayName
+            } else {
+                displayName
+            }
+
         override fun isSupportedBy(temporal: TemporalAccessor): Boolean {
             if (!temporal.isSupported(ChronoField.DAY_OF_WEEK)) return false
             return when (rangeUnit) {
