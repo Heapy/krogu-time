@@ -1,18 +1,25 @@
 package io.heapy.grogu.time.chrono
 
+import io.heapy.grogu.time.DateTimeException
 import io.heapy.grogu.time.LocalDate
 import io.heapy.grogu.time.LocalDateTime
 import io.heapy.grogu.time.LocalTime
 import io.heapy.grogu.time.ZoneOffset
 import io.heapy.grogu.time.temporal.ChronoField
 import io.heapy.grogu.time.temporal.ChronoUnit
+import io.heapy.grogu.time.temporal.Temporal
+import io.heapy.grogu.time.temporal.TemporalAccessor
 import io.heapy.grogu.time.temporal.TemporalAdjuster
 import io.heapy.grogu.time.temporal.TemporalAmount
+import io.heapy.grogu.time.temporal.TemporalField
 import io.heapy.grogu.time.temporal.TemporalQueries
 import io.heapy.grogu.time.temporal.TemporalUnit
+import io.heapy.grogu.time.temporal.UnsupportedTemporalTypeException
+import io.heapy.grogu.time.temporal.ValueRange
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -73,6 +80,20 @@ class ChronoLocalDateTimeTest {
     }
 
     @Test
+    fun implementationCustomFieldsUseDirectIntValidation() {
+        val dateTime = MinguoDate.of(113, 2, 29).atTime(LocalTime.NOON)
+        val exception = assertFailsWith<DateTimeException> {
+            dateTime.get(WideRangeField)
+        }
+        assertFalse(exception is UnsupportedTemporalTypeException)
+        assertEquals(
+            "Invalid value for WideDateTime " +
+                "(valid values -9223372036854775808 - 9223372036854775807): 113",
+            exception.message,
+        )
+    }
+
+    @Test
     fun covariantDefaultsReturnLocalDateTimesFromTheSameChronology() {
         val delegate = MinguoDate.of(113, 1, 31).atTime(LocalTime.NOON)
         val dateTime = DefaultMethodDateTime(delegate)
@@ -112,5 +133,24 @@ class ChronoLocalDateTimeTest {
             unit: TemporalUnit,
         ): ChronoLocalDateTime<MinguoDate> =
             super<ChronoLocalDateTime>.minus(amountToSubtract, unit)
+    }
+
+    private object WideRangeField : TemporalField {
+        override val baseUnit: TemporalUnit = ChronoUnit.DAYS
+        override val rangeUnit: TemporalUnit = ChronoUnit.FOREVER
+        override val range: ValueRange = ValueRange.of(Long.MIN_VALUE, Long.MAX_VALUE)
+        override val isDateBased: Boolean = false
+        override val isTimeBased: Boolean = false
+
+        override fun isSupportedBy(temporal: TemporalAccessor): Boolean =
+            temporal is ChronoLocalDateTime<*>
+
+        override fun rangeRefinedBy(temporal: TemporalAccessor): ValueRange = range
+
+        override fun getFrom(temporal: TemporalAccessor): Long = 113
+
+        override fun <R : Temporal> adjustInto(temporal: R, newValue: Long): R = temporal
+
+        override fun toString(): String = "WideDateTime"
     }
 }

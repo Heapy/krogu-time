@@ -134,10 +134,11 @@ Implemented foundations:
   Java-compatible default local-time composition, chronology-aware and
   timeline ordering, with `LocalDate` integration
 - `ChronoLocalDateTime` chronology/date/time contracts, generic conversion and
-  chronology factories, chronology-validating covariant adjustment and amount
-  arithmetic defaults, standard queries, epoch/instant conversion, adjustment,
-  formatter-based output, chronology-aware and local-timeline ordering, with
-  `LocalDateTime` integration
+  chronology factories, Java-compatible int/long temporal fields,
+  chronology-validating covariant adjustment and amount arithmetic defaults,
+  standard queries, epoch/instant conversion, adjustment, formatter-based
+  output, chronology-aware and local-timeline ordering, with `LocalDateTime`
+  integration
 - `ChronoZonedDateTime` chronology/local/offset/zone contracts, generic
   conversion and chronology factories, chronology-validating covariant
   adjustment and amount arithmetic defaults, zone changes, standard queries,

@@ -28,6 +28,12 @@ internal class ChronoLocalDateTimeImpl<D : ChronoLocalDate> private constructor(
         else -> field.rangeRefinedBy(this)
     }
 
+    override fun get(field: TemporalField): Int = when {
+        field is ChronoField && field.isTimeBased -> time.get(field)
+        field is ChronoField -> date.get(field)
+        else -> range(field).checkValidIntValue(getLong(field), field)
+    }
+
     override fun getLong(field: TemporalField): Long = when {
         field is ChronoField && field.isTimeBased -> time.getLong(field)
         field is ChronoField -> date.getLong(field)
