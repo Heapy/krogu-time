@@ -49,7 +49,8 @@ Implemented foundations:
   fields, quoted literals, ISO/RFC-style offsets, and region zone IDs;
   `DateTimeFormatterBuilder` pattern/literal and generic numeric-value
   composition, sign/width controls, reduced base-window values, fixed-range
-  fractions, adjacent fixed-width parsing, unresolved field retention, and
+  fractions, all custom offset-ID patterns, explicit region/zone/offset query
+  modes, adjacent fixed-width parsing, unresolved field retention, and
   immutable formatter snapshots; plus
   Java-compatible `ISO_LOCAL_DATE`, `ISO_LOCAL_TIME`,
   `ISO_LOCAL_DATE_TIME`, `ISO_INSTANT`, `ISO_OFFSET_DATE`, `ISO_DATE`,

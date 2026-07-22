@@ -639,7 +639,31 @@ internal sealed interface PatternToken {
         val maxWidth: Int,
         val decimalPoint: Boolean,
     ) : PatternToken
+
+    data class Offset(
+        val pattern: String,
+        val noOffsetText: String,
+    ) : PatternToken
+
+    data class ZoneId(val queryMode: ZoneQueryMode) : PatternToken
 }
+
+internal enum class ZoneQueryMode {
+    ZONE_ID,
+    REGION_ONLY,
+    ZONE_OR_OFFSET,
+}
+
+private val OFFSET_PATTERNS: List<String> = listOf(
+    "+HH", "+HHmm", "+HH:mm", "+HHMM", "+HH:MM",
+    "+HHMMss", "+HH:MM:ss", "+HHMMSS", "+HH:MM:SS", "+HHmmss", "+HH:mm:ss",
+    "+H", "+Hmm", "+H:mm", "+HMM", "+H:MM",
+    "+HMMss", "+H:MM:ss", "+HMMSS", "+H:MM:SS", "+Hmmss", "+H:mm:ss",
+)
+
+internal fun validateOffsetPattern(pattern: String): Int =
+    OFFSET_PATTERNS.indexOf(pattern).takeIf { it >= 0 }
+        ?: throw IllegalArgumentException("Invalid zone offset pattern: $pattern")
 
 internal fun compilePattern(pattern: String): List<PatternToken> {
     val tokens = mutableListOf<PatternToken>()
@@ -727,8 +751,67 @@ private fun formatPattern(
             is PatternToken.Value -> append(formatPatternValue(token, temporal))
             is PatternToken.ReducedValue -> append(formatPatternReducedValue(token, temporal))
             is PatternToken.Fraction -> append(formatPatternFraction(token, temporal))
+            is PatternToken.Offset -> append(formatBuilderOffset(token, temporal))
+            is PatternToken.ZoneId -> append(formatBuilderZoneId(token, temporal))
         }
     }
+}
+
+private fun formatBuilderZoneId(
+    token: PatternToken.ZoneId,
+    temporal: TemporalAccessor,
+): String {
+    val zone = when (token.queryMode) {
+        ZoneQueryMode.ZONE_ID,
+        ZoneQueryMode.REGION_ONLY,
+        -> temporal.query(TemporalQueries.zoneId())
+        ZoneQueryMode.ZONE_OR_OFFSET -> temporal.query(TemporalQueries.zone())
+    } ?: throw DateTimeException("Unable to extract ZoneId from temporal $temporal")
+    if (token.queryMode == ZoneQueryMode.REGION_ONLY && zone is ZoneOffset) {
+        throw DateTimeException("Unable to extract region-based ZoneId from temporal $temporal")
+    }
+    return zone.id
+}
+
+private fun formatBuilderOffset(
+    token: PatternToken.Offset,
+    temporal: TemporalAccessor,
+): String {
+    val totalSeconds = temporal.getLong(ChronoField.OFFSET_SECONDS).toInt()
+    if (totalSeconds == 0) return token.noOffsetText
+
+    val type = validateOffsetPattern(token.pattern)
+    val style = type % 11
+    val paddedHour = type < 11
+    val colon = style > 0 && style % 2 == 0
+    val absoluteHours = kotlin.math.abs(totalSeconds / 3_600 % 100)
+    val absoluteMinutes = kotlin.math.abs(totalSeconds / 60 % 60)
+    val absoluteSeconds = kotlin.math.abs(totalSeconds % 60)
+    var output = absoluteHours
+    val result = buildString {
+        append(if (totalSeconds < 0) '-' else '+')
+        if (paddedHour || absoluteHours >= 10) {
+            appendTwoOffsetDigits(absoluteHours)
+        } else {
+            append(absoluteHours)
+        }
+        if (style in 3..8 || style >= 9 && absoluteSeconds > 0 || style >= 1 && absoluteMinutes > 0) {
+            if (colon) append(':')
+            appendTwoOffsetDigits(absoluteMinutes)
+            output += absoluteMinutes
+            if (style == 7 || style == 8 || style >= 5 && absoluteSeconds > 0) {
+                if (colon) append(':')
+                appendTwoOffsetDigits(absoluteSeconds)
+                output += absoluteSeconds
+            }
+        }
+    }
+    return if (output == 0) token.noOffsetText else result
+}
+
+private fun StringBuilder.appendTwoOffsetDigits(value: Int) {
+    append(('0'.code + value / 10).toChar())
+    append(('0'.code + value % 10).toChar())
 }
 
 private fun formatPatternFraction(
@@ -907,7 +990,7 @@ private fun parsePattern(
                         index = parsed.endIndex
                     }
                     'V' -> {
-                        val parsed = parsePatternZone(tokens, tokenIndex, text, index)
+                        val parsed = parsePatternZone(text, index)
                         if (zone != null && zone != parsed.zone) {
                             throw DateTimeParseException("Conflict found for zone", text, index)
                         }
@@ -967,6 +1050,22 @@ private fun parsePattern(
                 }
                 index = parsed.endIndex
             }
+            is PatternToken.Offset -> {
+                val parsed = parseBuilderOffset(token, text, index)
+                if (offset != null && offset != parsed.offset) {
+                    throw DateTimeParseException("Conflict found for offset", text, index)
+                }
+                offset = parsed.offset
+                index = parsed.endIndex
+            }
+            is PatternToken.ZoneId -> {
+                val parsed = parsePatternZone(text, index)
+                if (zone != null && zone != parsed.zone) {
+                    throw DateTimeParseException("Conflict found for zone", text, index)
+                }
+                zone = parsed.zone
+                index = parsed.endIndex
+            }
         }
     }
     if (index != text.length) {
@@ -1022,6 +1121,132 @@ private fun parsePatternOffset(
     return ParsedPatternOffset(parsePatternZoneOffset(text, startIndex, end), end)
 }
 
+private fun parseBuilderOffset(
+    token: PatternToken.Offset,
+    text: String,
+    startIndex: Int,
+): ParsedPatternOffset {
+    if (token.noOffsetText.isNotEmpty() && text.startsWith(token.noOffsetText, startIndex)) {
+        return ParsedPatternOffset(ZoneOffset.UTC, startIndex + token.noOffsetText.length)
+    }
+
+    val sign = text.getOrNull(startIndex)
+    if (sign != '+' && sign != '-') {
+        if (token.noOffsetText.isEmpty()) return ParsedPatternOffset(ZoneOffset.UTC, startIndex)
+        throw DateTimeParseException("Text could not be parsed at index $startIndex", text, startIndex)
+    }
+
+    val type = validateOffsetPattern(token.pattern)
+    val style = type % 11
+    val paddedHour = type < 11
+    val colon = style > 0 && style % 2 == 0
+    val state = IntArray(4)
+    state[0] = startIndex + 1
+    val valid = when (type) {
+        0, 11 -> parseOffsetHour(text, paddedHour, state)
+        1, 2, 13 -> parseOffsetHour(text, paddedHour, state).also { parsedHour ->
+            if (parsedHour) parseOffsetDigits(text, colon, 2, state)
+        }
+        3, 4, 15 -> parseOffsetHour(text, paddedHour, state) &&
+            parseOffsetDigits(text, colon, 2, state)
+        5, 6, 17 -> parseOffsetHour(text, paddedHour, state) &&
+            parseOffsetDigits(text, colon, 2, state).also { parsedMinute ->
+                if (parsedMinute) parseOffsetDigits(text, colon, 3, state)
+            }
+        7, 8, 19 -> parseOffsetHour(text, paddedHour, state) &&
+            parseOffsetDigits(text, colon, 2, state) &&
+            parseOffsetDigits(text, colon, 3, state)
+        9, 10, 21 -> parseOffsetHour(text, paddedHour, state).also { parsedHour ->
+            if (parsedHour && parseOffsetDigits(text, colon, 2, state)) {
+                parseOffsetDigits(text, colon, 3, state)
+            }
+        }
+        12 -> parseVariableOffsetDigits(text, 1, 4, state)
+        14 -> parseVariableOffsetDigits(text, 3, 4, state)
+        16 -> parseVariableOffsetDigits(text, 3, 6, state)
+        18 -> parseVariableOffsetDigits(text, 5, 6, state)
+        20 -> parseVariableOffsetDigits(text, 1, 6, state)
+        else -> error("Unsupported offset pattern: ${token.pattern}")
+    }
+    if (!valid || state[1] > 23 || state[2] > 59 || state[3] > 59) {
+        throw DateTimeParseException("Invalid offset", text, startIndex)
+    }
+    val direction = if (sign == '-') -1 else 1
+    val totalSeconds = direction * (state[1] * 3_600 + state[2] * 60 + state[3])
+    return ParsedPatternOffset(ZoneOffset.ofTotalSeconds(totalSeconds), state[0])
+}
+
+private fun parseOffsetHour(
+    text: String,
+    paddedHour: Boolean,
+    state: IntArray,
+): Boolean = if (paddedHour) {
+    parseOffsetDigits(text, colon = false, arrayIndex = 1, state = state)
+} else {
+    parseVariableOffsetDigits(text, 1, 2, state)
+}
+
+private fun parseOffsetDigits(
+    text: String,
+    colon: Boolean,
+    arrayIndex: Int,
+    state: IntArray,
+): Boolean {
+    var position = state[0]
+    if (colon && arrayIndex != 1) {
+        if (text.getOrNull(position) != ':') return false
+        position++
+    }
+    val first = text.getOrNull(position)
+    val second = text.getOrNull(position + 1)
+    if (first == null || second == null || first !in '0'..'9' || second !in '0'..'9') return false
+    val value = (first.code - '0'.code) * 10 + second.code - '0'.code
+    if (value !in 0..59) return false
+    state[arrayIndex] = value
+    state[0] = position + 2
+    return true
+}
+
+private fun parseVariableOffsetDigits(
+    text: String,
+    minDigits: Int,
+    maxDigits: Int,
+    state: IntArray,
+): Boolean {
+    var position = state[0]
+    val digits = buildString(maxDigits) {
+        while (length < maxDigits && text.getOrNull(position) in '0'..'9') {
+            append(text[position])
+            position++
+        }
+    }
+    if (digits.length < minDigits) return false
+    when (digits.length) {
+        1 -> state[1] = digits.substring(0, 1).toInt()
+        2 -> state[1] = digits.substring(0, 2).toInt()
+        3 -> {
+            state[1] = digits.substring(0, 1).toInt()
+            state[2] = digits.substring(1, 3).toInt()
+        }
+        4 -> {
+            state[1] = digits.substring(0, 2).toInt()
+            state[2] = digits.substring(2, 4).toInt()
+        }
+        5 -> {
+            state[1] = digits.substring(0, 1).toInt()
+            state[2] = digits.substring(1, 3).toInt()
+            state[3] = digits.substring(3, 5).toInt()
+        }
+        6 -> {
+            state[1] = digits.substring(0, 2).toInt()
+            state[2] = digits.substring(2, 4).toInt()
+            state[3] = digits.substring(4, 6).toInt()
+        }
+    }
+    state[0] = position
+    return true
+}
+
 private fun patternOffsetEnd(
     text: String,
     startIndex: Int,
@@ -1050,26 +1275,17 @@ private data class ParsedPatternZone(
 )
 
 private fun parsePatternZone(
-    tokens: List<PatternToken>,
-    tokenIndex: Int,
     text: String,
     startIndex: Int,
 ): ParsedPatternZone {
-    val nextLiteral = tokens.drop(tokenIndex + 1)
-        .filterIsInstance<PatternToken.Literal>()
-        .firstOrNull { it.text.isNotEmpty() }
-    val endIndex = nextLiteral?.let { literal -> text.indexOf(literal.text, startIndex) }
-        ?.takeIf { it >= startIndex }
-        ?: text.length
-    if (endIndex == startIndex) {
-        throw DateTimeParseException("Text could not be parsed at index $startIndex", text, startIndex)
+    for (endIndex in text.length downTo startIndex + 1) {
+        try {
+            return ParsedPatternZone(ZoneId.of(text.substring(startIndex, endIndex)), endIndex)
+        } catch (_: RuntimeException) {
+            // Try the next-shorter prefix.
+        }
     }
-    val zone = try {
-        ZoneId.of(text.substring(startIndex, endIndex))
-    } catch (exception: RuntimeException) {
-        throw DateTimeParseException("Invalid zone", text, startIndex, exception)
-    }
-    return ParsedPatternZone(zone, endIndex)
+    throw DateTimeParseException("Invalid zone", text, startIndex)
 }
 
 private data class ParsedPatternField(
@@ -1172,6 +1388,8 @@ private fun PatternToken.adjacentFixedNumericWidth(): Int? = when (this) {
     is PatternToken.Fraction -> minWidth.takeIf {
         minWidth == maxWidth && !decimalPoint
     }
+    is PatternToken.Offset,
+    is PatternToken.ZoneId,
     is PatternToken.Literal -> null
 }
 
@@ -1387,6 +1605,18 @@ private fun describePattern(tokens: List<PatternToken>): String = buildString {
                 .append(',')
                 .append(if (token.decimalPoint) "DecimalPoint" else "")
                 .append(')')
+            is PatternToken.Offset -> append("Offset(")
+                .append(token.pattern)
+                .append(",'")
+                .append(token.noOffsetText.replace("'", "''"))
+                .append("')")
+            is PatternToken.ZoneId -> append(
+                when (token.queryMode) {
+                    ZoneQueryMode.ZONE_ID -> "ZoneId()"
+                    ZoneQueryMode.REGION_ONLY -> "ZoneRegionId()"
+                    ZoneQueryMode.ZONE_OR_OFFSET -> "ZoneOrOffsetId()"
+                },
+            )
         }
     }
 }

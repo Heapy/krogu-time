@@ -94,6 +94,33 @@ public class DateTimeFormatterBuilder {
         tokens += PatternToken.Fraction(field, minWidth, maxWidth, decimalPoint)
     }
 
+    /** Appends an ISO zone offset ID, using `Z` for zero. */
+    public fun appendOffsetId(): DateTimeFormatterBuilder = appendOffset("+HH:MM:ss", "Z")
+
+    /** Appends a zone offset using [pattern] and [noOffsetText] for zero. */
+    public fun appendOffset(
+        pattern: String,
+        noOffsetText: String,
+    ): DateTimeFormatterBuilder = apply {
+        validateOffsetPattern(pattern)
+        tokens += PatternToken.Offset(pattern, noOffsetText)
+    }
+
+    /** Appends an explicit zone ID, without falling back to a bare offset. */
+    public fun appendZoneId(): DateTimeFormatterBuilder = apply {
+        tokens += PatternToken.ZoneId(ZoneQueryMode.ZONE_ID)
+    }
+
+    /** Appends a region zone ID and rejects bare offsets while formatting. */
+    public fun appendZoneRegionId(): DateTimeFormatterBuilder = apply {
+        tokens += PatternToken.ZoneId(ZoneQueryMode.REGION_ONLY)
+    }
+
+    /** Appends the best available zone ID or offset ID. */
+    public fun appendZoneOrOffsetId(): DateTimeFormatterBuilder = apply {
+        tokens += PatternToken.ZoneId(ZoneQueryMode.ZONE_OR_OFFSET)
+    }
+
     /** Creates an immutable formatter from the elements appended so far. */
     public fun toFormatter(): DateTimeFormatter = DateTimeFormatter.fromPatternTokens(tokens)
 }
