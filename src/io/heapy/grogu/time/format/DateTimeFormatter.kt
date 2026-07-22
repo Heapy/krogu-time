@@ -47,8 +47,13 @@ public class DateTimeFormatter private constructor(
     public val zone: ZoneId? = null,
 ) {
     /** Formats [temporal] into a string. */
-    public fun format(temporal: TemporalAccessor): String =
-        decimalStyleScope.localize(printer(adjustForFormatting(temporal)), decimalStyle)
+    public fun format(temporal: TemporalAccessor): String {
+        val adjusted = adjustForFormatting(temporal)
+        val formatted = patternTokens?.let { tokens ->
+            formatPattern(tokens, adjusted, locale)
+        } ?: printer(adjusted)
+        return decimalStyleScope.localize(formatted, decimalStyle)
+    }
 
     /** Formats [temporal] and appends the result to [appendable]. */
     public fun formatTo(temporal: TemporalAccessor, appendable: Appendable) {
@@ -65,12 +70,14 @@ public class DateTimeFormatter private constructor(
                 resolverStyle = resolverStyle,
                 chronology = chronology,
                 resolverFields = resolverFields,
+                locale = locale,
             )
             patternTokens != null -> parsePattern(
                 tokens = patternTokens,
                 text = standardized,
                 resolverStyle = resolverStyle,
                 chronology = chronology,
+                locale = locale,
             )
             resolverParser != null -> resolverParser.invoke(standardized, resolverStyle)
             else -> parser(standardized)
@@ -372,12 +379,21 @@ public class DateTimeFormatter private constructor(
         ): DateTimeFormatter {
             val snapshot = tokens.toList()
             return DateTimeFormatter(
-                printer = { temporal -> formatPattern(snapshot, temporal) },
-                parser = { text -> parsePattern(snapshot, text.toString(), ResolverStyle.SMART) },
+                printer = { temporal -> formatPattern(snapshot, temporal, locale) },
+                parser = { text ->
+                    parsePattern(
+                        snapshot,
+                        text.toString(),
+                        ResolverStyle.SMART,
+                        locale = locale,
+                    )
+                },
                 description = describePattern(snapshot),
                 builderTokens = snapshot,
                 locale = locale,
-                resolverParser = { text, style -> parsePattern(snapshot, text, style) },
+                resolverParser = { text, style ->
+                    parsePattern(snapshot, text, style, locale = locale)
+                },
                 patternTokens = snapshot,
                 resolverStyle = ResolverStyle.SMART,
             )
@@ -1006,6 +1022,11 @@ internal sealed interface PatternToken {
         }
     }
 
+    data class LocalizedText(
+        val field: TemporalField,
+        val style: TextStyle,
+    ) : PatternToken
+
     data class Instant(val fractionalDigits: Int) : PatternToken
 
     data class Composite(
@@ -1205,8 +1226,10 @@ private fun validatePatternField(symbol: Char, count: Int) {
         'u', 'y', 'g' -> require(count <= 19) {
             "The count of pattern letters must not exceed 19: $symbol"
         }
-        'Q', 'q' -> require(count <= 2) { "Too many pattern letters: $symbol" }
-        'M', 'd', 'H', 'k', 'K', 'h', 'm', 's' -> require(count <= 2) {
+        'Q', 'q', 'M', 'L' -> require(count <= 5) { "Too many pattern letters: $symbol" }
+        'G', 'E' -> require(count <= 5) { "Too many pattern letters: $symbol" }
+        'a' -> require(count == 1) { "Too many pattern letters: $symbol" }
+        'd', 'H', 'k', 'K', 'h', 'm', 's' -> require(count <= 2) {
             "Too many pattern letters: $symbol"
         }
         'D' -> require(count <= 3) { "Too many pattern letters: $symbol" }
@@ -1240,7 +1263,19 @@ private fun createPatternFieldToken(
         else -> fixedPatternValue(ChronoField.DAY_OF_YEAR, 3)
     }
     'F' -> variablePatternValue(ChronoField.ALIGNED_WEEK_OF_MONTH)
-    'Q', 'q' -> timePatternValue(IsoFields.QUARTER_OF_YEAR, count)
+    'Q', 'q' -> if (count <= 2) {
+        timePatternValue(IsoFields.QUARTER_OF_YEAR, count)
+    } else {
+        localizedPatternText(IsoFields.QUARTER_OF_YEAR, count, symbol == 'q')
+    }
+    'M', 'L' -> if (count <= 2) {
+        timePatternValue(ChronoField.MONTH_OF_YEAR, count)
+    } else {
+        localizedPatternText(ChronoField.MONTH_OF_YEAR, count, symbol == 'L')
+    }
+    'E' -> localizedPatternText(ChronoField.DAY_OF_WEEK, maxOf(count, 3), false)
+    'G' -> localizedPatternText(ChronoField.ERA, maxOf(count, 3), false)
+    'a' -> PatternToken.LocalizedText(ChronoField.AMPM_OF_DAY, TextStyle.SHORT)
     'g' -> PatternToken.Value(JulianFields.MODIFIED_JULIAN_DAY, count, 19, SignStyle.NORMAL)
     'k' -> timePatternValue(ChronoField.CLOCK_HOUR_OF_DAY, count)
     'K' -> timePatternValue(ChronoField.HOUR_OF_AMPM, count)
@@ -1264,9 +1299,27 @@ private fun timePatternValue(
     count: Int,
 ): PatternToken.Value = if (count == 1) variablePatternValue(field) else fixedPatternValue(field, count)
 
+private fun localizedPatternText(
+    field: TemporalField,
+    count: Int,
+    standalone: Boolean,
+): PatternToken.LocalizedText {
+    val normalStyle = when (count) {
+        3 -> TextStyle.SHORT
+        4 -> TextStyle.FULL
+        5 -> TextStyle.NARROW
+        else -> error("Unsupported localized text width: $count")
+    }
+    return PatternToken.LocalizedText(
+        field = field,
+        style = if (standalone) normalStyle.asStandalone() else normalStyle,
+    )
+}
+
 private fun formatPattern(
     tokens: List<PatternToken>,
     temporal: TemporalAccessor,
+    locale: Locale,
 ): String = buildString {
     tokens.forEach { token ->
         when (token) {
@@ -1276,19 +1329,20 @@ private fun formatPattern(
             is PatternToken.ReducedValue -> append(formatPatternReducedValue(token, temporal))
             is PatternToken.Fraction -> append(formatPatternFraction(token, temporal))
             is PatternToken.Text -> append(formatPatternText(token, temporal))
+            is PatternToken.LocalizedText -> append(formatPatternLocalizedText(token, temporal, locale))
             is PatternToken.Instant -> append(formatPatternInstant(token, temporal))
-            is PatternToken.Composite -> append(formatPattern(token.tokens, temporal))
+            is PatternToken.Composite -> append(formatPattern(token.tokens, temporal, locale))
             is PatternToken.Offset -> append(formatBuilderOffset(token, temporal))
             is PatternToken.LocalizedOffset -> append(formatBuilderLocalizedOffset(token, temporal))
             is PatternToken.ZoneId -> append(formatBuilderZoneId(token, temporal))
             PatternToken.ChronologyId -> append(formatBuilderChronologyId(temporal))
             is PatternToken.Optional -> try {
-                append(formatPattern(token.tokens, temporal))
+                append(formatPattern(token.tokens, temporal, locale))
             } catch (_: DateTimeException) {
                 // Missing data suppresses the complete optional section.
             }
             is PatternToken.Padded -> {
-                val formatted = formatPattern(listOf(token.token), temporal)
+                val formatted = formatPattern(listOf(token.token), temporal, locale)
                 if (formatted.length > token.width) {
                     throw DateTimeException(
                         "Cannot print as output of ${formatted.length} characters " +
@@ -1311,6 +1365,20 @@ private fun formatPatternText(
 ): String {
     val value = temporal.getLong(token.field)
     return token.textLookup[value] ?: value.toString()
+}
+
+private fun formatPatternLocalizedText(
+    token: PatternToken.LocalizedText,
+    temporal: TemporalAccessor,
+    locale: Locale,
+): String {
+    val value = temporal.getLong(token.field)
+    val field = token.field.toLocaleTextField() ?: return value.toString()
+    val chronologyId = temporal.query(TemporalQueries.chronology())?.id ?: IsoChronology.id
+    return localeTextValues(locale.toLanguageTag(), chronologyId, field, token.style)
+        .firstOrNull { candidate -> candidate.value == value }
+        ?.text
+        ?: value.toString()
 }
 
 private fun formatBuilderChronologyId(temporal: TemporalAccessor): String =
@@ -1567,6 +1635,7 @@ private fun parsePattern(
     resolverStyle: ResolverStyle,
     chronology: Chronology? = null,
     resolverFields: Set<TemporalField>? = null,
+    locale: Locale = Locale.ROOT,
 ): TemporalAccessor {
     val values = mutableMapOf<TemporalField, Long>()
     var offset: ZoneOffset? = null
@@ -1703,6 +1772,26 @@ private fun parsePattern(
                 }
                 is PatternToken.Text -> {
                     val parsed = parsePatternText(token, input, index, caseSensitive, strict)
+                    val previous = values.put(token.field, parsed.value)
+                    if (previous != null && previous != parsed.value) {
+                        throw DateTimeParseException(
+                            "Conflict found for field ${token.field}",
+                            input,
+                            index,
+                        )
+                    }
+                    index = parsed.endIndex
+                }
+                is PatternToken.LocalizedText -> {
+                    val parsed = parsePatternLocalizedText(
+                        token = token,
+                        text = input,
+                        startIndex = index,
+                        caseSensitive = caseSensitive,
+                        strict = strict,
+                        locale = locale,
+                        chronologyId = effectiveChronology().id,
+                    )
                     val previous = values.put(token.field, parsed.value)
                     if (previous != null && previous != parsed.value) {
                         throw DateTimeParseException(
@@ -2239,6 +2328,52 @@ private fun parsePatternText(
     )
 }
 
+private fun parsePatternLocalizedText(
+    token: PatternToken.LocalizedText,
+    text: String,
+    startIndex: Int,
+    caseSensitive: Boolean,
+    strict: Boolean,
+    locale: Locale,
+    chronologyId: String,
+): ParsedPatternField {
+    val field = token.field.toLocaleTextField()
+    val candidates = if (field == null) {
+        emptyList()
+    } else {
+        val styles = if (strict) listOf(token.style) else TextStyle.entries
+        val valueByText = linkedMapOf<String, Long>()
+        styles.forEach { style ->
+            localeTextValues(locale.toLanguageTag(), chronologyId, field, style).forEach { value ->
+                valueByText[value.text] = value.value
+            }
+        }
+        valueByText.entries
+            .sortedByDescending { entry -> entry.key.length }
+            .map { entry -> LocaleTextValue(entry.value, entry.key) }
+    }
+    candidates.firstOrNull { candidate ->
+        text.matchesAt(startIndex, candidate.text, caseSensitive)
+    }?.let { candidate ->
+        return ParsedPatternField(candidate.value, startIndex + candidate.text.length)
+    }
+    if (strict && candidates.isNotEmpty()) {
+        throw DateTimeParseException(
+            "Text could not be parsed at index $startIndex",
+            text,
+            startIndex,
+        )
+    }
+    return parsePatternValue(
+        tokens = emptyList(),
+        tokenIndex = 0,
+        token = PatternToken.Value(token.field, 1, 19, SignStyle.NORMAL),
+        text = text,
+        startIndex = startIndex,
+        strict = false,
+    )
+}
+
 private data class ParsedPatternFraction(
     val value: Long?,
     val endIndex: Int,
@@ -2358,6 +2493,7 @@ private fun PatternToken.adjacentFixedNumericWidth(): Int? = when (this) {
         minWidth == maxWidth && !decimalPoint
     }
     is PatternToken.Text,
+    is PatternToken.LocalizedText,
     is PatternToken.Instant,
     is PatternToken.Composite,
     is PatternToken.Offset,
@@ -3040,6 +3176,12 @@ private fun describePattern(tokens: List<PatternToken>): String = buildString {
             is PatternToken.Text -> append("Text(")
                 .append(token.field)
                 .append(')')
+            is PatternToken.LocalizedText -> append("Text(")
+                .append(token.field)
+                .apply {
+                    if (token.style != TextStyle.FULL) append(',').append(token.style)
+                }
+                .append(')')
             is PatternToken.Instant -> append("Instant()")
             is PatternToken.Composite -> append('(')
                 .append(token.description)
@@ -3093,6 +3235,15 @@ private fun describePattern(tokens: List<PatternToken>): String = buildString {
                 .append(')')
         }
     }
+}
+
+private fun TemporalField.toLocaleTextField(): LocaleTextField? = when (this) {
+    ChronoField.ERA -> LocaleTextField.ERA
+    ChronoField.MONTH_OF_YEAR -> LocaleTextField.MONTH_OF_YEAR
+    ChronoField.DAY_OF_WEEK -> LocaleTextField.DAY_OF_WEEK
+    ChronoField.AMPM_OF_DAY -> LocaleTextField.AMPM_OF_DAY
+    IsoFields.QUARTER_OF_YEAR -> LocaleTextField.QUARTER_OF_YEAR
+    else -> null
 }
 
 private fun describePatternValue(token: PatternToken.Value): String = when {

@@ -53,11 +53,15 @@ Implemented foundations:
   clock-hour `k`/`K`/`h`, milli/nano-of-day `A`/`N`, raw nano `n`, exact
   fractions, modified-Julian day `g`, numeric quarter `Q`/`q`, reduced years,
   adjacent fields, quoted literals, ISO/RFC-style offsets, and region zone IDs;
+  locale-backed era `G`, format/standalone month `M`/`L`, weekday `E`, AM/PM
+  `a`, and format/standalone quarter `Q`/`q` text in full, short, and narrow
+  styles, with locale-sensitive parsing and immutable `withLocale` behavior;
   Java-compatible aggregate and partial time-field
   normalization for nano/micro/milli, second/minute-of-day, and AM/PM clocks;
   `DateTimeFormatterBuilder` pattern/literal and generic numeric-value
   composition, sign/width controls, integer- and chronology-base-date reduced
-  value windows, fixed-range fractions, immutable custom field-text maps,
+  value windows, fixed-range fractions, immutable custom field-text maps and
+  locale-backed `appendText` overloads,
   default and explicit-width instant formatting/parsing, all custom offset-ID
   patterns, FULL/SHORT `GMT` localized offsets and `O` patterns, explicit
   region/zone/offset query modes, chronology-ID formatting/parsing with
@@ -208,8 +212,9 @@ Implemented foundations:
 - `ChronoField`
 
 Remaining work includes formatters and parsers beyond the implemented ISO
-defaults and amount parsers, locale-backed display names and localized
-formatter factories, and complete cross-type conformance coverage.
+defaults and amount parsers, localized formatter factories, localized week
+pattern letters, day-period and zone-name text, and complete cross-type
+conformance coverage.
 
 The bundled TZDB source is generated reproducibly from the OpenJDK 21
 `lib/tzdb.dat` file by `tools/generate-tzdb-data.rb`.

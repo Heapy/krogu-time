@@ -98,7 +98,7 @@ class DateTimeFormatterJulianQuarterPatternTest {
         assertEquals("Value(QuarterOfYear)", DateTimeFormatter.ofPattern("Q").toString())
         assertEquals("Value(QuarterOfYear,2)", DateTimeFormatter.ofPattern("qq").toString())
 
-        listOf("g".repeat(20), "QQQ", "qqq").forEach { pattern ->
+        listOf("g".repeat(20), "Q".repeat(6), "q".repeat(6)).forEach { pattern ->
             assertFailsWith<IllegalArgumentException>(pattern) {
                 DateTimeFormatter.ofPattern(pattern)
             }

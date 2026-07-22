@@ -192,6 +192,18 @@ public class DateTimeFormatterBuilder {
         activeSection.appendToken(PatternToken.Text(field, snapshot))
     }
 
+    /** Appends the full localized text for [field]. */
+    public fun appendText(field: TemporalField): DateTimeFormatterBuilder =
+        appendText(field, TextStyle.FULL)
+
+    /** Appends localized text for [field] using [textStyle]. */
+    public fun appendText(
+        field: TemporalField,
+        textStyle: TextStyle,
+    ): DateTimeFormatterBuilder = apply {
+        activeSection.appendToken(PatternToken.LocalizedText(field, textStyle))
+    }
+
     /** Appends an instant using zero, three, six, or nine fractional digits as needed. */
     public fun appendInstant(): DateTimeFormatterBuilder = apply {
         activeSection.appendToken(PatternToken.Instant(-2))
