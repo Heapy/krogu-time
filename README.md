@@ -145,12 +145,14 @@ Implemented foundations:
   ordering, with `ZonedDateTime` integration
 - `ChronoPeriod` chronology, unit, sign, arithmetic, normalization, application,
   and generic date-difference contracts, with `Period` integration
-- `Year` core value, leap-year, temporal-field, year-scale arithmetic, and
+- `Year` core value, leap-year, Java-compatible int/long temporal fields,
+  year-scale arithmetic, and
   comparison behavior, including non-ISO epoch-day conversion, ISO-guarded
   temporal adjustment, default parsing, and `atDay` date production plus
   system-default/injected-clock/explicit-zone current-value factories and
   `MonthDay` validation/date production and formatter-based parsing/formatting
-- `MonthDay` value, factories, temporal fields, replacement, year validation,
+- `MonthDay` value, factories, Java-compatible int/long temporal fields,
+  replacement, year validation,
   non-ISO epoch-day conversion, date production and ISO-guarded adjustment,
   ordering, strict ISO parsing, and ISO text output, including system-default/
   injected-clock/explicit-zone current-value factories and formatter-based

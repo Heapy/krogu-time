@@ -79,6 +79,9 @@ public class Year private constructor(
         else -> super<Temporal>.range(field)
     }
 
+    override fun get(field: TemporalField): Int =
+        range(field).checkValidIntValue(getLong(field), field)
+
     override fun getLong(field: TemporalField): Long = when (field) {
         ChronoField.YEAR_OF_ERA -> (if (value < 1) 1 - value else value).toLong()
         ChronoField.YEAR -> value.toLong()

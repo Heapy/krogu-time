@@ -41,6 +41,9 @@ public class MonthDay private constructor(
         else -> field.rangeRefinedBy(this)
     }
 
+    override fun get(field: TemporalField): Int =
+        range(field).checkValidIntValue(getLong(field), field)
+
     override fun getLong(field: TemporalField): Long = when (field) {
         ChronoField.MONTH_OF_YEAR -> monthValue.toLong()
         ChronoField.DAY_OF_MONTH -> dayOfMonth.toLong()
