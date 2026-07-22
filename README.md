@@ -53,7 +53,10 @@ Implemented foundations:
   default and explicit-width instant formatting/parsing, all custom offset-ID
   patterns, explicit region/zone/offset query modes, adjacent fixed-width parsing,
   one-shot custom-character padding and `p` pattern modifiers, nested optional
-  sections through builder methods and bracket patterns,
+  sections through builder methods and bracket patterns, required and optional
+  reuse of complete formatter graphs through `append` and `appendOptional`
+  with outer resolver/chronology/zone/decimal overrides and shared sequential
+  parser settings,
   sequential case/strictness parser controls, parse defaults, unresolved field
   retention, and immutable formatter snapshots; plus
   Java-compatible `ISO_LOCAL_DATE`, `ISO_LOCAL_TIME`,

@@ -24,6 +24,7 @@ class DateTimeFormatterPatternJavaConformanceTest {
             val javaText = javaFormatter.format(javaDateTime)
             val groguText = groguFormatter.format(groguDateTime)
 
+            assertEquals(javaFormatter.toString(), groguFormatter.toString(), pattern)
             assertEquals(javaText, groguText, pattern)
             assertEquals(
                 java.time.LocalDateTime.parse(javaText, javaFormatter).toString(),

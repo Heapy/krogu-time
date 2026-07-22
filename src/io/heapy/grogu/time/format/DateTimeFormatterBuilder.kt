@@ -45,6 +45,18 @@ public class DateTimeFormatterBuilder {
         activeSection.appendToken(PatternToken.DefaultValue(field, value))
     }
 
+    /** Appends every printer/parser element from [formatter]. */
+    public fun append(formatter: DateTimeFormatter): DateTimeFormatterBuilder = apply {
+        activeSection.appendToken(formatter.toBuilderToken())
+    }
+
+    /** Appends every element from [formatter] as one optional section. */
+    public fun appendOptional(formatter: DateTimeFormatter): DateTimeFormatterBuilder = apply {
+        activeSection.appendToken(
+            PatternToken.Optional(listOf(formatter.toBuilderToken())),
+        )
+    }
+
     /** Appends the elements described by [pattern]. */
     public fun appendPattern(pattern: String): DateTimeFormatterBuilder = apply {
         visitPattern(
@@ -260,3 +272,6 @@ internal fun reducedPowerOfTen(power: Int): Long {
     repeat(power) { result *= 10 }
     return result
 }
+
+private fun DateTimeFormatter.toBuilderToken(): PatternToken =
+    PatternToken.Composite(tokensForBuilder().toList(), toString())

@@ -29,6 +29,7 @@ public class DateTimeFormatter private constructor(
     private val printer: (TemporalAccessor) -> String,
     private val parser: (CharSequence) -> TemporalAccessor,
     private val description: String,
+    private val builderTokens: List<PatternToken>,
     private val decimalStyleScope: DecimalStyleScope = DecimalStyleScope.ALL,
     private val resolverParser: ((String, ResolverStyle) -> TemporalAccessor)? = null,
     private val patternTokens: List<PatternToken>? = null,
@@ -61,6 +62,8 @@ public class DateTimeFormatter private constructor(
         }
     }
 
+    internal fun tokensForBuilder(): List<PatternToken> = builderTokens
+
     /** Returns a formatter using [decimalStyle] for numeric symbols. */
     public fun withDecimalStyle(decimalStyle: DecimalStyle): DateTimeFormatter =
         if (decimalStyle == this.decimalStyle) {
@@ -73,6 +76,7 @@ public class DateTimeFormatter private constructor(
                 decimalStyleScope = decimalStyleScope,
                 resolverParser = resolverParser,
                 patternTokens = patternTokens,
+                builderTokens = builderTokens,
                 decimalStyle = decimalStyle,
                 resolverStyle = resolverStyle,
                 chronology = chronology,
@@ -92,6 +96,7 @@ public class DateTimeFormatter private constructor(
                 decimalStyleScope = decimalStyleScope,
                 resolverParser = resolverParser,
                 patternTokens = patternTokens,
+                builderTokens = builderTokens,
                 decimalStyle = decimalStyle,
                 resolverStyle = resolverStyle,
                 chronology = chronology,
@@ -111,6 +116,7 @@ public class DateTimeFormatter private constructor(
                 decimalStyleScope = decimalStyleScope,
                 resolverParser = resolverParser,
                 patternTokens = patternTokens,
+                builderTokens = builderTokens,
                 decimalStyle = decimalStyle,
                 resolverStyle = resolverStyle,
                 chronology = chronology,
@@ -130,6 +136,7 @@ public class DateTimeFormatter private constructor(
                 decimalStyleScope = decimalStyleScope,
                 resolverParser = resolverParser,
                 patternTokens = patternTokens,
+                builderTokens = builderTokens,
                 decimalStyle = decimalStyle,
                 resolverStyle = resolverStyle,
                 chronology = chronology,
@@ -277,6 +284,7 @@ public class DateTimeFormatter private constructor(
                 printer = { temporal -> formatPattern(snapshot, temporal) },
                 parser = { text -> parsePattern(snapshot, text.toString(), ResolverStyle.SMART) },
                 description = describePattern(snapshot),
+                builderTokens = snapshot,
                 resolverParser = { text, style -> parsePattern(snapshot, text, style) },
                 patternTokens = snapshot,
                 resolverStyle = ResolverStyle.SMART,
@@ -294,6 +302,7 @@ public class DateTimeFormatter private constructor(
                     date = parseResolvedIsoDate(text, style, "ISO local date"),
                 )
             },
+            builderTokens = isoLocalDateBuilderTokens(),
             chronology = IsoChronology,
         )
 
@@ -311,6 +320,7 @@ public class DateTimeFormatter private constructor(
             resolverParser = { text, style ->
                 parseIsoDate(text, offsetRequired = true, resolverStyle = style)
             },
+            builderTokens = isoOffsetDateBuilderTokens(),
             chronology = IsoChronology,
         )
 
@@ -333,6 +343,7 @@ public class DateTimeFormatter private constructor(
             resolverParser = { text, style ->
                 parseIsoDate(text, offsetRequired = false, resolverStyle = style)
             },
+            builderTokens = isoDateBuilderTokens(),
             chronology = IsoChronology,
         )
 
@@ -345,6 +356,7 @@ public class DateTimeFormatter private constructor(
                     "[':'Value(SecondOfMinute,2)" +
                     "[Fraction(NanoOfSecond,0,9,DecimalPoint)]]",
             resolverParser = { text, style -> parseResolvedIsoTimeAccessor(text, style) },
+            builderTokens = isoLocalTimeBuilderTokens(),
         )
 
         /** The strict ISO formatter for a time with an optional offset. */
@@ -368,6 +380,7 @@ public class DateTimeFormatter private constructor(
             resolverParser = { text, style ->
                 parseIsoTime(text, offsetRequired = false, resolverStyle = style)
             },
+            builderTokens = isoTimeBuilderTokens(),
         )
 
         /** The strict ISO formatter for a date-time without an offset. */
@@ -385,6 +398,7 @@ public class DateTimeFormatter private constructor(
                 val dateTime = parseResolvedIsoDateTime(text, style)
                 ParsedTemporalAccessor(date = dateTime.date, time = dateTime.time)
             },
+            builderTokens = isoLocalDateTimeBuilderTokens(),
             chronology = IsoChronology,
         )
 
@@ -422,6 +436,7 @@ public class DateTimeFormatter private constructor(
                     resolverStyle = style,
                 )
             },
+            builderTokens = isoDateTimeBuilderTokens(),
             chronology = IsoChronology,
         )
 
@@ -442,6 +457,7 @@ public class DateTimeFormatter private constructor(
                     "[Offset(+HH:MM:ss,'Z')]",
             decimalStyleScope = DecimalStyleScope.BEFORE_ISO_OFFSET,
             resolverParser = { text, style -> parseIsoOrdinalDate(text, style) },
+            builderTokens = isoOrdinalDateBuilderTokens(),
             chronology = IsoChronology,
         )
 
@@ -465,6 +481,7 @@ public class DateTimeFormatter private constructor(
                     "[Offset(+HH:MM:ss,'Z')]",
             decimalStyleScope = DecimalStyleScope.BEFORE_ISO_OFFSET,
             resolverParser = { text, style -> parseIsoWeekDate(text, style) },
+            builderTokens = isoWeekDateBuilderTokens(),
             chronology = IsoChronology,
         )
 
@@ -491,6 +508,7 @@ public class DateTimeFormatter private constructor(
                     "[ParseStrict(false)Offset(+HHMMss,'Z')ParseStrict(true)]",
             decimalStyleScope = DecimalStyleScope.BASIC_DATE,
             resolverParser = { text, style -> parseBasicIsoDate(text, style) },
+            builderTokens = basicIsoDateBuilderTokens(),
             chronology = IsoChronology,
         )
 
@@ -507,6 +525,7 @@ public class DateTimeFormatter private constructor(
                     "[':'Value(SecondOfMinute,2)]' 'Offset(+HHMM,'GMT')",
             decimalStyleScope = DecimalStyleScope.BEFORE_RFC_OFFSET,
             resolverParser = { text, style -> parseRfc1123(text, style) },
+            builderTokens = rfc1123BuilderTokens(),
             resolverStyle = ResolverStyle.SMART,
             chronology = IsoChronology,
         )
@@ -517,6 +536,7 @@ public class DateTimeFormatter private constructor(
             parser = { text -> parseIsoInstant(text) },
             description = "ParseCaseSensitive(false)Instant()",
             decimalStyleScope = DecimalStyleScope.NONE,
+            builderTokens = isoInstantBuilderTokens(),
         )
 
         /** The strict ISO formatter for a time with an offset. */
@@ -536,6 +556,7 @@ public class DateTimeFormatter private constructor(
             resolverParser = { text, style ->
                 parseIsoTime(text, offsetRequired = true, resolverStyle = style)
             },
+            builderTokens = isoOffsetTimeBuilderTokens(),
         )
 
         /** The strict ISO formatter for a date-time with an offset. */
@@ -562,6 +583,7 @@ public class DateTimeFormatter private constructor(
                     resolverStyle = style,
                 )
             },
+            builderTokens = isoOffsetDateTimeBuilderTokens(),
             chronology = IsoChronology,
         )
 
@@ -600,6 +622,7 @@ public class DateTimeFormatter private constructor(
                     resolverStyle = style,
                 )
             },
+            builderTokens = isoZonedDateTimeBuilderTokens(),
             chronology = IsoChronology,
         )
 
@@ -618,6 +641,236 @@ public class DateTimeFormatter private constructor(
         }
     }
 }
+
+private fun isoLocalDateBuilderTokens(): List<PatternToken> = listOf(
+    PatternToken.Value(ChronoField.YEAR, 4, 10, SignStyle.EXCEEDS_PAD),
+    PatternToken.Literal("-"),
+    PatternToken.Value(ChronoField.MONTH_OF_YEAR, 2, 2, SignStyle.NOT_NEGATIVE),
+    PatternToken.Literal("-"),
+    PatternToken.Value(ChronoField.DAY_OF_MONTH, 2, 2, SignStyle.NOT_NEGATIVE),
+)
+
+private fun isoOffsetDateBuilderTokens(): List<PatternToken> = listOf(
+    PatternToken.ParseSetting(ParserSetting.CASE_INSENSITIVE),
+    PatternToken.Composite(
+        isoLocalDateBuilderTokens(),
+        "Value(Year,4,10,EXCEEDS_PAD)'-'Value(MonthOfYear,2)'-'Value(DayOfMonth,2)",
+    ),
+    PatternToken.Offset("+HH:MM:ss", "Z"),
+)
+
+private fun isoDateBuilderTokens(): List<PatternToken> = listOf(
+    PatternToken.ParseSetting(ParserSetting.CASE_INSENSITIVE),
+    PatternToken.Composite(
+        isoLocalDateBuilderTokens(),
+        "Value(Year,4,10,EXCEEDS_PAD)'-'Value(MonthOfYear,2)'-'Value(DayOfMonth,2)",
+    ),
+    PatternToken.Optional(listOf(PatternToken.Offset("+HH:MM:ss", "Z"))),
+)
+
+private fun isoLocalTimeBuilderTokens(): List<PatternToken> = listOf(
+    PatternToken.Value(ChronoField.HOUR_OF_DAY, 2, 2, SignStyle.NOT_NEGATIVE),
+    PatternToken.Literal(":"),
+    PatternToken.Value(ChronoField.MINUTE_OF_HOUR, 2, 2, SignStyle.NOT_NEGATIVE),
+    PatternToken.Optional(
+        listOf(
+            PatternToken.Literal(":"),
+            PatternToken.Value(ChronoField.SECOND_OF_MINUTE, 2, 2, SignStyle.NOT_NEGATIVE),
+            PatternToken.Optional(
+                listOf(PatternToken.Fraction(ChronoField.NANO_OF_SECOND, 0, 9, true)),
+            ),
+        ),
+    ),
+)
+
+private fun isoTimeBuilderTokens(): List<PatternToken> = listOf(
+    PatternToken.ParseSetting(ParserSetting.CASE_INSENSITIVE),
+    PatternToken.Composite(
+        isoLocalTimeBuilderTokens(),
+        "Value(HourOfDay,2)':'Value(MinuteOfHour,2)" +
+            "[':'Value(SecondOfMinute,2)[Fraction(NanoOfSecond,0,9,DecimalPoint)]]",
+    ),
+    PatternToken.Optional(listOf(PatternToken.Offset("+HH:MM:ss", "Z"))),
+)
+
+private fun isoLocalDateTimeBuilderTokens(): List<PatternToken> = listOf(
+    PatternToken.ParseSetting(ParserSetting.CASE_INSENSITIVE),
+    PatternToken.Composite(
+        isoLocalDateBuilderTokens(),
+        "Value(Year,4,10,EXCEEDS_PAD)'-'Value(MonthOfYear,2)'-'Value(DayOfMonth,2)",
+    ),
+    PatternToken.Literal("T"),
+    PatternToken.Composite(
+        isoLocalTimeBuilderTokens(),
+        "Value(HourOfDay,2)':'Value(MinuteOfHour,2)" +
+            "[':'Value(SecondOfMinute,2)[Fraction(NanoOfSecond,0,9,DecimalPoint)]]",
+    ),
+)
+
+private fun isoDateTimeBuilderTokens(): List<PatternToken> = listOf(
+    PatternToken.Composite(
+        isoLocalDateTimeBuilderTokens(),
+        "ParseCaseSensitive(false)" +
+            "(Value(Year,4,10,EXCEEDS_PAD)'-'Value(MonthOfYear,2)" +
+            "'-'Value(DayOfMonth,2))'T'" +
+            "(Value(HourOfDay,2)':'Value(MinuteOfHour,2)" +
+            "[':'Value(SecondOfMinute,2)" +
+            "[Fraction(NanoOfSecond,0,9,DecimalPoint)]])",
+    ),
+    PatternToken.Optional(
+        listOf(
+            PatternToken.Offset("+HH:MM:ss", "Z"),
+            PatternToken.Optional(
+                listOf(
+                    PatternToken.Literal("["),
+                    PatternToken.ParseSetting(ParserSetting.CASE_SENSITIVE),
+                    PatternToken.ZoneId(ZoneQueryMode.REGION_ONLY),
+                    PatternToken.Literal("]"),
+                ),
+            ),
+        ),
+    ),
+)
+
+private fun isoOrdinalDateBuilderTokens(): List<PatternToken> = listOf(
+    PatternToken.ParseSetting(ParserSetting.CASE_INSENSITIVE),
+    PatternToken.Value(ChronoField.YEAR, 4, 10, SignStyle.EXCEEDS_PAD),
+    PatternToken.Literal("-"),
+    PatternToken.Value(ChronoField.DAY_OF_YEAR, 3, 3, SignStyle.NOT_NEGATIVE),
+    PatternToken.Optional(listOf(PatternToken.Offset("+HH:MM:ss", "Z"))),
+)
+
+private fun isoWeekDateBuilderTokens(): List<PatternToken> = listOf(
+    PatternToken.ParseSetting(ParserSetting.CASE_INSENSITIVE),
+    PatternToken.Value(IsoFields.WEEK_BASED_YEAR, 4, 10, SignStyle.EXCEEDS_PAD),
+    PatternToken.Literal("-W"),
+    PatternToken.Value(IsoFields.WEEK_OF_WEEK_BASED_YEAR, 2, 2, SignStyle.NOT_NEGATIVE),
+    PatternToken.Literal("-"),
+    PatternToken.Value(ChronoField.DAY_OF_WEEK, 1, 1, SignStyle.NOT_NEGATIVE),
+    PatternToken.Optional(listOf(PatternToken.Offset("+HH:MM:ss", "Z"))),
+)
+
+private fun basicIsoDateBuilderTokens(): List<PatternToken> = listOf(
+    PatternToken.ParseSetting(ParserSetting.CASE_INSENSITIVE),
+    PatternToken.Value(ChronoField.YEAR, 4, 4, SignStyle.NOT_NEGATIVE),
+    PatternToken.Value(ChronoField.MONTH_OF_YEAR, 2, 2, SignStyle.NOT_NEGATIVE),
+    PatternToken.Value(ChronoField.DAY_OF_MONTH, 2, 2, SignStyle.NOT_NEGATIVE),
+    PatternToken.Optional(
+        listOf(
+            PatternToken.ParseSetting(ParserSetting.LENIENT),
+            PatternToken.Offset("+HHMMss", "Z"),
+            PatternToken.ParseSetting(ParserSetting.STRICT),
+        ),
+    ),
+)
+
+private fun rfc1123BuilderTokens(): List<PatternToken> = listOf(
+    PatternToken.ParseSetting(ParserSetting.CASE_INSENSITIVE),
+    PatternToken.ParseSetting(ParserSetting.LENIENT),
+    PatternToken.Optional(
+        listOf(
+            PatternToken.Text(
+                ChronoField.DAY_OF_WEEK,
+                linkedMapOf(
+                    1L to "Mon",
+                    2L to "Tue",
+                    3L to "Wed",
+                    4L to "Thu",
+                    5L to "Fri",
+                    6L to "Sat",
+                    7L to "Sun",
+                ),
+            ),
+            PatternToken.Literal(", "),
+        ),
+    ),
+    PatternToken.Value(ChronoField.DAY_OF_MONTH, 1, 2, SignStyle.NOT_NEGATIVE),
+    PatternToken.Literal(" "),
+    PatternToken.Text(
+        ChronoField.MONTH_OF_YEAR,
+        linkedMapOf(
+            1L to "Jan",
+            2L to "Feb",
+            3L to "Mar",
+            4L to "Apr",
+            5L to "May",
+            6L to "Jun",
+            7L to "Jul",
+            8L to "Aug",
+            9L to "Sep",
+            10L to "Oct",
+            11L to "Nov",
+            12L to "Dec",
+        ),
+    ),
+    PatternToken.Literal(" "),
+    PatternToken.Value(ChronoField.YEAR, 4, 4, SignStyle.NOT_NEGATIVE),
+    PatternToken.Literal(" "),
+    PatternToken.Value(ChronoField.HOUR_OF_DAY, 2, 2, SignStyle.NOT_NEGATIVE),
+    PatternToken.Literal(":"),
+    PatternToken.Value(ChronoField.MINUTE_OF_HOUR, 2, 2, SignStyle.NOT_NEGATIVE),
+    PatternToken.Optional(
+        listOf(
+            PatternToken.Literal(":"),
+            PatternToken.Value(ChronoField.SECOND_OF_MINUTE, 2, 2, SignStyle.NOT_NEGATIVE),
+        ),
+    ),
+    PatternToken.Literal(" "),
+    PatternToken.Offset("+HHMM", "GMT"),
+)
+
+private fun isoOffsetTimeBuilderTokens(): List<PatternToken> = listOf(
+    PatternToken.ParseSetting(ParserSetting.CASE_INSENSITIVE),
+    PatternToken.Composite(
+        isoLocalTimeBuilderTokens(),
+        "Value(HourOfDay,2)':'Value(MinuteOfHour,2)" +
+            "[':'Value(SecondOfMinute,2)[Fraction(NanoOfSecond,0,9,DecimalPoint)]]",
+    ),
+    PatternToken.Offset("+HH:MM:ss", "Z"),
+)
+
+private fun isoOffsetDateTimeBuilderTokens(): List<PatternToken> = listOf(
+    PatternToken.ParseSetting(ParserSetting.CASE_INSENSITIVE),
+    PatternToken.Composite(
+        isoLocalDateTimeBuilderTokens(),
+        "ParseCaseSensitive(false)" +
+            "(Value(Year,4,10,EXCEEDS_PAD)'-'Value(MonthOfYear,2)" +
+            "'-'Value(DayOfMonth,2))'T'" +
+            "(Value(HourOfDay,2)':'Value(MinuteOfHour,2)" +
+            "[':'Value(SecondOfMinute,2)" +
+            "[Fraction(NanoOfSecond,0,9,DecimalPoint)]])",
+    ),
+    PatternToken.ParseSetting(ParserSetting.LENIENT),
+    PatternToken.Offset("+HH:MM:ss", "Z"),
+    PatternToken.ParseSetting(ParserSetting.STRICT),
+)
+
+private fun isoZonedDateTimeBuilderTokens(): List<PatternToken> = listOf(
+    PatternToken.Composite(
+        isoOffsetDateTimeBuilderTokens(),
+        "ParseCaseSensitive(false)" +
+            "(ParseCaseSensitive(false)" +
+            "(Value(Year,4,10,EXCEEDS_PAD)'-'Value(MonthOfYear,2)" +
+            "'-'Value(DayOfMonth,2))'T'" +
+            "(Value(HourOfDay,2)':'Value(MinuteOfHour,2)" +
+            "[':'Value(SecondOfMinute,2)" +
+            "[Fraction(NanoOfSecond,0,9,DecimalPoint)]]))" +
+            "ParseStrict(false)Offset(+HH:MM:ss,'Z')ParseStrict(true)",
+    ),
+    PatternToken.Optional(
+        listOf(
+            PatternToken.Literal("["),
+            PatternToken.ParseSetting(ParserSetting.CASE_SENSITIVE),
+            PatternToken.ZoneId(ZoneQueryMode.REGION_ONLY),
+            PatternToken.Literal("]"),
+        ),
+    ),
+)
+
+private fun isoInstantBuilderTokens(): List<PatternToken> = listOf(
+    PatternToken.ParseSetting(ParserSetting.CASE_INSENSITIVE),
+    PatternToken.Instant(-2),
+)
 
 internal sealed interface PatternToken {
     data class Literal(val text: String) : PatternToken
@@ -662,6 +915,11 @@ internal sealed interface PatternToken {
     }
 
     data class Instant(val fractionalDigits: Int) : PatternToken
+
+    data class Composite(
+        val tokens: List<PatternToken>,
+        val description: String,
+    ) : PatternToken
 
     data class Offset(
         val pattern: String,
@@ -839,21 +1097,7 @@ internal fun PatternSection.appendToken(token: PatternToken) {
 }
 
 internal fun MutableList<PatternToken>.appendPatternToken(token: PatternToken) {
-    if (token is PatternToken.Literal) {
-        appendPatternLiteral(token.text)
-    } else {
-        add(token)
-    }
-}
-
-internal fun MutableList<PatternToken>.appendPatternLiteral(text: String) {
-    if (text.isEmpty()) return
-    val previous = lastOrNull()
-    if (previous is PatternToken.Literal) {
-        this[lastIndex] = PatternToken.Literal(previous.text + text)
-    } else {
-        add(PatternToken.Literal(text))
-    }
+    if (token !is PatternToken.Literal || token.text.isNotEmpty()) add(token)
 }
 
 private fun Char.isAsciiLetter(): Boolean = this in 'A'..'Z' || this in 'a'..'z'
@@ -884,6 +1128,7 @@ private fun formatPattern(
             is PatternToken.Fraction -> append(formatPatternFraction(token, temporal))
             is PatternToken.Text -> append(formatPatternText(token, temporal))
             is PatternToken.Instant -> append(formatPatternInstant(token, temporal))
+            is PatternToken.Composite -> append(formatPattern(token.tokens, temporal))
             is PatternToken.Offset -> append(formatBuilderOffset(token, temporal))
             is PatternToken.ZoneId -> append(formatBuilderZoneId(token, temporal))
             is PatternToken.Optional -> try {
@@ -1301,6 +1546,7 @@ private fun parsePattern(
                     leapSecond = leapSecond || parsed.leapSecond
                     index = parsed.endIndex
                 }
+                is PatternToken.Composite -> parseTokens(token.tokens, input)
                 is PatternToken.Offset -> {
                     val parsed = parseBuilderOffset(token, input, index, caseSensitive, strict)
                     storeOffset(parsed, index, input)
@@ -1866,6 +2112,7 @@ private fun PatternToken.adjacentFixedNumericWidth(): Int? = when (this) {
     }
     is PatternToken.Text,
     is PatternToken.Instant,
+    is PatternToken.Composite,
     is PatternToken.Offset,
     is PatternToken.ZoneId,
     is PatternToken.ParseSetting,
@@ -2089,8 +2336,10 @@ private fun resolvePatternTime(
 private fun describePattern(tokens: List<PatternToken>): String = buildString {
     tokens.forEach { token ->
         when (token) {
-            is PatternToken.Literal -> append('\'').append(token.text).append('\'')
-            is PatternToken.Field -> append("Value(").append(token.symbol).append(',').append(token.count).append(')')
+            is PatternToken.Literal -> append('\'')
+                .append(token.text.replace("'", "''"))
+                .append('\'')
+            is PatternToken.Field -> append(describePatternField(token))
             is PatternToken.Value -> append("Value(")
                 .append(token.field)
                 .append(',')
@@ -2127,6 +2376,9 @@ private fun describePattern(tokens: List<PatternToken>): String = buildString {
                 .append(token.field)
                 .append(')')
             is PatternToken.Instant -> append("Instant()")
+            is PatternToken.Composite -> append('(')
+                .append(token.description)
+                .append(')')
             is PatternToken.Offset -> append("Offset(")
                 .append(token.pattern)
                 .append(",'")
@@ -2153,7 +2405,12 @@ private fun describePattern(tokens: List<PatternToken>): String = buildString {
                 .append(token.value)
                 .append(')')
             is PatternToken.Optional -> append('[')
-                .append(describePattern(token.tokens))
+                .append(
+                    when (val optionalToken = token.tokens.singleOrNull()) {
+                        is PatternToken.Composite -> optionalToken.description
+                        else -> describePattern(token.tokens)
+                    },
+                )
                 .append(']')
             is PatternToken.Padded -> append("Pad(")
                 .append(describePattern(listOf(token.token)))
@@ -2166,6 +2423,36 @@ private fun describePattern(tokens: List<PatternToken>): String = buildString {
                 }
                 .append(')')
         }
+    }
+}
+
+private fun describePatternField(token: PatternToken.Field): String {
+    val field = when (token.symbol) {
+        'u' -> ChronoField.YEAR
+        'y' -> ChronoField.YEAR_OF_ERA
+        'M' -> ChronoField.MONTH_OF_YEAR
+        'd' -> ChronoField.DAY_OF_MONTH
+        'H' -> ChronoField.HOUR_OF_DAY
+        'm' -> ChronoField.MINUTE_OF_HOUR
+        's' -> ChronoField.SECOND_OF_MINUTE
+        'S' -> ChronoField.NANO_OF_SECOND
+        'V' -> return "ZoneId()"
+        else -> return "Value(${token.symbol},${token.count})"
+    }
+    return when {
+        token.symbol in listOf('u', 'y') && token.count == 2 ->
+            "ReducedValue($field,2,2,2000-01-01)"
+        token.symbol in listOf('u', 'y') -> {
+            val signStyle = if (token.count < 4) SignStyle.NORMAL else SignStyle.EXCEEDS_PAD
+            if (token.count == 1) {
+                "Value($field)"
+            } else {
+                "Value($field,${token.count},19,$signStyle)"
+            }
+        }
+        token.symbol == 'S' -> "Fraction($field,${token.count},${token.count})"
+        token.count == 1 -> "Value($field)"
+        else -> "Value($field,${token.count})"
     }
 }
 
