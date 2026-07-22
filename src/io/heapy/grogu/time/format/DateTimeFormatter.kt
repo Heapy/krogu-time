@@ -1,5 +1,6 @@
 package io.heapy.grogu.time.format
 
+import io.heapy.grogu.time.DateTimeException
 import io.heapy.grogu.time.Instant
 import io.heapy.grogu.time.LocalDate
 import io.heapy.grogu.time.LocalDateTime
@@ -11,6 +12,7 @@ import io.heapy.grogu.time.ZoneOffset
 import io.heapy.grogu.time.ZonedDateTime
 import io.heapy.grogu.time.chrono.IsoChronology
 import io.heapy.grogu.time.temporal.ChronoField
+import io.heapy.grogu.time.temporal.IsoFields
 import io.heapy.grogu.time.temporal.TemporalAccessor
 import io.heapy.grogu.time.temporal.TemporalField
 import io.heapy.grogu.time.temporal.TemporalQueries
@@ -150,6 +152,68 @@ public class DateTimeFormatter private constructor(
                     "['['ParseCaseSensitive(true)ZoneRegionId()']']]",
         )
 
+        /** The strict ISO formatter for a year and day-of-year with an optional offset. */
+        public val ISO_ORDINAL_DATE: DateTimeFormatter = DateTimeFormatter(
+            printer = { temporal ->
+                val date = LocalDate.from(temporal)
+                buildString {
+                    append(formatIsoYear(date.year))
+                    append('-')
+                    append(date.dayOfYear.toString().padStart(3, '0'))
+                    appendOptionalIsoOffset(temporal)
+                }
+            },
+            parser = { text -> parseIsoOrdinalDate(text) },
+            description =
+                "ParseCaseSensitive(false)" +
+                    "Value(Year,4,10,EXCEEDS_PAD)'-'Value(DayOfYear,3)" +
+                    "[Offset(+HH:MM:ss,'Z')]",
+        )
+
+        /** The strict ISO formatter for a week-based date with an optional offset. */
+        public val ISO_WEEK_DATE: DateTimeFormatter = DateTimeFormatter(
+            printer = { temporal ->
+                val date = LocalDate.from(temporal)
+                buildString {
+                    append(formatIsoYear(date.get(IsoFields.WEEK_BASED_YEAR)))
+                    append("-W")
+                    append(date.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR).toString().padStart(2, '0'))
+                    append('-')
+                    append(date.dayOfWeek.value)
+                    appendOptionalIsoOffset(temporal)
+                }
+            },
+            parser = { text -> parseIsoWeekDate(text) },
+            description =
+                "ParseCaseSensitive(false)" +
+                    "Value(WeekBasedYear,4,10,EXCEEDS_PAD)'-W'" +
+                    "Value(WeekOfWeekBasedYear,2)'-'Value(DayOfWeek,1)" +
+                    "[Offset(+HH:MM:ss,'Z')]",
+        )
+
+        /** The strict basic ISO date formatter with an optional compact offset. */
+        public val BASIC_ISO_DATE: DateTimeFormatter = DateTimeFormatter(
+            printer = { temporal ->
+                val date = LocalDate.from(temporal)
+                if (date.year !in 0..9_999) {
+                    throw DateTimeException("Year cannot be printed as four digits: ${date.year}")
+                }
+                buildString {
+                    append(date.year.toString().padStart(4, '0'))
+                    append(date.monthValue.toString().padStart(2, '0'))
+                    append(date.dayOfMonth.toString().padStart(2, '0'))
+                    if (temporal.isSupported(ChronoField.OFFSET_SECONDS)) {
+                        append(formatBasicOffset(ZoneOffset.from(temporal)))
+                    }
+                }
+            },
+            parser = { text -> parseBasicIsoDate(text) },
+            description =
+                "ParseCaseSensitive(false)Value(Year,4)" +
+                    "Value(MonthOfYear,2)Value(DayOfMonth,2)" +
+                    "[ParseStrict(false)Offset(+HHMMss,'Z')ParseStrict(true)]",
+        )
+
         /** The strict ISO formatter for an instant in UTC. */
         public val ISO_INSTANT: DateTimeFormatter = DateTimeFormatter(
             printer = { temporal -> Instant.from(temporal).toString() },
@@ -221,6 +285,33 @@ public class DateTimeFormatter private constructor(
 
 private fun formatIsoLocalDateTime(dateTime: LocalDateTime): String =
     "${dateTime.date}T${formatIsoLocalTime(dateTime.time)}"
+
+private fun formatIsoYear(year: Int): String = when {
+    year in 0..999 -> year.toString().padStart(4, '0')
+    year in -999..-1 -> "-" + (-year).toString().padStart(4, '0')
+    year > 9_999 -> "+$year"
+    else -> year.toString()
+}
+
+private fun StringBuilder.appendOptionalIsoOffset(temporal: TemporalAccessor) {
+    if (temporal.isSupported(ChronoField.OFFSET_SECONDS)) {
+        append(ZoneOffset.from(temporal))
+    }
+}
+
+private fun formatBasicOffset(offset: ZoneOffset): String {
+    if (offset == ZoneOffset.UTC) return "Z"
+    val totalSeconds = kotlin.math.abs(offset.totalSeconds)
+    val hours = totalSeconds / 3_600
+    val minutes = totalSeconds / 60 % 60
+    val seconds = totalSeconds % 60
+    return buildString {
+        append(if (offset.totalSeconds < 0) '-' else '+')
+        append(hours.toString().padStart(2, '0'))
+        append(minutes.toString().padStart(2, '0'))
+        if (seconds != 0) append(seconds.toString().padStart(2, '0'))
+    }
+}
 
 private fun parseIsoDate(
     text: CharSequence,
@@ -338,6 +429,142 @@ private fun parseIsoDateTime(text: CharSequence): TemporalAccessor {
         offset = offset,
         zone = zone,
     )
+}
+
+private fun parseIsoOrdinalDate(text: CharSequence): TemporalAccessor {
+    val input = text.toString()
+    val offsetStart = isoOffsetStart(input)
+    val mainText = input.substring(0, offsetStart ?: input.length)
+    val separator = mainText.lastIndexOf('-')
+    if (separator <= 0 || mainText.length - separator != 4) {
+        throw DateTimeParseException("Text cannot be parsed to an ISO ordinal date", input, 0)
+    }
+    val year = parseIsoYear(mainText.substring(0, separator), input, "ISO ordinal date")
+    val dayOfYear = parseFixedDigits(
+        mainText,
+        separator + 1,
+        3,
+        input,
+        "ISO ordinal date",
+    )
+    val date = try {
+        LocalDate.ofYearDay(year, dayOfYear)
+    } catch (exception: RuntimeException) {
+        throw DateTimeParseException(
+            "Text cannot be parsed to an ISO ordinal date",
+            input,
+            0,
+            exception,
+        )
+    }
+    val offset = offsetStart?.let { index -> parseIsoOffset(input, index, "ISO ordinal date") }
+    return ParsedTemporalAccessor(date = date, offset = offset)
+}
+
+private fun parseIsoWeekDate(text: CharSequence): TemporalAccessor {
+    val input = text.toString()
+    val offsetStart = isoOffsetStart(input)
+    val mainText = input.substring(0, offsetStart ?: input.length)
+    val marker = (1..<mainText.length - 1).firstOrNull { index ->
+        mainText[index] == '-' && mainText[index + 1].equals('W', ignoreCase = true)
+    } ?: throw DateTimeParseException("Text cannot be parsed to an ISO week date", input, 0)
+    if (mainText.length != marker + 6 || mainText[marker + 4] != '-') {
+        throw DateTimeParseException("Text cannot be parsed to an ISO week date", input, marker)
+    }
+    val weekBasedYear = parseIsoYear(
+        mainText.substring(0, marker),
+        input,
+        "ISO week date",
+    )
+    val week = parseFixedDigits(mainText, marker + 2, 2, input, "ISO week date")
+    val dayOfWeek = parseFixedDigits(mainText, marker + 5, 1, input, "ISO week date")
+    val date = try {
+        if (week !in 1..53 || dayOfWeek !in 1..7) throw DateTimeException("Invalid ISO week date")
+        val januaryFourth = LocalDate.of(weekBasedYear, 1, 4)
+        val firstMonday = januaryFourth.minusDays((januaryFourth.dayOfWeek.value - 1).toLong())
+        firstMonday.plusWeeks((week - 1).toLong()).plusDays((dayOfWeek - 1).toLong()).also {
+            if (
+                it.get(IsoFields.WEEK_BASED_YEAR) != weekBasedYear ||
+                it.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR) != week
+            ) {
+                throw DateTimeException("Invalid ISO week date")
+            }
+        }
+    } catch (exception: RuntimeException) {
+        throw DateTimeParseException(
+            "Text cannot be parsed to an ISO week date",
+            input,
+            0,
+            exception,
+        )
+    }
+    val offset = offsetStart?.let { index -> parseIsoOffset(input, index, "ISO week date") }
+    return ParsedTemporalAccessor(date = date, offset = offset)
+}
+
+private fun parseBasicIsoDate(text: CharSequence): TemporalAccessor {
+    val input = text.toString()
+    if (input.length < 8) {
+        throw DateTimeParseException("Text cannot be parsed to a basic ISO date", input, input.length)
+    }
+    val year = parseFixedDigits(input, 0, 4, input, "basic ISO date")
+    val month = parseFixedDigits(input, 4, 2, input, "basic ISO date")
+    val day = parseFixedDigits(input, 6, 2, input, "basic ISO date")
+    val date = try {
+        LocalDate.of(year, month, day)
+    } catch (exception: RuntimeException) {
+        throw DateTimeParseException(
+            "Text cannot be parsed to a basic ISO date",
+            input,
+            0,
+            exception,
+        )
+    }
+    val offset = if (input.length == 8) {
+        null
+    } else {
+        val offsetText = input.substring(8)
+        val validOffset = offsetText.equals("Z", ignoreCase = true) ||
+            offsetText.length in listOf(3, 5, 7) &&
+            offsetText[0] in "+-" &&
+            offsetText.drop(1).all { it in '0'..'9' }
+        if (!validOffset) {
+            throw DateTimeParseException("Text cannot be parsed to a basic ISO date", input, 8)
+        }
+        try {
+            ZoneOffset.of(if (offsetText.equals("z", ignoreCase = true)) "Z" else offsetText)
+        } catch (exception: RuntimeException) {
+            throw DateTimeParseException(
+                "Text cannot be parsed to a basic ISO date",
+                input,
+                8,
+                exception,
+            )
+        }
+    }
+    return ParsedTemporalAccessor(date = date, offset = offset)
+}
+
+private fun parseIsoYear(text: String, input: String, target: String): Int = try {
+    LocalDate.parse("$text-01-01").year
+} catch (exception: RuntimeException) {
+    throw DateTimeParseException("Text cannot be parsed to an $target", input, 0, exception)
+}
+
+private fun parseFixedDigits(
+    text: String,
+    start: Int,
+    length: Int,
+    input: String,
+    target: String,
+): Int {
+    val end = start + length
+    if (start < 0 || end > text.length || (start..<end).any { text[it] !in '0'..'9' }) {
+        throw DateTimeParseException("Text cannot be parsed to an $target", input, start.coerceAtLeast(0))
+    }
+    var value = 0
+    for (index in start..<end) value = value * 10 + (text[index] - '0')
+    return value
 }
 
 private fun parseIsoOffset(input: String, offsetStart: Int, target: String): ZoneOffset {
