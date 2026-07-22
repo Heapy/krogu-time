@@ -1053,6 +1053,8 @@ internal sealed interface PatternToken {
         val style: TextStyle,
     ) : PatternToken
 
+    data class DayPeriod(val style: TextStyle) : PatternToken
+
     data class LocalizedWeek(
         val symbol: Char,
         val count: Int,
@@ -1275,6 +1277,9 @@ private fun validatePatternField(symbol: Char, count: Int) {
         'w' -> require(count <= 2) { "Too many pattern letters: $symbol" }
         'W' -> require(count == 1) { "Too many pattern letters: $symbol" }
         'a' -> require(count == 1) { "Too many pattern letters: $symbol" }
+        'B' -> require(count == 1 || count == 4 || count == 5) {
+            "Wrong number of pattern letters: $symbol"
+        }
         'd', 'H', 'k', 'K', 'h', 'm', 's' -> require(count <= 2) {
             "Too many pattern letters: $symbol"
         }
@@ -1340,6 +1345,13 @@ private fun createPatternFieldToken(
     'E' -> localizedPatternText(ChronoField.DAY_OF_WEEK, maxOf(count, 3), false)
     'G' -> localizedPatternText(ChronoField.ERA, maxOf(count, 3), false)
     'a' -> PatternToken.LocalizedText(ChronoField.AMPM_OF_DAY, TextStyle.SHORT)
+    'B' -> PatternToken.DayPeriod(
+        when (count) {
+            1 -> TextStyle.SHORT
+            4 -> TextStyle.FULL
+            else -> TextStyle.NARROW
+        },
+    )
     'g' -> PatternToken.Value(JulianFields.MODIFIED_JULIAN_DAY, count, 19, SignStyle.NORMAL)
     'k' -> timePatternValue(ChronoField.CLOCK_HOUR_OF_DAY, count)
     'K' -> timePatternValue(ChronoField.HOUR_OF_AMPM, count)
@@ -1394,6 +1406,7 @@ private fun formatPattern(
             is PatternToken.Fraction -> append(formatPatternFraction(token, temporal))
             is PatternToken.Text -> append(formatPatternText(token, temporal))
             is PatternToken.LocalizedText -> append(formatPatternLocalizedText(token, temporal, locale))
+            is PatternToken.DayPeriod -> append(formatPatternDayPeriod(token, temporal, locale))
             is PatternToken.LocalizedWeek -> append(formatPatternLocalizedWeek(token, temporal, locale))
             is PatternToken.Localized -> append(
                 formatPattern(token.patternTokens(locale, temporal.chronologyId()), temporal, locale),
@@ -1448,6 +1461,20 @@ private fun formatPatternLocalizedText(
         .firstOrNull { candidate -> candidate.value == value }
         ?.text
         ?: value.toString()
+}
+
+private fun formatPatternDayPeriod(
+    token: PatternToken.DayPeriod,
+    temporal: TemporalAccessor,
+    locale: Locale,
+): String {
+    val hour = temporal.get(ChronoField.HOUR_OF_DAY)
+    val minute = if (temporal.isSupported(ChronoField.MINUTE_OF_HOUR)) {
+        temporal.get(ChronoField.MINUTE_OF_HOUR)
+    } else {
+        0
+    }
+    return formatLocaleDayPeriod(locale.toLanguageTag(), hour, minute, token.style)
 }
 
 private fun formatPatternLocalizedWeek(
@@ -1803,6 +1830,7 @@ private fun parsePattern(
     var zone: ZoneId? = null
     var parsedChronology: Chronology? = null
     var leapSecond = false
+    var dayPeriod: LocaleDayPeriod? = null
     val chronologySensitiveReducedValues = mutableListOf<ParsedChronologySensitiveReducedValue>()
     var index = 0
     var caseSensitive = true
@@ -1963,6 +1991,18 @@ private fun parsePattern(
                     }
                     index = parsed.endIndex
                 }
+                is PatternToken.DayPeriod -> {
+                    val parsed = parsePatternDayPeriod(
+                        token = token,
+                        text = input,
+                        startIndex = index,
+                        caseSensitive = caseSensitive,
+                        strict = strict,
+                        locale = locale,
+                    )
+                    dayPeriod = parsed.dayPeriod
+                    index = parsed.endIndex
+                }
                 is PatternToken.LocalizedWeek -> {
                     val numericToken = token.numericToken(locale)
                     val (field, parsedValue, parsedEndIndex) = when (numericToken) {
@@ -2085,6 +2125,7 @@ private fun parsePattern(
                     val previousZone = zone
                     val previousChronology = parsedChronology
                     val previousLeapSecond = leapSecond
+                    val previousDayPeriod = dayPeriod
                     val previousReducedValueCount = chronologySensitiveReducedValues.size
                     val previousIndex = index
                     try {
@@ -2096,6 +2137,7 @@ private fun parsePattern(
                         zone = previousZone
                         parsedChronology = previousChronology
                         leapSecond = previousLeapSecond
+                        dayPeriod = previousDayPeriod
                         while (chronologySensitiveReducedValues.size > previousReducedValueCount) {
                             chronologySensitiveReducedValues.removeLast()
                         }
@@ -2167,6 +2209,7 @@ private fun parsePattern(
         offset = offset.takeIf { ChronoField.OFFSET_SECONDS in resolvingValues },
         zone = zone,
         leapSecond = leapSecond,
+        dayPeriod = dayPeriod,
     )
 }
 
@@ -2622,6 +2665,38 @@ private fun parsePatternLocalizedText(
     )
 }
 
+private data class ParsedPatternDayPeriod(
+    val dayPeriod: LocaleDayPeriod,
+    val endIndex: Int,
+)
+
+private fun parsePatternDayPeriod(
+    token: PatternToken.DayPeriod,
+    text: String,
+    startIndex: Int,
+    caseSensitive: Boolean,
+    strict: Boolean,
+    locale: Locale,
+): ParsedPatternDayPeriod {
+    val styles = if (strict) {
+        listOf(token.style)
+    } else {
+        listOf(TextStyle.FULL, TextStyle.SHORT, TextStyle.NARROW)
+    }
+    val candidates = styles
+        .flatMap { style -> localeDayPeriods(locale.toLanguageTag(), style) }
+        .distinct()
+        .sortedByDescending { candidate -> candidate.text.length }
+    val candidate = candidates.firstOrNull { value ->
+        text.matchesAt(startIndex, value.text, caseSensitive)
+    } ?: throw DateTimeParseException(
+        "Text could not be parsed at index $startIndex",
+        text,
+        startIndex,
+    )
+    return ParsedPatternDayPeriod(candidate, startIndex + candidate.text.length)
+}
+
 private data class ParsedPatternFraction(
     val value: Long?,
     val endIndex: Int,
@@ -2747,6 +2822,7 @@ private fun PatternToken.adjacentFixedNumericWidth(): Int? = when (this) {
     }
     is PatternToken.Text,
     is PatternToken.LocalizedText,
+    is PatternToken.DayPeriod,
     is PatternToken.Localized,
     is PatternToken.Instant,
     is PatternToken.Composite,
@@ -2877,10 +2953,11 @@ private fun resolvePatternValues(
     offset: ZoneOffset?,
     zone: ZoneId?,
     leapSecond: Boolean,
+    dayPeriod: LocaleDayPeriod?,
 ): TemporalAccessor {
     val fieldValues = values.toMutableMap()
     try {
-        resolveTimeFields(fieldValues, resolverStyle)
+        resolveTimeFields(fieldValues, resolverStyle, dayPeriod)
     } catch (exception: RuntimeException) {
         throw DateTimeParseException("Text cannot be parsed to a time", text, 0, exception)
     }
@@ -3038,7 +3115,9 @@ private const val MAX_FIELD_RESOLVE_PASSES: Int = 50
 private fun resolveTimeFields(
     fieldValues: MutableMap<TemporalField, Long>,
     resolverStyle: ResolverStyle,
+    dayPeriod: LocaleDayPeriod?,
 ) {
+    var remainingDayPeriod = dayPeriod
     fieldValues.remove(ChronoField.CLOCK_HOUR_OF_DAY)?.let { clockHour ->
         if (
             resolverStyle == ResolverStyle.STRICT ||
@@ -3225,6 +3304,23 @@ private fun resolveTimeFields(
         }
     }
 
+    if (remainingDayPeriod != null && ChronoField.HOUR_OF_AMPM in fieldValues) {
+        val period = requireNotNull(remainingDayPeriod)
+        val hourOfAmPm = requireNotNull(fieldValues.remove(ChronoField.HOUR_OF_AMPM))
+        if (resolverStyle != ResolverStyle.LENIENT) {
+            ChronoField.HOUR_OF_AMPM.checkValidValue(hourOfAmPm)
+        }
+        val minute = floorMod(fieldValues[ChronoField.MINUTE_OF_HOUR] ?: 0, 60)
+        val pmMinute = (floorMod(hourOfAmPm, 12) + 12) * 60 + minute
+        val hourOfDay = addExact(hourOfAmPm, if (period.includes(pmMinute)) 12 else 0)
+        fieldValues.updateTimeField(
+            ChronoField.HOUR_OF_AMPM,
+            ChronoField.HOUR_OF_DAY,
+            hourOfDay,
+        )
+        remainingDayPeriod = null
+    }
+
     if (
         resolverStyle != ResolverStyle.STRICT &&
         ChronoField.HOUR_OF_DAY !in fieldValues &&
@@ -3232,14 +3328,35 @@ private fun resolveTimeFields(
         ChronoField.SECOND_OF_MINUTE !in fieldValues &&
         ChronoField.NANO_OF_SECOND !in fieldValues
     ) {
-        fieldValues.remove(ChronoField.AMPM_OF_DAY)?.let { amPm ->
-            val hour = if (resolverStyle == ResolverStyle.LENIENT) {
-                addExact(multiplyExact(amPm, 12), 6)
-            } else {
-                ChronoField.AMPM_OF_DAY.checkValidValue(amPm)
-                amPm * 12 + 6
+        if (remainingDayPeriod != null) {
+            val midpoint = requireNotNull(remainingDayPeriod).midpoint()
+            fieldValues[ChronoField.HOUR_OF_DAY] = (midpoint / 60).toLong()
+            fieldValues[ChronoField.MINUTE_OF_HOUR] = (midpoint % 60).toLong()
+            remainingDayPeriod = null
+        } else {
+            fieldValues.remove(ChronoField.AMPM_OF_DAY)?.let { amPm ->
+                val hour = if (resolverStyle == ResolverStyle.LENIENT) {
+                    addExact(multiplyExact(amPm, 12), 6)
+                } else {
+                    ChronoField.AMPM_OF_DAY.checkValidValue(amPm)
+                    amPm * 12 + 6
+                }
+                fieldValues[ChronoField.HOUR_OF_DAY] = hour
             }
-            fieldValues[ChronoField.HOUR_OF_DAY] = hour
+        }
+    }
+
+    val resolvedHour = fieldValues[ChronoField.HOUR_OF_DAY]
+    if (
+        remainingDayPeriod != null &&
+        resolvedHour != null &&
+        resolverStyle != ResolverStyle.LENIENT
+    ) {
+        val minute = fieldValues[ChronoField.MINUTE_OF_HOUR] ?: 0
+        if (!requireNotNull(remainingDayPeriod).includes(resolvedHour * 60 + minute)) {
+            throw DateTimeException(
+                "Conflict found: resolved time conflicts with day period ${remainingDayPeriod.text}",
+            )
         }
     }
 }
@@ -3436,6 +3553,9 @@ private fun describePattern(tokens: List<PatternToken>): String = buildString {
                 .apply {
                     if (token.style != TextStyle.FULL) append(',').append(token.style)
                 }
+                .append(')')
+            is PatternToken.DayPeriod -> append("DayPeriod(")
+                .append(token.style)
                 .append(')')
             is PatternToken.LocalizedWeek -> append(describeLocalizedWeek(token))
             is PatternToken.Localized -> append("Localized(")

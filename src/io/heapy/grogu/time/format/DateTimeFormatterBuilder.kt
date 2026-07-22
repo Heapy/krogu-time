@@ -205,6 +205,11 @@ public class DateTimeFormatterBuilder {
         activeSection.appendToken(PatternToken.LocalizedText(field, textStyle))
     }
 
+    /** Appends locale-specific flexible day-period text. */
+    public fun appendDayPeriodText(textStyle: TextStyle): DateTimeFormatterBuilder = apply {
+        activeSection.appendToken(PatternToken.DayPeriod(textStyle.asNormal()))
+    }
+
     /** Appends a locale- and chronology-specific date and/or time style. */
     public fun appendLocalized(
         dateStyle: FormatStyle?,

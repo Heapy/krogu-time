@@ -59,6 +59,9 @@ Implemented foundations:
   locale-defined week-based year `Y`, week `w`/`W`, and numeric or textual
   day-of-week `e`/`c` patterns, including reduced years, adjacent parsing, and
   strict/smart/lenient date resolution;
+  locale-backed flexible day-period `B` text in full, short, and narrow
+  styles, with midpoint resolution, 12-hour disambiguation, and resolver-style
+  conflict handling;
   lazy `ofLocalizedDate`, `ofLocalizedTime`, and `ofLocalizedDateTime`
   factories backed by platform locale patterns and chronology-aware style
   lookup; localized specific and generic zone-name patterns `z`/`v`, including
@@ -222,8 +225,7 @@ Implemented foundations:
 - `ChronoField`
 
 Remaining work includes formatters and parsers beyond the implemented ISO
-defaults and amount parsers, day-period text, and complete cross-type
-conformance coverage.
+defaults and amount parsers, and complete cross-type conformance coverage.
 
 The bundled TZDB source is generated reproducibly from the OpenJDK 21
 `lib/tzdb.dat` file by `tools/generate-tzdb-data.rb`.
