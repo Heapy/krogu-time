@@ -37,8 +37,11 @@ Implemented foundations:
 - `Month`
 - `Era` and `IsoEra`
 - `Chronology` identity, lookup, ordering, era/leap/range contracts, and the
-  `IsoChronology` singleton with ISO date/date-time factories, clock injection,
-  period creation, and epoch-second conversion
+  `IsoChronology` singleton with generic and ISO date/date-time factories, clock
+  injection, period creation, and epoch-second conversion
+- `ChronoLocalDate` chronology, era, leap-year and length contracts, generic
+  conversion, covariant date arithmetic, standard queries, epoch-day adjustment,
+  chronology-aware and timeline ordering, with `LocalDate` integration
 - `Year` core value, leap-year, temporal-field, year-scale arithmetic, and
   comparison behavior, including default parsing and `atDay` date production
   plus injected-clock/explicit-zone current-value factories and `MonthDay`
@@ -132,8 +135,8 @@ Implemented foundations:
 - `ChronoUnit`
 - `ChronoField`
 
-Remaining work includes the generic chronology date/date-time/period type
-hierarchies, no-argument system-default current-value factories and
-system-default-zone lookup, a bundled region time-zone database, formatters and
-parsers beyond the implemented ISO defaults and amount parsers, alternate
-chronologies, and complete cross-type conformance coverage.
+Remaining work includes the generic chronology period, local-date-time, and
+zoned-date-time type hierarchies, no-argument system-default current-value
+factories and system-default-zone lookup, a bundled region time-zone database,
+formatters and parsers beyond the implemented ISO defaults and amount parsers,
+alternate chronologies, and complete cross-type conformance coverage.

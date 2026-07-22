@@ -20,7 +20,7 @@ public object IsoChronology : Chronology {
     override val isIsoBased: Boolean = true
 
     /** Obtains an ISO date from an era and year-of-era. */
-    public fun date(
+    override fun date(
         era: Era,
         yearOfEra: Int,
         month: Int,
@@ -28,34 +28,34 @@ public object IsoChronology : Chronology {
     ): LocalDate = date(prolepticYear(era, yearOfEra), month, dayOfMonth)
 
     /** Obtains an ISO date from its proleptic year, month, and day. */
-    public fun date(
+    override fun date(
         prolepticYear: Int,
         month: Int,
         dayOfMonth: Int,
     ): LocalDate = LocalDate.of(prolepticYear, month, dayOfMonth)
 
     /** Obtains an ISO date from an era, year-of-era, and day-of-year. */
-    public fun dateYearDay(
+    override fun dateYearDay(
         era: Era,
         yearOfEra: Int,
         dayOfYear: Int,
     ): LocalDate = dateYearDay(prolepticYear(era, yearOfEra), dayOfYear)
 
     /** Obtains an ISO date from a proleptic year and day-of-year. */
-    public fun dateYearDay(prolepticYear: Int, dayOfYear: Int): LocalDate =
+    override fun dateYearDay(prolepticYear: Int, dayOfYear: Int): LocalDate =
         LocalDate.ofYearDay(prolepticYear, dayOfYear)
 
     /** Obtains an ISO date from the shared epoch-day count. */
-    public fun dateEpochDay(epochDay: Long): LocalDate = LocalDate.ofEpochDay(epochDay)
+    override fun dateEpochDay(epochDay: Long): LocalDate = LocalDate.ofEpochDay(epochDay)
 
     /** Converts [temporal] to an ISO date. */
-    public fun date(temporal: TemporalAccessor): LocalDate = LocalDate.from(temporal)
+    override fun date(temporal: TemporalAccessor): LocalDate = LocalDate.from(temporal)
 
     /** Obtains the current ISO date using the system clock in [zone]. */
-    public fun dateNow(zone: ZoneId): LocalDate = dateNow(Clock.system(zone))
+    override fun dateNow(zone: ZoneId): LocalDate = dateNow(Clock.system(zone))
 
     /** Obtains the current ISO date from [clock]. */
-    public fun dateNow(clock: Clock): LocalDate = LocalDate.now(clock)
+    override fun dateNow(clock: Clock): LocalDate = LocalDate.now(clock)
 
     /** Converts [temporal] to an ISO local date-time. */
     public fun localDateTime(temporal: TemporalAccessor): LocalDateTime =

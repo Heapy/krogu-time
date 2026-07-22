@@ -2,6 +2,7 @@ package io.heapy.grogu.time
 
 import io.heapy.grogu.time.chrono.IsoEra
 import io.heapy.grogu.time.chrono.IsoChronology
+import io.heapy.grogu.time.chrono.ChronoLocalDate
 import io.heapy.grogu.time.format.DateTimeParseException
 import io.heapy.grogu.time.internal.addExact
 import io.heapy.grogu.time.internal.floorDiv
@@ -25,7 +26,10 @@ public class LocalDate private constructor(
     public val year: Int,
     public val monthValue: Int,
     public val dayOfMonth: Int,
-) : Temporal, TemporalAdjuster, Comparable<LocalDate> {
+) : ChronoLocalDate {
+    override val chronology: IsoChronology
+        get() = IsoChronology
+
     /** The month of this date. */
     public val month: Month
         get() = Month.of(monthValue)
@@ -39,21 +43,21 @@ public class LocalDate private constructor(
         get() = DayOfWeek.of(floorMod(toEpochDay() + 3, 7).toInt() + 1)
 
     /** The ISO era of this date. */
-    public val era: IsoEra
+    override val era: IsoEra
         get() = if (year >= 1) IsoEra.CE else IsoEra.BCE
 
     /** Whether this date's year is a leap year. */
-    public val isLeapYear: Boolean
+    override val isLeapYear: Boolean
         get() = Year.isLeap(year.toLong())
 
     private val prolepticMonth: Long
         get() = year * 12L + monthValue - 1
 
     /** Returns the number of days in this date's month. */
-    public fun lengthOfMonth(): Int = month.length(isLeapYear)
+    override fun lengthOfMonth(): Int = month.length(isLeapYear)
 
     /** Returns the number of days in this date's year. */
-    public fun lengthOfYear(): Int = if (isLeapYear) 366 else 365
+    override fun lengthOfYear(): Int = if (isLeapYear) 366 else 365
 
     override fun isSupported(field: TemporalField): Boolean =
         if (field is ChronoField) field.isDateBased else field.isSupportedBy(this)
@@ -73,7 +77,7 @@ public class LocalDate private constructor(
         } else {
             ValueRange.of(1, Year.MAX_VALUE.toLong())
         }
-        else -> super<Temporal>.range(field)
+        else -> super<ChronoLocalDate>.range(field)
     }
 
     override fun getLong(field: TemporalField): Long = when (field) {
@@ -107,11 +111,11 @@ public class LocalDate private constructor(
             @Suppress("UNCHECKED_CAST")
             return ChronoUnit.DAYS as R
         }
-        return super<Temporal>.query(query)
+        return super<ChronoLocalDate>.query(query)
     }
 
     /** Converts this date to the count of days from 1970-01-01. */
-    public fun toEpochDay(): Long {
+    override fun toEpochDay(): Long {
         val prolepticYear = year.toLong()
         val month = monthValue.toLong()
         var total = 365L * prolepticYear
@@ -350,7 +354,8 @@ public class LocalDate private constructor(
         return ZonedDateTime.of(dateTime, zone)
     }
 
-    override fun compareTo(other: LocalDate): Int {
+    override fun compareTo(other: ChronoLocalDate): Int {
+        if (other !is LocalDate) return super<ChronoLocalDate>.compareTo(other)
         val yearComparison = year - other.year
         if (yearComparison != 0) return yearComparison
         val monthComparison = monthValue - other.monthValue
@@ -358,13 +363,16 @@ public class LocalDate private constructor(
     }
 
     /** Whether this date is after [other] on the local timeline. */
-    public fun isAfter(other: LocalDate): Boolean = compareTo(other) > 0
+    override fun isAfter(other: ChronoLocalDate): Boolean =
+        if (other is LocalDate) compareTo(other) > 0 else super<ChronoLocalDate>.isAfter(other)
 
     /** Whether this date is before [other] on the local timeline. */
-    public fun isBefore(other: LocalDate): Boolean = compareTo(other) < 0
+    override fun isBefore(other: ChronoLocalDate): Boolean =
+        if (other is LocalDate) compareTo(other) < 0 else super<ChronoLocalDate>.isBefore(other)
 
     /** Whether this date represents the same local date as [other]. */
-    public fun isEqual(other: LocalDate): Boolean = compareTo(other) == 0
+    override fun isEqual(other: ChronoLocalDate): Boolean =
+        if (other is LocalDate) compareTo(other) == 0 else super<ChronoLocalDate>.isEqual(other)
 
     override fun equals(other: Any?): Boolean =
         this === other ||

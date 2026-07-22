@@ -1,6 +1,9 @@
 package io.heapy.grogu.time.chrono
 
 import io.heapy.grogu.time.DateTimeException
+import io.heapy.grogu.time.Clock
+import io.heapy.grogu.time.LocalDate
+import io.heapy.grogu.time.ZoneId
 import io.heapy.grogu.time.temporal.ChronoField
 import io.heapy.grogu.time.temporal.TemporalAccessor
 import io.heapy.grogu.time.temporal.TemporalQueries
@@ -17,6 +20,43 @@ public interface Chronology : Comparable<Chronology> {
     /** Whether this chronology has the same fundamental date structure as ISO. */
     public val isIsoBased: Boolean
         get() = false
+
+    /** Obtains a date from an era, year-of-era, month, and day. */
+    public fun date(
+        era: Era,
+        yearOfEra: Int,
+        month: Int,
+        dayOfMonth: Int,
+    ): ChronoLocalDate = date(prolepticYear(era, yearOfEra), month, dayOfMonth)
+
+    /** Obtains a date from a proleptic year, month, and day. */
+    public fun date(
+        prolepticYear: Int,
+        month: Int,
+        dayOfMonth: Int,
+    ): ChronoLocalDate
+
+    /** Obtains a date from an era, year-of-era, and day-of-year. */
+    public fun dateYearDay(
+        era: Era,
+        yearOfEra: Int,
+        dayOfYear: Int,
+    ): ChronoLocalDate = dateYearDay(prolepticYear(era, yearOfEra), dayOfYear)
+
+    /** Obtains a date from a proleptic year and day-of-year. */
+    public fun dateYearDay(prolepticYear: Int, dayOfYear: Int): ChronoLocalDate
+
+    /** Obtains a date from the shared epoch-day count. */
+    public fun dateEpochDay(epochDay: Long): ChronoLocalDate
+
+    /** Converts [temporal] to a date in this chronology. */
+    public fun date(temporal: TemporalAccessor): ChronoLocalDate
+
+    /** Obtains the current date using the system clock in [zone]. */
+    public fun dateNow(zone: ZoneId): ChronoLocalDate = dateNow(Clock.system(zone))
+
+    /** Obtains the current date from [clock]. */
+    public fun dateNow(clock: Clock): ChronoLocalDate = date(LocalDate.now(clock))
 
     /** Returns whether [prolepticYear] is a leap year in this chronology. */
     public fun isLeapYear(prolepticYear: Long): Boolean
