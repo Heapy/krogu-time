@@ -96,6 +96,22 @@ class ChronoZonedDateTimeTest {
     }
 
     @Test
+    fun localDateTimeAdjustersUseTheSharedTimelineAcrossChronologies() {
+        val base = MinguoDate.of(113, 1, 1)
+            .atTime(LocalTime.NOON)
+            .atZone(ZoneOffset.UTC)
+        val thaiDateTime = ThaiBuddhistDate.of(2567, 2, 29)
+            .atTime(LocalTime.of(13, 14, 15, 123_456_789))
+
+        val adjusted = base.with(thaiDateTime)
+
+        assertSame(MinguoChronology, adjusted.chronology)
+        assertEquals(MinguoDate.of(113, 2, 29), adjusted.date)
+        assertEquals(LocalTime.of(13, 14, 15, 123_456_789), adjusted.time)
+        assertSame(ZoneOffset.UTC, adjusted.zone)
+    }
+
+    @Test
     fun covariantDefaultsReturnZonedDateTimesFromTheSameChronology() {
         val delegate = MinguoDate.of(113, 1, 31)
             .atTime(LocalTime.NOON)

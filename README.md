@@ -141,9 +141,10 @@ Implemented foundations:
   integration
 - `ChronoZonedDateTime` chronology/local/offset/zone contracts, generic
   conversion and chronology factories, chronology-validating covariant
-  adjustment and amount arithmetic defaults, zone changes, standard queries,
-  instant conversion, formatter-based output, structural and instant-timeline
-  ordering, with `ZonedDateTime` integration
+  adjustment and amount arithmetic defaults, cross-chronology local-timeline
+  adjustment, zone changes, standard queries, instant conversion,
+  formatter-based output, structural and instant-timeline ordering, with
+  `ZonedDateTime` integration
 - `ChronoPeriod` chronology, unit, sign, arithmetic, normalization, application,
   and generic date-difference contracts, with `Period` integration
 - `Year` core value, leap-year, Java-compatible int/long temporal fields,

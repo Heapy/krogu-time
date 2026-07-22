@@ -8,7 +8,6 @@ import io.heapy.grogu.time.ZoneOffset
 import io.heapy.grogu.time.temporal.ChronoField
 import io.heapy.grogu.time.temporal.ChronoUnit
 import io.heapy.grogu.time.temporal.Temporal
-import io.heapy.grogu.time.temporal.TemporalAdjuster
 import io.heapy.grogu.time.temporal.TemporalAmount
 import io.heapy.grogu.time.temporal.TemporalField
 import io.heapy.grogu.time.temporal.TemporalUnit
@@ -42,14 +41,6 @@ internal class ChronoZonedDateTimeImpl<D : ChronoLocalDate> private constructor(
 
     override fun withZoneSameInstant(zone: ZoneId): ChronoZonedDateTime<D> =
         if (this.zone == zone) this else create(dateTime.toInstant(offset), zone)
-
-    override fun with(adjuster: TemporalAdjuster): ChronoZonedDateTime<D> =
-        if (adjuster is ChronoLocalDateTimeImpl<*>) {
-            val local = ChronoLocalDateTimeImpl.ensureValid<D>(chronology, adjuster)
-            ofBest(local, zone, offset)
-        } else {
-            ensureValid(chronology, adjuster.adjustInto(this))
-        }
 
     override fun with(field: TemporalField, newValue: Long): ChronoZonedDateTime<D> {
         if (field !is ChronoField) return ensureValid(chronology, field.adjustInto(this, newValue))

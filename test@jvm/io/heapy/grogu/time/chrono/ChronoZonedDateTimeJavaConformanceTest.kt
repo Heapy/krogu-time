@@ -2,11 +2,14 @@ package io.heapy.grogu.time.chrono
 
 import io.heapy.grogu.time.Instant
 import io.heapy.grogu.time.LocalDateTime
+import io.heapy.grogu.time.LocalTime
 import io.heapy.grogu.time.ZoneOffset
 import io.heapy.grogu.time.ZonedDateTime
 import io.heapy.grogu.time.temporal.ChronoField
 import io.heapy.grogu.time.temporal.ChronoUnit
 import java.time.ZoneOffset as JavaZoneOffset
+import java.time.chrono.MinguoDate as JavaMinguoDate
+import java.time.chrono.ThaiBuddhistDate as JavaThaiBuddhistDate
 import java.time.temporal.ChronoField as JavaChronoField
 import java.time.temporal.ChronoUnit as JavaChronoUnit
 import kotlin.test.Test
@@ -81,6 +84,33 @@ class ChronoZonedDateTimeJavaConformanceTest {
                 .zonedDateTime(javaInstant, JavaZoneOffset.ofHours(2))
                 .toString(),
             Chronology.of("ISO").zonedDateTime(instant, ZoneOffset.ofHours(2)).toString(),
+        )
+    }
+
+    @Test
+    fun crossChronologyLocalDateTimeAdjustmentMatchesJavaTime() {
+        val javaBase = JavaMinguoDate.of(113, 1, 1)
+            .atTime(java.time.LocalTime.NOON)
+            .atZone(JavaZoneOffset.UTC)
+        val javaAdjuster = JavaThaiBuddhistDate.of(2567, 2, 29)
+            .atTime(java.time.LocalTime.of(13, 14, 15, 123_456_789))
+        val base = MinguoDate.of(113, 1, 1)
+            .atTime(LocalTime.NOON)
+            .atZone(ZoneOffset.UTC)
+        val adjuster = ThaiBuddhistDate.of(2567, 2, 29)
+            .atTime(LocalTime.of(13, 14, 15, 123_456_789))
+
+        val javaResult = runCatching { javaBase.with(javaAdjuster) }
+        val kotlinResult = runCatching { base.with(adjuster) }
+
+        assertEquals(javaResult.getOrNull()?.toString(), kotlinResult.getOrNull()?.toString())
+        assertEquals(
+            javaResult.exceptionOrNull()?.javaClass?.simpleName,
+            kotlinResult.exceptionOrNull()?.javaClass?.simpleName,
+        )
+        assertEquals(
+            javaResult.exceptionOrNull()?.message,
+            kotlinResult.exceptionOrNull()?.message,
         )
     }
 }
