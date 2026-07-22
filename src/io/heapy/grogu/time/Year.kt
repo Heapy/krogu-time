@@ -1,5 +1,6 @@
 package io.heapy.grogu.time
 
+import io.heapy.grogu.time.format.DateTimeParseException
 import io.heapy.grogu.time.internal.addExact
 import io.heapy.grogu.time.internal.multiplyExact
 import io.heapy.grogu.time.temporal.ChronoField
@@ -24,6 +25,9 @@ public class Year private constructor(
     /** The number of days in this year. */
     public val length: Int
         get() = if (isLeap) 366 else 365
+
+    /** Combines this year with a one-based day-of-year. */
+    public fun atDay(dayOfYear: Int): LocalDate = LocalDate.ofYearDay(value, dayOfYear)
 
     override fun isSupported(field: TemporalField): Boolean =
         if (field is ChronoField) {
@@ -158,8 +162,56 @@ public class Year private constructor(
         public fun from(temporal: TemporalAccessor): Year =
             if (temporal is Year) temporal else of(temporal.get(ChronoField.YEAR))
 
+        /** Parses a year using the default ISO year format. */
+        public fun parse(text: CharSequence): Year {
+            val input = text.toString()
+            if (input.isEmpty()) throw parseFailure(input, 0)
+
+            var index = 0
+            val sign = when (input[0]) {
+                '+' -> {
+                    index++
+                    1
+                }
+                '-' -> {
+                    index++
+                    -1
+                }
+                else -> 1
+            }
+            val yearStart = index
+            var yearValue = 0L
+            while (index < input.length && input[index].isAsciiDigit()) {
+                if (index - yearStart < 9) {
+                    yearValue = yearValue * 10 + (input[index] - '0')
+                }
+                index++
+            }
+            val yearDigits = index - yearStart
+            if (yearDigits > 9) throw parseFailure(input, yearStart + 9)
+            if (yearDigits == 0) throw parseFailure(input, yearStart)
+            if (index != input.length) throw parseFailure(input, index)
+
+            val year = if (sign < 0) -yearValue else yearValue
+            return try {
+                of(ChronoField.YEAR.checkValidIntValue(year))
+            } catch (exception: DateTimeException) {
+                throw DateTimeParseException(
+                    "Text cannot be parsed to a Year",
+                    input,
+                    0,
+                    exception,
+                )
+            }
+        }
+
         /** Returns whether [year] is a leap year in the proleptic Gregorian calendar. */
         public fun isLeap(year: Long): Boolean =
             year and 3L == 0L && (year % 100L != 0L || year % 400L == 0L)
+
+        private fun Char.isAsciiDigit(): Boolean = this in '0'..'9'
+
+        private fun parseFailure(input: String, errorIndex: Int): DateTimeParseException =
+            DateTimeParseException("Text cannot be parsed to a Year", input, errorIndex)
     }
 }

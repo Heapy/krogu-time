@@ -1,5 +1,6 @@
 package io.heapy.grogu.time
 
+import io.heapy.grogu.time.format.DateTimeParseException
 import io.heapy.grogu.time.temporal.ChronoField
 import io.heapy.grogu.time.temporal.ChronoUnit
 import io.heapy.grogu.time.temporal.Temporal
@@ -32,6 +33,48 @@ class YearTest {
         assertTrue(Year.of(2024).isLeap)
         assertEquals(366, Year.of(2024).length)
         assertEquals(365, Year.of(2023).length)
+    }
+
+    @Test
+    fun parsesDefaultIsoYearsAndCreatesDatesFromDays() {
+        val cases = mapOf(
+            "0" to Year.of(0),
+            "1" to Year.of(1),
+            "001" to Year.of(1),
+            "0000" to Year.of(0),
+            "2024" to Year.of(2024),
+            "-0001" to Year.of(-1),
+            "-001" to Year.of(-1),
+            "-0000" to Year.of(0),
+            "+2024" to Year.of(2024),
+            "02024" to Year.of(2024),
+            "10000" to Year.of(10_000),
+            "+10000" to Year.of(10_000),
+            "-999999999" to Year.of(Year.MIN_VALUE),
+            "+999999999" to Year.of(Year.MAX_VALUE),
+        )
+        cases.forEach { (text, expected) -> assertEquals(expected, Year.parse(text), text) }
+
+        assertEquals(LocalDate.of(2024, 2, 29), Year.of(2024).atDay(60))
+        assertEquals(LocalDate.of(2024, 12, 31), Year.of(2024).atDay(366))
+        assertEquals(LocalDate.of(2023, 12, 31), Year.of(2023).atDay(365))
+        assertFailsWith<DateTimeException> { Year.of(2024).atDay(0) }
+        assertFailsWith<DateTimeException> { Year.of(2023).atDay(366) }
+
+        val invalidInputs = mapOf(
+            "" to 0,
+            "+" to 1,
+            "-" to 1,
+            "+1000000000" to 10,
+            "+12345678901" to 10,
+            "2024x" to 4,
+            "２０２４" to 0,
+        )
+        invalidInputs.forEach { (input, expectedIndex) ->
+            val error = assertFailsWith<DateTimeParseException>(input) { Year.parse(input) }
+            assertEquals(input, error.parsedString)
+            assertEquals(expectedIndex, error.errorIndex, input)
+        }
     }
 
     @Test
