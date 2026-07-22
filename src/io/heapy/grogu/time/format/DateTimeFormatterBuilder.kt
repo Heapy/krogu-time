@@ -169,6 +169,19 @@ public class DateTimeFormatterBuilder {
         activeSection.appendToken(PatternToken.Fraction(field, minWidth, maxWidth, decimalPoint))
     }
 
+    /** Appends an instant using zero, three, six, or nine fractional digits as needed. */
+    public fun appendInstant(): DateTimeFormatterBuilder = apply {
+        activeSection.appendToken(PatternToken.Instant(-2))
+    }
+
+    /** Appends an instant with a variable (`-1`) or exact (`0..9`) fractional width. */
+    public fun appendInstant(fractionalDigits: Int): DateTimeFormatterBuilder = apply {
+        require(fractionalDigits in -1..9) {
+            "The fractional digits must be from -1 to 9 inclusive but was $fractionalDigits"
+        }
+        activeSection.appendToken(PatternToken.Instant(fractionalDigits))
+    }
+
     /** Appends an ISO zone offset ID, using `Z` for zero. */
     public fun appendOffsetId(): DateTimeFormatterBuilder = appendOffset("+HH:MM:ss", "Z")
 

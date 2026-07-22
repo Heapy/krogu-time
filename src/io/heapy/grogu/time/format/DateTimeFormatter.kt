@@ -648,6 +648,8 @@ internal sealed interface PatternToken {
         val decimalPoint: Boolean,
     ) : PatternToken
 
+    data class Instant(val fractionalDigits: Int) : PatternToken
+
     data class Offset(
         val pattern: String,
         val noOffsetText: String,
@@ -867,6 +869,7 @@ private fun formatPattern(
             is PatternToken.Value -> append(formatPatternValue(token, temporal))
             is PatternToken.ReducedValue -> append(formatPatternReducedValue(token, temporal))
             is PatternToken.Fraction -> append(formatPatternFraction(token, temporal))
+            is PatternToken.Instant -> append(formatPatternInstant(token, temporal))
             is PatternToken.Offset -> append(formatBuilderOffset(token, temporal))
             is PatternToken.ZoneId -> append(formatBuilderZoneId(token, temporal))
             is PatternToken.Optional -> try {
@@ -890,6 +893,36 @@ private fun formatPattern(
             -> Unit
         }
     }
+}
+
+private fun formatPatternInstant(
+    token: PatternToken.Instant,
+    temporal: TemporalAccessor,
+): String {
+    val epochSecond = temporal.getLong(ChronoField.INSTANT_SECONDS)
+    val nano = if (temporal.isSupported(ChronoField.NANO_OF_SECOND)) {
+        ChronoField.NANO_OF_SECOND.checkValidIntValue(
+            temporal.getLong(ChronoField.NANO_OF_SECOND),
+        )
+    } else {
+        0
+    }
+    val canonical = Instant.ofEpochSecond(epochSecond, nano.toLong()).toString()
+    if (token.fractionalDigits == -2) return canonical
+
+    val timeSeparator = canonical.indexOf('T')
+    val fractionSeparator = canonical.indexOf('.', timeSeparator)
+    val seconds = if (fractionSeparator >= 0) {
+        canonical.substring(0, fractionSeparator)
+    } else {
+        canonical.dropLast(1)
+    }
+    val fraction = when (token.fractionalDigits) {
+        -1 -> nano.toString().padStart(9, '0').trimEnd('0')
+        0 -> ""
+        else -> nano.toString().padStart(9, '0').take(token.fractionalDigits)
+    }
+    return if (fraction.isEmpty()) "${seconds}Z" else "$seconds.${fraction}Z"
 }
 
 private fun formatBuilderZoneId(
@@ -1105,6 +1138,7 @@ private fun parsePattern(
     val values = mutableMapOf<TemporalField, Long>()
     var offset: ZoneOffset? = null
     var zone: ZoneId? = null
+    var leapSecond = false
     var index = 0
     var caseSensitive = true
     var strict = true
@@ -1215,6 +1249,24 @@ private fun parsePattern(
                     }
                     index = parsed.endIndex
                 }
+                is PatternToken.Instant -> {
+                    val parsed = parsePatternInstant(token, input, index, caseSensitive, strict)
+                    mapOf(
+                        ChronoField.INSTANT_SECONDS to parsed.instant.epochSecond,
+                        ChronoField.NANO_OF_SECOND to parsed.instant.nano.toLong(),
+                    ).forEach { (field, value) ->
+                        val previous = values.put(field, value)
+                        if (previous != null && previous != value) {
+                            throw DateTimeParseException(
+                                "Conflict found for field $field",
+                                input,
+                                index,
+                            )
+                        }
+                    }
+                    leapSecond = leapSecond || parsed.leapSecond
+                    index = parsed.endIndex
+                }
                 is PatternToken.Offset -> {
                     val parsed = parseBuilderOffset(token, input, index, caseSensitive, strict)
                     storeOffset(parsed, index, input)
@@ -1231,6 +1283,7 @@ private fun parsePattern(
                     val previousValues = values.toMap()
                     val previousOffset = offset
                     val previousZone = zone
+                    val previousLeapSecond = leapSecond
                     val previousIndex = index
                     try {
                         parseTokens(token.tokens, input)
@@ -1239,6 +1292,7 @@ private fun parsePattern(
                         values.putAll(previousValues)
                         offset = previousOffset
                         zone = previousZone
+                        leapSecond = previousLeapSecond
                         index = previousIndex
                     }
                 }
@@ -1296,7 +1350,59 @@ private fun parsePattern(
     if (index != text.length) {
         throw DateTimeParseException("Text could not be parsed, unparsed text found", text, index)
     }
-    return resolvePatternValues(values, text, resolverStyle, offset, zone)
+    return resolvePatternValues(values, text, resolverStyle, offset, zone, leapSecond)
+}
+
+private data class ParsedPatternInstant(
+    val instant: Instant,
+    val endIndex: Int,
+    val leapSecond: Boolean,
+)
+
+private fun parsePatternInstant(
+    token: PatternToken.Instant,
+    text: String,
+    startIndex: Int,
+    caseSensitive: Boolean,
+    strict: Boolean,
+): ParsedPatternInstant {
+    if (token.fractionalDigits == 0) {
+        throw DateTimeParseException(
+            "Text could not be parsed at index $startIndex",
+            text,
+            startIndex,
+        )
+    }
+    for (endIndex in text.length downTo startIndex + 1) {
+        val candidate = text.substring(startIndex, endIndex)
+        if (caseSensitive && candidate.any { it == 't' || it == 'z' }) continue
+        val instant = try {
+            Instant.parse(candidate)
+        } catch (_: DateTimeException) {
+            continue
+        }
+        val timeSeparator = candidate.indexOfFirst { it == 'T' || it == 't' }
+        val fractionStart = timeSeparator + 9
+        val fractionDigits = if (candidate.getOrNull(fractionStart) == '.') {
+            var digitEnd = fractionStart + 1
+            while (candidate.getOrNull(digitEnd) in '0'..'9') digitEnd++
+            digitEnd - fractionStart - 1
+        } else {
+            0
+        }
+        if (strict && token.fractionalDigits >= 0 && fractionDigits != token.fractionalDigits) {
+            continue
+        }
+        val leapSecond =
+            candidate.getOrNull(timeSeparator + 7) == '6' &&
+                candidate.getOrNull(timeSeparator + 8) == '0'
+        return ParsedPatternInstant(instant, endIndex, leapSecond)
+    }
+    throw DateTimeParseException(
+        "Text could not be parsed at index $startIndex",
+        text,
+        startIndex,
+    )
 }
 
 private data class ParsedPatternOffset(
@@ -1695,6 +1801,7 @@ private fun PatternToken.adjacentFixedNumericWidth(): Int? = when (this) {
     is PatternToken.Fraction -> minWidth.takeIf {
         minWidth == maxWidth && !decimalPoint
     }
+    is PatternToken.Instant,
     is PatternToken.Offset,
     is PatternToken.ZoneId,
     is PatternToken.ParseSetting,
@@ -1792,6 +1899,7 @@ private fun resolvePatternValues(
     resolverStyle: ResolverStyle,
     offset: ZoneOffset?,
     zone: ZoneId?,
+    leapSecond: Boolean,
 ): TemporalAccessor {
     val resolvedOffset = offset ?: values[ChronoField.OFFSET_SECONDS]?.let { totalSeconds ->
         try {
@@ -1854,6 +1962,7 @@ private fun resolvePatternValues(
         instant = instant,
         fields = values,
         excessDays = if (date == null) resolvedTime?.excessDays ?: Period.ZERO else Period.ZERO,
+        leapSecond = leapSecond,
     )
 }
 
@@ -1950,6 +2059,7 @@ private fun describePattern(tokens: List<PatternToken>): String = buildString {
                 .append(',')
                 .append(if (token.decimalPoint) "DecimalPoint" else "")
                 .append(')')
+            is PatternToken.Instant -> append("Instant()")
             is PatternToken.Offset -> append("Offset(")
                 .append(token.pattern)
                 .append(",'")
