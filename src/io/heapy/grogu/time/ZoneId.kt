@@ -4,6 +4,7 @@ import io.heapy.grogu.time.temporal.TemporalAccessor
 import io.heapy.grogu.time.temporal.TemporalQueries
 import io.heapy.grogu.time.zone.ZoneRules
 import io.heapy.grogu.time.zone.ZoneRulesException
+import io.heapy.grogu.time.zone.ZoneRulesProvider
 
 /** An identifier for a time-zone. */
 public abstract class ZoneId {
@@ -57,7 +58,7 @@ public abstract class ZoneId {
             "HST" to "-10:00",
         )
 
-        /** Obtains a fixed-offset zone ID. Region IDs are added by zone providers. */
+        /** Obtains a fixed-offset or registered region zone ID. */
         public fun of(zoneId: String): ZoneId {
             if (zoneId.length <= 1 || zoneId[0] == '+' || zoneId[0] == '-') {
                 return ZoneOffset.of(zoneId)
@@ -66,7 +67,7 @@ public abstract class ZoneId {
                 zoneId.startsWith("UTC") || zoneId.startsWith("GMT") ->
                     ofWithPrefix(zoneId, 3)
                 zoneId.startsWith("UT") -> ofWithPrefix(zoneId, 2)
-                else -> throw ZoneRulesException("Unknown time-zone ID: $zoneId")
+                else -> RegionZoneId.of(zoneId)
             }
         }
 
@@ -90,6 +91,9 @@ public abstract class ZoneId {
                 "Unable to obtain ZoneId from TemporalAccessor: $temporal",
             )
 
+        /** Returns every region ID registered with a zone-rules provider. */
+        public fun getAvailableZoneIds(): Set<String> = ZoneRulesProvider.getAvailableZoneIds()
+
         private fun ofWithPrefix(zoneId: String, prefixLength: Int): ZoneId {
             if (zoneId.length == prefixLength) {
                 return ofOffset(zoneId, ZoneOffset.UTC)
@@ -108,4 +112,43 @@ private class FixedZoneId(
     offset: ZoneOffset,
 ) : ZoneId() {
     override val rules: ZoneRules = ZoneRules.of(offset)
+}
+
+private class RegionZoneId private constructor(
+    override val id: String,
+    private val cachedRules: ZoneRules?,
+) : ZoneId() {
+    override val rules: ZoneRules
+        get() = cachedRules ?: ZoneRulesProvider.getRules(id, false)
+            ?: throw ZoneRulesException("Provider returned no rules for time-zone ID: $id")
+
+    companion object {
+        fun of(zoneId: String): RegionZoneId {
+            validateName(zoneId)
+            val rules = ZoneRulesProvider.getRules(zoneId, true)
+            return RegionZoneId(zoneId, rules)
+        }
+
+        private fun validateName(zoneId: String) {
+            if (zoneId.length < 2) throw invalidId(zoneId)
+            zoneId.forEachIndexed { index, character ->
+                val valid = character in 'a'..'z' ||
+                    character in 'A'..'Z' ||
+                    index != 0 && (
+                        character == '/' ||
+                            character in '0'..'9' ||
+                            character == '~' ||
+                            character == '.' ||
+                            character == '_' ||
+                            character == '+' ||
+                            character == '-'
+                    )
+                if (!valid) throw invalidId(zoneId)
+            }
+        }
+
+        private fun invalidId(zoneId: String): DateTimeException = DateTimeException(
+            "Invalid ID for region-based ZoneId, invalid format: $zoneId",
+        )
+    }
 }

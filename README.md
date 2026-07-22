@@ -75,12 +75,16 @@ Implemented foundations:
   quarter-hour canonicalization, `ZoneId` integration, offset-field/query
   integration, adjustment, and Java-compatible ordering
 - `ZoneId` fixed-offset and `UTC`/`GMT`/`UT` prefixed identifiers, alias-map
-  resolution, normalization, and zone/zone-offset temporal queries (region
-  IDs, system defaults, display names, and rule providers remain)
+  resolution, provider-backed region IDs, normalization, available-ID access,
+  and zone/zone-offset temporal queries (system defaults and display names
+  remain)
 - `ZoneRules` fixed and variable in-memory rule sets, historic standard/wall
   transitions, recurring future rules, instant and ambiguous local-time
   resolution, daylight-saving calculations, transition navigation, and full
   rule-list value semantics (external TZDB providers remain)
+- `ZoneRulesProvider` registration, conflict detection, region/rule/version
+  lookup, dynamic no-cache rules, and refresh support (automatic service
+  loading and a bundled TZDB provider remain)
 - `ZoneOffsetTransition` gap/overlap values, validated factories, instant and
   local timeline conversion, duration, offset validation, ordering, hashing,
   and Java-compatible text output

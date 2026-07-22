@@ -121,6 +121,17 @@ class ZoneIdJavaConformanceTest {
             }
     }
 
+    @Test
+    fun regionIdValidationMatchesJavaTimeBeforeProviderLookup() {
+        listOf("1/Bad", "/Bad", "_Bad", "A/B", "Unknown_Test/Zone").forEach { id ->
+            assertSameOutcome(
+                javaOperation = { JavaZoneId.of(id) },
+                kotlinOperation = { ZoneId.of(id) },
+                context = id,
+            )
+        }
+    }
+
     private fun assertSameOutcome(
         javaOperation: () -> Any?,
         kotlinOperation: () -> Any?,
