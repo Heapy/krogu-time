@@ -36,6 +36,8 @@ Implemented foundations:
 - `DayOfWeek`
 - `Month`
 - `Era` and `IsoEra`
+- `MinguoEra`, `ThaiBuddhistEra`, and `HijrahEra`, including their Java-compatible
+  numeric values and the single-era Hijrah range
 - `Chronology` identity, lookup, ordering, era/leap/range contracts, and the
   `IsoChronology` singleton with generic and ISO date/date-time factories, clock
   injection, period creation, and epoch-second conversion
