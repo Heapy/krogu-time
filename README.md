@@ -44,8 +44,9 @@ Implemented foundations:
   `ISO_TIME`, `ISO_DATE_TIME`, `ISO_OFFSET_TIME`, `ISO_OFFSET_DATE_TIME`, and
   `ISO_ZONED_DATE_TIME` constants, plus `ISO_ORDINAL_DATE`, `ISO_WEEK_DATE`,
   `BASIC_ISO_DATE`, and the English `RFC_1123_DATE_TIME`; parsed
-  date/time/offset/region-zone query retention; and formatter overloads on their
-  corresponding value types
+  date/time/offset/region-zone query retention; leap-second and excess-day
+  parsed-state queries; and formatter overloads on their corresponding value
+  types
 - `DayOfWeek`
 - `Month`
 - `Era` and `IsoEra`

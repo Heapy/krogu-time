@@ -7,6 +7,7 @@ import io.heapy.grogu.time.LocalDateTime
 import io.heapy.grogu.time.LocalTime
 import io.heapy.grogu.time.OffsetDateTime
 import io.heapy.grogu.time.OffsetTime
+import io.heapy.grogu.time.Period
 import io.heapy.grogu.time.ZoneId
 import io.heapy.grogu.time.ZoneOffset
 import io.heapy.grogu.time.ZonedDateTime
@@ -279,7 +280,7 @@ public class DateTimeFormatter private constructor(
         /** The strict ISO formatter for an instant in UTC. */
         public val ISO_INSTANT: DateTimeFormatter = DateTimeFormatter(
             printer = { temporal -> Instant.from(temporal).toString() },
-            parser = { text -> Instant.parse(text) },
+            parser = { text -> parseIsoInstant(text) },
             description = "ParseCaseSensitive(false)Instant()",
         )
 
@@ -340,8 +341,22 @@ public class DateTimeFormatter private constructor(
                     "[':'Value(SecondOfMinute,2)" +
                     "[Fraction(NanoOfSecond,0,9,DecimalPoint)]]))" +
                     "ParseStrict(false)Offset(+HH:MM:ss,'Z')ParseStrict(true))" +
-                    "['['ParseCaseSensitive(true)ZoneRegionId()']']",
+                "['['ParseCaseSensitive(true)ZoneRegionId()']']",
         )
+
+        /** Returns a singleton query for the excess days produced while resolving. */
+        public fun parsedExcessDays(): TemporalQuery<Period> = PARSED_EXCESS_DAYS
+
+        /** Returns a singleton query indicating whether an instant contained a leap second. */
+        public fun parsedLeapSecond(): TemporalQuery<Boolean> = PARSED_LEAP_SECOND
+
+        private val PARSED_EXCESS_DAYS: TemporalQuery<Period> = TemporalQuery { temporal ->
+            (temporal as? ParsedState)?.excessDays ?: Period.ZERO
+        }
+
+        private val PARSED_LEAP_SECOND: TemporalQuery<Boolean> = TemporalQuery { temporal ->
+            (temporal as? ParsedState)?.leapSecond ?: false
+        }
     }
 }
 
@@ -412,6 +427,19 @@ private fun formatRfc1123Offset(offset: ZoneOffset): String {
         append((totalMinutes / 60).toString().padStart(2, '0'))
         append((totalMinutes % 60).toString().padStart(2, '0'))
     }
+}
+
+private fun parseIsoInstant(text: CharSequence): TemporalAccessor {
+    val input = text.toString()
+    val instant = Instant.parse(input)
+    val timeSeparator = input.indexOfFirst { it == 'T' || it == 't' }
+    val leapSecond =
+        input.getOrNull(timeSeparator + 7) == '6' &&
+            input.getOrNull(timeSeparator + 8) == '0'
+    return ParsedTemporalAccessor(
+        instant = instant,
+        leapSecond = leapSecond,
+    )
 }
 
 private fun parseIsoDate(
@@ -795,15 +823,25 @@ private fun formatIsoLocalTime(time: LocalTime): String = buildString {
     }
 }
 
+private interface ParsedState {
+    val excessDays: Period
+    val leapSecond: Boolean
+}
+
 private class ParsedTemporalAccessor(
     private val date: LocalDate? = null,
     private val time: LocalTime? = null,
     private val offset: ZoneOffset? = null,
     private val zone: ZoneId? = null,
-) : TemporalAccessor {
+    private val instant: Instant? = null,
+    override val excessDays: Period = Period.ZERO,
+    override val leapSecond: Boolean = false,
+) : TemporalAccessor, ParsedState {
     override fun isSupported(field: TemporalField): Boolean = when (field) {
-        ChronoField.INSTANT_SECONDS -> date != null && time != null && (offset != null || zone != null)
+        ChronoField.INSTANT_SECONDS ->
+            instant != null || date != null && time != null && (offset != null || zone != null)
         ChronoField.OFFSET_SECONDS -> offset != null
+        is ChronoField if instant != null -> instant.isSupported(field)
         is ChronoField if field.isDateBased -> date?.isSupported(field) == true
         is ChronoField if field.isTimeBased -> time?.isSupported(field) == true
         is ChronoField -> false
@@ -814,6 +852,7 @@ private class ParsedTemporalAccessor(
         ChronoField.INSTANT_SECONDS,
         ChronoField.OFFSET_SECONDS,
         -> field.range
+        is ChronoField if instant != null -> instant.range(field)
         is ChronoField if field.isDateBased -> date?.range(field) ?: unsupported(field)
         is ChronoField if field.isTimeBased -> time?.range(field) ?: unsupported(field)
         is ChronoField -> unsupported(field)
@@ -822,11 +861,13 @@ private class ParsedTemporalAccessor(
 
     override fun getLong(field: TemporalField): Long = when (field) {
         ChronoField.INSTANT_SECONDS -> {
+            instant?.let { return it.epochSecond }
             val dateTime = LocalDateTime.of(date ?: unsupported(field), time ?: unsupported(field))
             val resolvedOffset = offset ?: zone?.rules?.getOffset(dateTime) ?: unsupported(field)
             dateTime.toEpochSecond(resolvedOffset)
         }
         ChronoField.OFFSET_SECONDS -> offset?.totalSeconds?.toLong() ?: unsupported(field)
+        is ChronoField if instant != null -> instant.getLong(field)
         is ChronoField if field.isDateBased -> date?.getLong(field) ?: unsupported(field)
         is ChronoField if field.isTimeBased -> time?.getLong(field) ?: unsupported(field)
         is ChronoField -> unsupported(field)
@@ -840,7 +881,7 @@ private class ParsedTemporalAccessor(
             TemporalQueries.localTime() -> time
             TemporalQueries.offset() -> offset
             TemporalQueries.zoneId() -> zone
-            TemporalQueries.precision() -> null
+            TemporalQueries.precision() -> instant?.query(TemporalQueries.precision())
             else -> return super<TemporalAccessor>.query(query)
         }
         @Suppress("UNCHECKED_CAST")
@@ -848,6 +889,7 @@ private class ParsedTemporalAccessor(
     }
 
     override fun toString(): String = buildString {
+        instant?.let(::append)
         date?.let(::append)
         time?.let {
             if (date != null) append('T')
