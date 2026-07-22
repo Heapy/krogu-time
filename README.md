@@ -164,8 +164,8 @@ Implemented foundations:
 - `LocalTime` core value, validated component/day and instant/zone factories,
   temporal fields, replacement, truncation, wraparound arithmetic, complete-unit
   differences, ordering, strict ISO parsing, ISO text output, offset/date
-  composition, and system-default/injected-clock/explicit-zone current-value
-  factories and formatter overloads
+  composition, local-date/offset epoch-second conversion, and system-default/
+  injected-clock/explicit-zone current-value factories and formatter overloads
 - `LocalDateTime` immutable composition, factories, local field access,
   epoch/fixed-offset and instant/zone conversion, replacement, truncation,
   checked date/time arithmetic, complete-unit differences, boundaries,

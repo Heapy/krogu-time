@@ -1,6 +1,8 @@
 package io.heapy.grogu.time
 
 import java.time.LocalTime as JavaLocalTime
+import java.time.LocalDate as JavaLocalDate
+import java.time.ZoneOffset as JavaZoneOffset
 import java.time.format.DateTimeParseException as JavaDateTimeParseException
 import java.time.temporal.ChronoField as JavaChronoField
 import java.time.temporal.ChronoUnit as JavaChronoUnit
@@ -10,6 +12,46 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class LocalTimeJavaConformanceTest {
+    @Test
+    fun epochSecondConversionMatchesJavaTimeAcrossTheSupportedRange() {
+        val dates = listOf(
+            LocalDate.MIN to JavaLocalDate.MIN,
+            LocalDate.of(-123_456, 7, 8) to JavaLocalDate.of(-123_456, 7, 8),
+            LocalDate.EPOCH to JavaLocalDate.EPOCH,
+            LocalDate.of(2024, 2, 29) to JavaLocalDate.of(2024, 2, 29),
+            LocalDate.MAX to JavaLocalDate.MAX,
+        )
+        val times = listOf(
+            LocalTime.MIN,
+            LocalTime.of(1, 2, 3, 4),
+            LocalTime.NOON,
+            LocalTime.MAX,
+        )
+        val offsets = listOf(
+            ZoneOffset.MIN,
+            ZoneOffset.ofTotalSeconds(-1),
+            ZoneOffset.UTC,
+            ZoneOffset.ofTotalSeconds(1),
+            ZoneOffset.MAX,
+        )
+
+        dates.forEach { (date, javaDate) ->
+            times.forEach { time ->
+                val javaTime = JavaLocalTime.ofNanoOfDay(time.toNanoOfDay())
+                offsets.forEach { offset ->
+                    assertEquals(
+                        javaTime.toEpochSecond(
+                            javaDate,
+                            JavaZoneOffset.ofTotalSeconds(offset.totalSeconds),
+                        ),
+                        time.toEpochSecond(date, offset),
+                        message = "date=$date time=$time offset=$offset",
+                    )
+                }
+            }
+        }
+    }
+
     @Test
     fun foundationBehaviorMatchesJavaTime() {
         val nanoOfDays = listOf(

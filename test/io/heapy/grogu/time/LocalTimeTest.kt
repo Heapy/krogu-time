@@ -48,6 +48,29 @@ class LocalTimeTest {
     }
 
     @Test
+    fun convertsDateTimeAndOffsetToEpochSeconds() {
+        assertEquals(
+            0L,
+            LocalTime.MIDNIGHT.toEpochSecond(LocalDate.EPOCH, ZoneOffset.UTC),
+        )
+        assertEquals(
+            122_400L,
+            LocalTime.NOON.toEpochSecond(
+                LocalDate.of(1970, 1, 2),
+                ZoneOffset.ofHours(2),
+            ),
+        )
+        assertEquals(
+            LocalDate.MIN.toEpochSecond(LocalTime.MIN, ZoneOffset.MAX),
+            LocalTime.MIN.toEpochSecond(LocalDate.MIN, ZoneOffset.MAX),
+        )
+        assertEquals(
+            LocalDate.MAX.toEpochSecond(LocalTime.MAX, ZoneOffset.MIN),
+            LocalTime.MAX.toEpochSecond(LocalDate.MAX, ZoneOffset.MIN),
+        )
+    }
+
+    @Test
     fun exposesComponentsConstantsAndTemporalConversion() {
         val time = LocalTime.of(12, 34, 56, 789)
         assertEquals(12, time.hour)

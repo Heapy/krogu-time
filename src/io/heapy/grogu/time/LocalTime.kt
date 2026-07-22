@@ -275,6 +275,10 @@ public class LocalTime private constructor(
             second * NANOS_PER_SECOND +
             nano
 
+    /** Combines this time with [date] and [offset] as a Unix epoch-second value. */
+    public fun toEpochSecond(date: LocalDate, offset: ZoneOffset): Long =
+        date.toEpochDay() * SECONDS_PER_DAY + toSecondOfDay() - offset.totalSeconds
+
     override fun compareTo(other: LocalTime): Int {
         val hourComparison = hour.compareTo(other.hour)
         if (hourComparison != 0) return hourComparison
