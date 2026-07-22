@@ -69,4 +69,35 @@ class DateTimeFormatterBuilderJavaConformanceTest {
             )
         }
     }
+
+    @Test
+    fun adjacentNumericValueParsingMatchesJavaTime() {
+        val javaFormatter = java.time.format.DateTimeFormatterBuilder()
+            .appendValue(
+                java.time.temporal.ChronoField.YEAR,
+                4,
+                10,
+                java.time.format.SignStyle.EXCEEDS_PAD,
+            )
+            .appendValue(java.time.temporal.ChronoField.MONTH_OF_YEAR, 2)
+            .appendValue(java.time.temporal.ChronoField.DAY_OF_MONTH, 2)
+            .toFormatter()
+        val groguFormatter = DateTimeFormatterBuilder()
+            .appendValue(
+                io.heapy.grogu.time.temporal.ChronoField.YEAR,
+                4,
+                10,
+                SignStyle.EXCEEDS_PAD,
+            )
+            .appendValue(io.heapy.grogu.time.temporal.ChronoField.MONTH_OF_YEAR, 2)
+            .appendValue(io.heapy.grogu.time.temporal.ChronoField.DAY_OF_MONTH, 2)
+            .toFormatter()
+
+        listOf("20240301", "+120240301").forEach { text ->
+            assertEquals(
+                java.time.LocalDate.parse(text, javaFormatter).toString(),
+                groguFormatter.parse(text, io.heapy.grogu.time.LocalDate::from).toString(),
+            )
+        }
+    }
 }

@@ -66,6 +66,23 @@ class DateTimeFormatterBuilderTest {
     }
 
     @Test
+    fun reservesDigitsForAdjacentFixedWidthValues() {
+        val formatter = DateTimeFormatterBuilder()
+            .appendValue(ChronoField.YEAR, 4, 10, SignStyle.EXCEEDS_PAD)
+            .appendValue(ChronoField.MONTH_OF_YEAR, 2)
+            .appendValue(ChronoField.DAY_OF_MONTH, 2)
+            .toFormatter()
+
+        listOf(
+            LocalDate.of(2024, 3, 1) to "20240301",
+            LocalDate.of(12_024, 3, 1) to "+120240301",
+        ).forEach { (date, text) ->
+            assertEquals(text, formatter.format(date))
+            assertEquals(date, formatter.parse(text, LocalDate::from))
+        }
+    }
+
+    @Test
     fun rejectsInvalidNumericWidths() {
         val builder = DateTimeFormatterBuilder()
 

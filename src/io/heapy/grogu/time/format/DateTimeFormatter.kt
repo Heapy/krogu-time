@@ -876,7 +876,7 @@ private fun parsePattern(
                 }
             }
             is PatternToken.Value -> {
-                val parsed = parsePatternValue(token, text, index)
+                val parsed = parsePatternValue(tokens, tokenIndex, token, text, index)
                 val previous = values.put(token.field, parsed.value)
                 if (previous != null && previous != parsed.value) {
                     throw DateTimeParseException(
@@ -998,6 +998,8 @@ private data class ParsedPatternField(
 )
 
 private fun parsePatternValue(
+    tokens: List<PatternToken>,
+    tokenIndex: Int,
     token: PatternToken.Value,
     text: String,
     startIndex: Int,
@@ -1015,7 +1017,14 @@ private fun parsePatternValue(
     if (sign != null) index++
 
     val digitsStart = index
-    while (index < text.length && text[index] in '0'..'9' && index - digitsStart < token.maxWidth) {
+    var digitRunEnd = digitsStart
+    while (digitRunEnd < text.length && text[digitRunEnd] in '0'..'9') digitRunEnd++
+    val reservedWidth = tokens.drop(tokenIndex + 1)
+        .map { it.adjacentFixedNumericWidth() }
+        .takeWhile { it != null }
+        .sumOf { it ?: 0 }
+    val maximumDigits = minOf(token.maxWidth, digitRunEnd - digitsStart - reservedWidth)
+    while (index < digitRunEnd && index - digitsStart < maximumDigits) {
         index++
     }
     val digitCount = index - digitsStart
@@ -1031,6 +1040,16 @@ private fun parsePatternValue(
     val value = numericText.toLongOrNull()
         ?: throw DateTimeParseException("Invalid numeric value", text, startIndex)
     return ParsedPatternField(value, index)
+}
+
+private fun PatternToken.adjacentFixedNumericWidth(): Int? = when (this) {
+    is PatternToken.Value -> minWidth.takeIf {
+        minWidth == maxWidth && signStyle == SignStyle.NOT_NEGATIVE
+    }
+    is PatternToken.Field -> count.takeIf {
+        symbol == 'S' || symbol in listOf('M', 'd', 'H', 'm', 's') && count > 1
+    }
+    is PatternToken.Literal -> null
 }
 
 private fun parsePatternField(
