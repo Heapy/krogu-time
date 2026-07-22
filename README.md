@@ -104,11 +104,11 @@ Implemented foundations:
   date/time/offset/region-zone query retention; leap-second and excess-day
   parsed-state queries; and formatter overloads on their corresponding value
   types
-- `DayOfWeek` ISO numbering, temporal conversion and adjustment, wraparound
-  arithmetic, and localized display names
+- `DayOfWeek` ISO numbering, temporal conversion and adjustment, day precision,
+  wraparound arithmetic, and localized display names
 - `Month` ISO numbering, temporal conversion including epoch-day conversion
-  from non-ISO chronologies, adjustment, calendar metadata, wraparound
-  arithmetic, and localized display names
+  from non-ISO chronologies, ISO-guarded adjustment, chronology/month precision
+  queries, calendar metadata, wraparound arithmetic, and localized display names
 - `Era` and `IsoEra`, including localized display names
 - `MinguoEra`, `ThaiBuddhistEra`, `JapaneseEra`, and `HijrahEra`, including
   Java-compatible numeric values, Japanese title-case lookup and defensive era

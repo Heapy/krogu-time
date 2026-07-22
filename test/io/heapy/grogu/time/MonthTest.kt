@@ -1,11 +1,13 @@
 package io.heapy.grogu.time
 
 import io.heapy.grogu.time.chrono.HijrahDate
+import io.heapy.grogu.time.chrono.IsoChronology
 import io.heapy.grogu.time.format.TextStyle
 import io.heapy.grogu.time.temporal.ChronoField
 import io.heapy.grogu.time.temporal.ChronoUnit
 import io.heapy.grogu.time.temporal.Temporal
 import io.heapy.grogu.time.temporal.TemporalField
+import io.heapy.grogu.time.temporal.TemporalQueries
 import io.heapy.grogu.time.temporal.TemporalUnit
 import io.heapy.grogu.time.temporal.UnsupportedTemporalTypeException
 import kotlin.test.Test
@@ -132,11 +134,20 @@ class MonthTest {
     }
 
     @Test
+    fun reportsIsoChronologyAndMonthsAsItsTemporalPrecision() {
+        assertSame(IsoChronology, Month.JANUARY.query(TemporalQueries.chronology()))
+        assertSame(ChronoUnit.MONTHS, Month.JANUARY.query(TemporalQueries.precision()))
+    }
+
+    @Test
     fun adjustsTheMonthOfYearFieldOnATemporal() {
         assertEquals(
             AdjustableMonth(9),
             Month.SEPTEMBER.adjustInto(AdjustableMonth(1)),
         )
+        assertFailsWith<DateTimeException> {
+            Month.SEPTEMBER.adjustInto(HijrahDate.of(1445, 9, 1))
+        }
     }
 
     private data class AdjustableMonth(private val month: Long) : Temporal {

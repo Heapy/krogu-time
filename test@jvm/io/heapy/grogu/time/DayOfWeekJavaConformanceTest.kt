@@ -1,13 +1,15 @@
 package io.heapy.grogu.time
 
 import io.heapy.grogu.time.format.TextStyle
+import io.heapy.grogu.time.temporal.ChronoField
+import io.heapy.grogu.time.temporal.TemporalQueries
 import java.time.DayOfWeek as JavaDayOfWeek
 import java.time.LocalDate as JavaLocalDate
 import java.time.LocalTime as JavaLocalTime
 import java.time.format.TextStyle as JavaTextStyle
 import java.time.temporal.ChronoField as JavaChronoField
+import java.time.temporal.TemporalQueries as JavaTemporalQueries
 import java.util.Locale as JavaLocale
-import io.heapy.grogu.time.temporal.ChronoField
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -70,6 +72,10 @@ class DayOfWeekJavaConformanceTest {
             assertEquals(
                 javaDay.getLong(JavaChronoField.DAY_OF_WEEK),
                 day.getLong(ChronoField.DAY_OF_WEEK),
+            )
+            assertEquals(
+                javaDay.query(JavaTemporalQueries.precision()).toString(),
+                day.query(TemporalQueries.precision()).toString(),
             )
 
             amounts.forEach { amount ->

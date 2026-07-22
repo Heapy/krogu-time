@@ -2,14 +2,16 @@ package io.heapy.grogu.time
 
 import io.heapy.grogu.time.chrono.HijrahDate
 import io.heapy.grogu.time.format.TextStyle
+import io.heapy.grogu.time.temporal.ChronoField
+import io.heapy.grogu.time.temporal.TemporalQueries
 import java.time.LocalDate as JavaLocalDate
 import java.time.LocalTime as JavaLocalTime
 import java.time.Month as JavaMonth
 import java.time.chrono.HijrahDate as JavaHijrahDate
 import java.time.format.TextStyle as JavaTextStyle
 import java.time.temporal.ChronoField as JavaChronoField
+import java.time.temporal.TemporalQueries as JavaTemporalQueries
 import java.util.Locale as JavaLocale
-import io.heapy.grogu.time.temporal.ChronoField
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -84,6 +86,14 @@ class MonthJavaConformanceTest {
                 javaMonth.getLong(JavaChronoField.MONTH_OF_YEAR),
                 month.getLong(ChronoField.MONTH_OF_YEAR),
             )
+            assertEquals(
+                javaMonth.query(JavaTemporalQueries.chronology()).id,
+                month.query(TemporalQueries.chronology())?.id,
+            )
+            assertEquals(
+                javaMonth.query(JavaTemporalQueries.precision()).toString(),
+                month.query(TemporalQueries.precision()).toString(),
+            )
             assertEquals(javaMonth.minLength(), month.minLength())
             assertEquals(javaMonth.maxLength(), month.maxLength())
             assertEquals(javaMonth.firstMonthOfQuarter().name, month.firstMonthOfQuarter().name)
@@ -98,6 +108,11 @@ class MonthJavaConformanceTest {
                 assertEquals(javaMonth.minus(amount).name, month.minus(amount).name)
             }
         }
+
+        assertSameOutcome(
+            javaOperation = { JavaMonth.SEPTEMBER.adjustInto(JavaHijrahDate.of(1445, 9, 1)) },
+            kotlinOperation = { Month.SEPTEMBER.adjustInto(HijrahDate.of(1445, 9, 1)) },
+        )
     }
 
     private fun assertSameOutcome(

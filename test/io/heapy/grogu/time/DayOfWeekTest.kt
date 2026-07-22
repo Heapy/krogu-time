@@ -5,6 +5,7 @@ import io.heapy.grogu.time.temporal.ChronoField
 import io.heapy.grogu.time.temporal.ChronoUnit
 import io.heapy.grogu.time.temporal.Temporal
 import io.heapy.grogu.time.temporal.TemporalField
+import io.heapy.grogu.time.temporal.TemporalQueries
 import io.heapy.grogu.time.temporal.TemporalUnit
 import io.heapy.grogu.time.temporal.UnsupportedTemporalTypeException
 import kotlin.test.Test
@@ -106,6 +107,11 @@ class DayOfWeekTest {
         assertFailsWith<UnsupportedTemporalTypeException> {
             DayOfWeek.MONDAY.getLong(ChronoField.DAY_OF_MONTH)
         }
+    }
+
+    @Test
+    fun reportsDaysAsItsTemporalPrecision() {
+        assertSame(ChronoUnit.DAYS, DayOfWeek.MONDAY.query(TemporalQueries.precision()))
     }
 
     @Test

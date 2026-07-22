@@ -5,10 +5,13 @@ import io.heapy.grogu.time.format.LocaleTextField
 import io.heapy.grogu.time.format.TextStyle
 import io.heapy.grogu.time.format.localeTextValues
 import io.heapy.grogu.time.temporal.ChronoField
+import io.heapy.grogu.time.temporal.ChronoUnit
 import io.heapy.grogu.time.temporal.Temporal
 import io.heapy.grogu.time.temporal.TemporalAccessor
 import io.heapy.grogu.time.temporal.TemporalAdjuster
 import io.heapy.grogu.time.temporal.TemporalField
+import io.heapy.grogu.time.temporal.TemporalQueries
+import io.heapy.grogu.time.temporal.TemporalQuery
 import io.heapy.grogu.time.temporal.UnsupportedTemporalTypeException
 
 /**
@@ -58,6 +61,14 @@ public enum class DayOfWeek : TemporalAccessor, TemporalAdjuster {
         field == ChronoField.DAY_OF_WEEK -> value.toLong()
         field is ChronoField -> throw UnsupportedTemporalTypeException("Unsupported field: $field")
         else -> field.getFrom(this)
+    }
+
+    override fun <R> query(query: TemporalQuery<R>): R {
+        if (query === TemporalQueries.precision()) {
+            @Suppress("UNCHECKED_CAST")
+            return ChronoUnit.DAYS as R
+        }
+        return super<TemporalAccessor>.query(query)
     }
 
     override fun adjustInto(temporal: Temporal): Temporal =
