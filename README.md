@@ -65,14 +65,19 @@ Implemented foundations:
 - `Duration` with the complete Java 21 public API surface, including parsing,
   temporal integration, checked arithmetic, conversions, truncation, and
   `between`
+- `Instant` value and boundary constants, normalized epoch factories,
+  temporal fields, replacement, truncation, checked precise-unit arithmetic,
+  complete-unit and duration differences, epoch-millisecond conversion,
+  adjustment, ordering, and hashing (clock factories, ISO parsing and text,
+  queries, and offset/zone composition remain)
 - temporal interfaces and exceptions
 - `TemporalAdjusters` complete date-adjuster utility surface
 - `ValueRange`
 - `ChronoUnit`
 - `ChronoField`
 
-Remaining work includes standard temporal queries and adjusters, other local
-and offset date/time types, instants and clocks, chronology integration, zones
+Remaining work includes standard temporal queries, other local and offset
+date/time types, clocks, chronology integration, zones
 and rules, formatters and parsers beyond the implemented ISO defaults and
 amount parsers, alternate chronologies, and complete cross-type conformance
 coverage.
