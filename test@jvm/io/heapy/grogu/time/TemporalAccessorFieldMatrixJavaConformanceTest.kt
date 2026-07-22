@@ -12,6 +12,8 @@ import io.heapy.grogu.time.chrono.ThaiBuddhistEra
 import io.heapy.grogu.time.temporal.ChronoField
 import io.heapy.grogu.time.temporal.Temporal
 import io.heapy.grogu.time.temporal.TemporalAccessor
+import io.heapy.grogu.time.temporal.TemporalQueries
+import io.heapy.grogu.time.temporal.TemporalQuery
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -61,6 +63,48 @@ class TemporalAccessorFieldMatrixJavaConformanceTest {
                         "${accessor.name} $kotlinField $value: " +
                             "Java=$javaOutcome, Kotlin=$kotlinOutcome"
                     }
+                }
+            }
+        }
+
+        assertEquals(emptyList(), mismatches)
+    }
+
+    @Test
+    fun everyStandardQueryMatchesJavaTimeAcrossAccessors() {
+        val queries = listOf(
+            QueryPair(
+                "chronology",
+                java.time.temporal.TemporalQueries.chronology(),
+                TemporalQueries.chronology(),
+            ),
+            QueryPair("zoneId", java.time.temporal.TemporalQueries.zoneId(), TemporalQueries.zoneId()),
+            QueryPair("zone", java.time.temporal.TemporalQueries.zone(), TemporalQueries.zone()),
+            QueryPair("offset", java.time.temporal.TemporalQueries.offset(), TemporalQueries.offset()),
+            QueryPair(
+                "localDate",
+                java.time.temporal.TemporalQueries.localDate(),
+                TemporalQueries.localDate(),
+            ),
+            QueryPair(
+                "localTime",
+                java.time.temporal.TemporalQueries.localTime(),
+                TemporalQueries.localTime(),
+            ),
+            QueryPair(
+                "precision",
+                java.time.temporal.TemporalQueries.precision(),
+                TemporalQueries.precision(),
+            ),
+        )
+        val mismatches = accessors().flatMap { accessor ->
+            queries.mapNotNull { query ->
+                val javaOutcome = outcome { accessor.java.query(query.java) }
+                val kotlinOutcome = outcome { accessor.kotlin.query(query.kotlin) }
+                if (javaOutcome == kotlinOutcome) {
+                    null
+                } else {
+                    "${accessor.name} ${query.name}: Java=$javaOutcome, Kotlin=$kotlinOutcome"
                 }
             }
         }
@@ -205,6 +249,12 @@ class TemporalAccessorFieldMatrixJavaConformanceTest {
         val range: Outcome,
         val intValue: Outcome,
         val longValue: Outcome,
+    )
+
+    private data class QueryPair(
+        val name: String,
+        val java: java.time.temporal.TemporalQuery<*>,
+        val kotlin: TemporalQuery<*>,
     )
 
     private data class Outcome(

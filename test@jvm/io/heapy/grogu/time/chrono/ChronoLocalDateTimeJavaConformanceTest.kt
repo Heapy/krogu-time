@@ -73,6 +73,19 @@ class ChronoLocalDateTimeJavaConformanceTest {
     }
 
     @Test
+    fun crossChronologyLocalDateTimeAdjustmentMatchesJavaTime() {
+        val javaDateTime = JavaMinguoDate.of(113, 3, 30).atTime(java.time.LocalTime.NOON)
+        val dateTime = MinguoDate.of(113, 3, 30).atTime(LocalTime.NOON)
+        val javaReplacement = java.time.LocalDateTime.of(2024, 4, 15, 1, 2, 3, 4)
+        val replacement = LocalDateTime.of(2024, 4, 15, 1, 2, 3, 4)
+
+        assertEquals(
+            javaDateTime.with(javaReplacement).toString(),
+            dateTime.with(replacement).toString(),
+        )
+    }
+
+    @Test
     fun implementationCustomFieldIntValidationMatchesJavaTime() {
         val javaDateTime = JavaMinguoDate.of(113, 2, 29).atTime(java.time.LocalTime.NOON)
         val dateTime = MinguoDate.of(113, 2, 29).atTime(LocalTime.NOON)

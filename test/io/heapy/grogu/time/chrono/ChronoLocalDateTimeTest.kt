@@ -80,6 +80,17 @@ class ChronoLocalDateTimeTest {
     }
 
     @Test
+    fun isoLocalDateTimeAdjustersPreserveTheTargetChronology() {
+        val dateTime = MinguoDate.of(113, 3, 30).atTime(LocalTime.NOON)
+        val replacement = LocalDateTime.of(2024, 4, 15, 1, 2, 3, 4)
+
+        assertEquals(
+            MinguoDate.of(113, 4, 15).atTime(LocalTime.of(1, 2, 3, 4)),
+            dateTime.with(replacement),
+        )
+    }
+
+    @Test
     fun implementationCustomFieldsUseDirectIntValidation() {
         val dateTime = MinguoDate.of(113, 2, 29).atTime(LocalTime.NOON)
         val exception = assertFailsWith<DateTimeException> {

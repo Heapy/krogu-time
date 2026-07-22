@@ -6,6 +6,7 @@ import io.heapy.grogu.time.chrono.MinguoDate
 import io.heapy.grogu.time.chrono.ThaiBuddhistDate
 import io.heapy.grogu.time.temporal.ChronoUnit
 import io.heapy.grogu.time.temporal.Temporal
+import io.heapy.grogu.time.temporal.TemporalAdjuster
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -25,6 +26,24 @@ class TemporalUnitMatrixJavaConformanceTest {
                         "${temporal.name} $kotlinUnit $amount: " +
                             "Java=$javaSnapshot, Kotlin=$kotlinSnapshot"
                     }
+                }
+            }
+        }
+
+        assertEquals(emptyList(), mismatches)
+    }
+
+    @Test
+    fun temporalAdjusterCombinationsMatchJavaTime() {
+        val mismatches = temporals().flatMap { temporal ->
+            adjusters().mapNotNull { adjuster ->
+                val javaOutcome = outcome { temporal.java.with(adjuster.java) }
+                val kotlinOutcome = outcome { temporal.kotlin.with(adjuster.kotlin) }
+                if (javaOutcome == kotlinOutcome) {
+                    null
+                } else {
+                    "${temporal.name} with ${adjuster.name}: " +
+                        "Java=$javaOutcome, Kotlin=$kotlinOutcome"
                 }
             }
         }
@@ -135,6 +154,30 @@ class TemporalUnitMatrixJavaConformanceTest {
         untilPlus = outcome { temporal.until(temporal.plus(amount, unit), unit) },
     )
 
+    private fun adjusters(): List<AdjusterPair> {
+        val temporalAdjusters = temporals().mapNotNull { temporal ->
+            val javaAdjuster = temporal.java as? java.time.temporal.TemporalAdjuster
+                ?: return@mapNotNull null
+            val kotlinAdjuster = temporal.kotlin as? TemporalAdjuster
+                ?: return@mapNotNull null
+            AdjusterPair(
+                name = temporal.name,
+                java = javaAdjuster,
+                kotlin = kotlinAdjuster,
+            )
+        }
+        return temporalAdjusters + listOf(
+            AdjusterPair("DayOfWeek", java.time.DayOfWeek.MONDAY, DayOfWeek.MONDAY),
+            AdjusterPair("Month", java.time.Month.APRIL, Month.APRIL),
+            AdjusterPair("MonthDay", java.time.MonthDay.of(2, 29), MonthDay.of(2, 29)),
+            AdjusterPair(
+                "ZoneOffset",
+                java.time.ZoneOffset.ofHoursMinutes(5, 45),
+                ZoneOffset.ofHoursMinutes(5, 45),
+            ),
+        )
+    }
+
     private fun snapshot(
         temporal: Temporal,
         unit: ChronoUnit,
@@ -155,6 +198,12 @@ class TemporalUnitMatrixJavaConformanceTest {
         val name: String,
         val java: java.time.temporal.Temporal,
         val kotlin: Temporal,
+    )
+
+    private data class AdjusterPair(
+        val name: String,
+        val java: java.time.temporal.TemporalAdjuster,
+        val kotlin: TemporalAdjuster,
     )
 
     private data class UnitSnapshot(

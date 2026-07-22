@@ -43,7 +43,7 @@ internal class ChronoLocalDateTimeImpl<D : ChronoLocalDate> private constructor(
     override fun with(adjuster: TemporalAdjuster): ChronoLocalDateTimeImpl<D> = when (adjuster) {
         is ChronoLocalDate -> with(adjuster, time)
         is LocalTime -> with(date, adjuster)
-        is ChronoLocalDateTime<*> -> ensureValid(chronology, adjuster)
+        is ChronoLocalDateTimeImpl<*> -> ensureValid(chronology, adjuster)
         else -> ensureValid(chronology, adjuster.adjustInto(this))
     }
 
