@@ -1,14 +1,21 @@
 package io.heapy.grogu.time
 
+import io.heapy.grogu.time.chrono.IsoEra
 import io.heapy.grogu.time.internal.floorMod
 import io.heapy.grogu.time.temporal.ChronoField
+import io.heapy.grogu.time.temporal.Temporal
+import io.heapy.grogu.time.temporal.TemporalAccessor
+import io.heapy.grogu.time.temporal.TemporalAdjuster
+import io.heapy.grogu.time.temporal.TemporalField
+import io.heapy.grogu.time.temporal.UnsupportedTemporalTypeException
+import io.heapy.grogu.time.temporal.ValueRange
 
 /** A date without a time-zone in the ISO-8601 calendar system. */
 public class LocalDate private constructor(
     public val year: Int,
     public val monthValue: Int,
     public val dayOfMonth: Int,
-) : Comparable<LocalDate> {
+) : TemporalAccessor, TemporalAdjuster, Comparable<LocalDate> {
     /** The month of this date. */
     public val month: Month
         get() = Month.of(monthValue)
@@ -21,6 +28,10 @@ public class LocalDate private constructor(
     public val dayOfWeek: DayOfWeek
         get() = DayOfWeek.of(floorMod(toEpochDay() + 3, 7).toInt() + 1)
 
+    /** The ISO era of this date. */
+    public val era: IsoEra
+        get() = if (year >= 1) IsoEra.CE else IsoEra.BCE
+
     /** Whether this date's year is a leap year. */
     public val isLeapYear: Boolean
         get() = Year.isLeap(year.toLong())
@@ -30,6 +41,42 @@ public class LocalDate private constructor(
 
     /** Returns the number of days in this date's year. */
     public fun lengthOfYear(): Int = if (isLeapYear) 366 else 365
+
+    override fun isSupported(field: TemporalField): Boolean =
+        if (field is ChronoField) field.isDateBased else field.isSupportedBy(this)
+
+    override fun range(field: TemporalField): ValueRange = when (field) {
+        ChronoField.DAY_OF_MONTH -> ValueRange.of(1, lengthOfMonth().toLong())
+        ChronoField.DAY_OF_YEAR -> ValueRange.of(1, lengthOfYear().toLong())
+        ChronoField.ALIGNED_WEEK_OF_MONTH -> ValueRange.of(
+            1,
+            if (month === Month.FEBRUARY && !isLeapYear) 4 else 5,
+        )
+        ChronoField.YEAR_OF_ERA -> if (year <= 0) {
+            ValueRange.of(1, Year.MAX_VALUE.toLong() + 1)
+        } else {
+            ValueRange.of(1, Year.MAX_VALUE.toLong())
+        }
+        else -> super<TemporalAccessor>.range(field)
+    }
+
+    override fun getLong(field: TemporalField): Long = when (field) {
+        ChronoField.DAY_OF_WEEK -> dayOfWeek.value.toLong()
+        ChronoField.ALIGNED_DAY_OF_WEEK_IN_MONTH -> ((dayOfMonth - 1) % 7 + 1).toLong()
+        ChronoField.ALIGNED_DAY_OF_WEEK_IN_YEAR -> ((dayOfYear - 1) % 7 + 1).toLong()
+        ChronoField.DAY_OF_MONTH -> dayOfMonth.toLong()
+        ChronoField.DAY_OF_YEAR -> dayOfYear.toLong()
+        ChronoField.EPOCH_DAY -> toEpochDay()
+        ChronoField.ALIGNED_WEEK_OF_MONTH -> ((dayOfMonth - 1) / 7 + 1).toLong()
+        ChronoField.ALIGNED_WEEK_OF_YEAR -> ((dayOfYear - 1) / 7 + 1).toLong()
+        ChronoField.MONTH_OF_YEAR -> monthValue.toLong()
+        ChronoField.PROLEPTIC_MONTH -> year * 12L + monthValue - 1
+        ChronoField.YEAR_OF_ERA -> (if (year >= 1) year else 1 - year).toLong()
+        ChronoField.YEAR -> year.toLong()
+        ChronoField.ERA -> if (year >= 1) 1 else 0
+        is ChronoField -> throw UnsupportedTemporalTypeException("Unsupported field: $field")
+        else -> field.getFrom(this)
+    }
 
     /** Converts this date to the count of days from 1970-01-01. */
     public fun toEpochDay(): Long {
@@ -48,6 +95,9 @@ public class LocalDate private constructor(
         if (month > 2) total -= if (isLeapYear) 1 else 2
         return total - DAYS_0000_TO_1970
     }
+
+    override fun adjustInto(temporal: Temporal): Temporal =
+        temporal.with(ChronoField.EPOCH_DAY, toEpochDay())
 
     override fun compareTo(other: LocalDate): Int {
         val yearComparison = year.compareTo(other.year)

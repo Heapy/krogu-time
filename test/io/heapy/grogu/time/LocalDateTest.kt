@@ -1,5 +1,13 @@
 package io.heapy.grogu.time
 
+import io.heapy.grogu.time.chrono.IsoEra
+import io.heapy.grogu.time.temporal.ChronoField
+import io.heapy.grogu.time.temporal.ChronoUnit
+import io.heapy.grogu.time.temporal.Temporal
+import io.heapy.grogu.time.temporal.TemporalField
+import io.heapy.grogu.time.temporal.TemporalUnit
+import io.heapy.grogu.time.temporal.UnsupportedTemporalTypeException
+import io.heapy.grogu.time.temporal.ValueRange
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -60,6 +68,75 @@ class LocalDateTest {
     }
 
     @Test
+    fun exposesStandardDateFieldsAndRefinedRanges() {
+        val date = LocalDate.of(2024, 2, 29)
+        val expectedFields = mapOf(
+            ChronoField.DAY_OF_WEEK to 4L,
+            ChronoField.ALIGNED_DAY_OF_WEEK_IN_MONTH to 1L,
+            ChronoField.ALIGNED_DAY_OF_WEEK_IN_YEAR to 4L,
+            ChronoField.DAY_OF_MONTH to 29L,
+            ChronoField.DAY_OF_YEAR to 60L,
+            ChronoField.EPOCH_DAY to 19_782L,
+            ChronoField.ALIGNED_WEEK_OF_MONTH to 5L,
+            ChronoField.ALIGNED_WEEK_OF_YEAR to 9L,
+            ChronoField.MONTH_OF_YEAR to 2L,
+            ChronoField.PROLEPTIC_MONTH to 24_289L,
+            ChronoField.YEAR_OF_ERA to 2_024L,
+            ChronoField.YEAR to 2_024L,
+            ChronoField.ERA to 1L,
+        )
+
+        ChronoField.entries.forEach { field ->
+            assertEquals(field in expectedFields, date.isSupported(field), field.toString())
+        }
+        expectedFields.forEach { (field, value) ->
+            assertEquals(value, date.getLong(field), field.toString())
+        }
+        assertEquals(ValueRange.of(1, 29), date.range(ChronoField.DAY_OF_MONTH))
+        assertEquals(ValueRange.of(1, 366), date.range(ChronoField.DAY_OF_YEAR))
+        assertEquals(ValueRange.of(1, 5), date.range(ChronoField.ALIGNED_WEEK_OF_MONTH))
+        assertEquals(
+            ValueRange.of(1, Year.MAX_VALUE.toLong()),
+            date.range(ChronoField.YEAR_OF_ERA),
+        )
+        assertEquals(IsoEra.CE, date.era)
+
+        val bce = LocalDate.of(-1, 3, 1)
+        assertEquals(-10L, bce.getLong(ChronoField.PROLEPTIC_MONTH))
+        assertEquals(2L, bce.getLong(ChronoField.YEAR_OF_ERA))
+        assertEquals(0L, bce.getLong(ChronoField.ERA))
+        assertEquals(IsoEra.BCE, bce.era)
+        assertEquals(
+            ValueRange.of(1, Year.MAX_VALUE.toLong() + 1),
+            bce.range(ChronoField.YEAR_OF_ERA),
+        )
+
+        val commonFebruary = LocalDate.of(2023, 2, 1)
+        assertEquals(
+            ValueRange.of(1, 4),
+            commonFebruary.range(ChronoField.ALIGNED_WEEK_OF_MONTH),
+        )
+        assertFailsWith<UnsupportedTemporalTypeException> {
+            date.getLong(ChronoField.HOUR_OF_DAY)
+        }
+        assertFailsWith<UnsupportedTemporalTypeException> {
+            date.get(ChronoField.EPOCH_DAY)
+        }
+    }
+
+    @Test
+    fun delegatesCustomFieldsAndAdjustsOtherTemporalsByEpochDay() {
+        val date = LocalDate.of(2024, 2, 29)
+        assertTrue(date.isSupported(NextYearField))
+        assertEquals(NextYearField.range, date.range(NextYearField))
+        assertEquals(2_025L, date.getLong(NextYearField))
+        assertEquals(
+            EpochDayRecordingTemporal(19_782),
+            date.adjustInto(EpochDayRecordingTemporal()),
+        )
+    }
+
+    @Test
     fun formatsAndOrdersIsoDates() {
         assertEquals("2024-02-29", LocalDate.of(2024, 2, 29).toString())
         assertEquals("0000-01-01", LocalDate.of(0, 1, 1).toString())
@@ -67,5 +144,52 @@ class LocalDateTest {
         assertEquals("+10000-01-01", LocalDate.of(10_000, 1, 1).toString())
         assertTrue(LocalDate.of(2024, 1, 1) < LocalDate.of(2024, 1, 2))
         assertEquals(LocalDate.of(1970, 1, 1), LocalDate.EPOCH)
+    }
+
+    private object NextYearField : TemporalField {
+        override val baseUnit: TemporalUnit = ChronoUnit.YEARS
+        override val rangeUnit: TemporalUnit = ChronoUnit.FOREVER
+        override val range: ValueRange = ValueRange.of(
+            Year.MIN_VALUE.toLong() + 1,
+            Year.MAX_VALUE.toLong() + 1,
+        )
+        override val isDateBased: Boolean = true
+        override val isTimeBased: Boolean = false
+
+        override fun isSupportedBy(temporal: io.heapy.grogu.time.temporal.TemporalAccessor): Boolean =
+            temporal is LocalDate
+
+        override fun rangeRefinedBy(
+            temporal: io.heapy.grogu.time.temporal.TemporalAccessor,
+        ): ValueRange = range
+
+        override fun getFrom(temporal: io.heapy.grogu.time.temporal.TemporalAccessor): Long =
+            temporal.getLong(ChronoField.YEAR) + 1
+
+        override fun <R : Temporal> adjustInto(temporal: R, newValue: Long): R {
+            @Suppress("UNCHECKED_CAST")
+            return temporal.with(ChronoField.YEAR, newValue - 1) as R
+        }
+    }
+
+    private data class EpochDayRecordingTemporal(
+        val epochDay: Long? = null,
+    ) : Temporal {
+        override fun isSupported(field: TemporalField): Boolean = field === ChronoField.EPOCH_DAY
+
+        override fun isSupported(unit: TemporalUnit): Boolean = false
+
+        override fun getLong(field: TemporalField): Long =
+            epochDay ?: throw UnsupportedTemporalTypeException("Unsupported field: $field")
+
+        override fun with(field: TemporalField, newValue: Long): Temporal =
+            if (field === ChronoField.EPOCH_DAY) copy(epochDay = newValue) else
+                throw UnsupportedTemporalTypeException("Unsupported field: $field")
+
+        override fun plus(amountToAdd: Long, unit: TemporalUnit): Temporal =
+            throw UnsupportedTemporalTypeException("Unsupported unit: $unit")
+
+        override fun until(endExclusive: Temporal, unit: TemporalUnit): Long =
+            throw UnsupportedTemporalTypeException("Unsupported unit: $unit")
     }
 }
