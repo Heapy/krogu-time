@@ -12,25 +12,29 @@ import io.heapy.grogu.time.temporal.TemporalField
  */
 public class DateTimeFormatterBuilder {
     private val tokens: MutableList<PatternToken> = mutableListOf()
+    private val optionalSections: MutableList<MutableList<PatternToken>> = mutableListOf()
+
+    private val activeTokens: MutableList<PatternToken>
+        get() = optionalSections.lastOrNull() ?: tokens
 
     /** Makes parsing case-sensitive for subsequently appended elements. */
     public fun parseCaseSensitive(): DateTimeFormatterBuilder = apply {
-        tokens += PatternToken.ParseSetting(ParserSetting.CASE_SENSITIVE)
+        activeTokens += PatternToken.ParseSetting(ParserSetting.CASE_SENSITIVE)
     }
 
     /** Makes parsing case-insensitive for subsequently appended elements. */
     public fun parseCaseInsensitive(): DateTimeFormatterBuilder = apply {
-        tokens += PatternToken.ParseSetting(ParserSetting.CASE_INSENSITIVE)
+        activeTokens += PatternToken.ParseSetting(ParserSetting.CASE_INSENSITIVE)
     }
 
     /** Makes parsing strict for subsequently appended elements. */
     public fun parseStrict(): DateTimeFormatterBuilder = apply {
-        tokens += PatternToken.ParseSetting(ParserSetting.STRICT)
+        activeTokens += PatternToken.ParseSetting(ParserSetting.STRICT)
     }
 
     /** Makes parsing lenient for subsequently appended elements. */
     public fun parseLenient(): DateTimeFormatterBuilder = apply {
-        tokens += PatternToken.ParseSetting(ParserSetting.LENIENT)
+        activeTokens += PatternToken.ParseSetting(ParserSetting.LENIENT)
     }
 
     /** Supplies [value] for [field] during parsing when it is still absent. */
@@ -38,12 +42,24 @@ public class DateTimeFormatterBuilder {
         field: TemporalField,
         value: Long,
     ): DateTimeFormatterBuilder = apply {
-        tokens += PatternToken.DefaultValue(field, value)
+        activeTokens += PatternToken.DefaultValue(field, value)
     }
 
     /** Appends the elements described by [pattern]. */
     public fun appendPattern(pattern: String): DateTimeFormatterBuilder = apply {
-        tokens += compilePattern(pattern)
+        visitPattern(
+            pattern = pattern,
+            appendToken = { token -> activeTokens.appendPatternToken(token) },
+            optionalStart = { optionalStart() },
+            optionalEnd = {
+                if (optionalSections.isEmpty()) {
+                    throw IllegalArgumentException(
+                        "Pattern invalid as it contains ] without previous [",
+                    )
+                }
+                optionalEnd()
+            },
+        )
     }
 
     /** Appends [literal] without interpreting it as a pattern. */
@@ -52,7 +68,7 @@ public class DateTimeFormatterBuilder {
 
     /** Appends [literal] without interpreting it as a pattern. */
     public fun appendLiteral(literal: String): DateTimeFormatterBuilder = apply {
-        tokens.appendPatternLiteral(literal)
+        activeTokens.appendPatternLiteral(literal)
     }
 
     /** Appends a variable-width numeric [field]. */
@@ -77,7 +93,7 @@ public class DateTimeFormatterBuilder {
         require(maxWidth >= minWidth) {
             "Maximum width must exceed or equal the minimum width but $maxWidth < $minWidth"
         }
-        tokens += PatternToken.Value(field, minWidth, maxWidth, signStyle)
+        activeTokens += PatternToken.Value(field, minWidth, maxWidth, signStyle)
     }
 
     /** Appends a reduced numeric [field] interpreted relative to [baseValue]. */
@@ -100,7 +116,7 @@ public class DateTimeFormatterBuilder {
                 "Unable to add printer-parser as the range exceeds the capacity of an int",
             )
         }
-        tokens += PatternToken.ReducedValue(
+        activeTokens += PatternToken.ReducedValue(
             field,
             width,
             maxWidth,
@@ -120,7 +136,7 @@ public class DateTimeFormatterBuilder {
         require(maxWidth >= width) {
             "Maximum width must exceed or equal the minimum width but $maxWidth < $width"
         }
-        tokens += PatternToken.ReducedValue(
+        activeTokens += PatternToken.ReducedValue(
             field,
             width,
             maxWidth,
@@ -145,7 +161,7 @@ public class DateTimeFormatterBuilder {
         require(maxWidth >= minWidth) {
             "Maximum width must exceed or equal the minimum width but $maxWidth < $minWidth"
         }
-        tokens += PatternToken.Fraction(field, minWidth, maxWidth, decimalPoint)
+        activeTokens += PatternToken.Fraction(field, minWidth, maxWidth, decimalPoint)
     }
 
     /** Appends an ISO zone offset ID, using `Z` for zero. */
@@ -157,26 +173,45 @@ public class DateTimeFormatterBuilder {
         noOffsetText: String,
     ): DateTimeFormatterBuilder = apply {
         validateOffsetPattern(pattern)
-        tokens += PatternToken.Offset(pattern, noOffsetText)
+        activeTokens += PatternToken.Offset(pattern, noOffsetText)
     }
 
     /** Appends an explicit zone ID, without falling back to a bare offset. */
     public fun appendZoneId(): DateTimeFormatterBuilder = apply {
-        tokens += PatternToken.ZoneId(ZoneQueryMode.ZONE_ID)
+        activeTokens += PatternToken.ZoneId(ZoneQueryMode.ZONE_ID)
     }
 
     /** Appends a region zone ID and rejects bare offsets while formatting. */
     public fun appendZoneRegionId(): DateTimeFormatterBuilder = apply {
-        tokens += PatternToken.ZoneId(ZoneQueryMode.REGION_ONLY)
+        activeTokens += PatternToken.ZoneId(ZoneQueryMode.REGION_ONLY)
     }
 
     /** Appends the best available zone ID or offset ID. */
     public fun appendZoneOrOffsetId(): DateTimeFormatterBuilder = apply {
-        tokens += PatternToken.ZoneId(ZoneQueryMode.ZONE_OR_OFFSET)
+        activeTokens += PatternToken.ZoneId(ZoneQueryMode.ZONE_OR_OFFSET)
+    }
+
+    /** Starts a nested section that may be absent while formatting or parsing. */
+    public fun optionalStart(): DateTimeFormatterBuilder = apply {
+        optionalSections.add(mutableListOf())
+    }
+
+    /** Ends the current optional section. */
+    public fun optionalEnd(): DateTimeFormatterBuilder = apply {
+        check(optionalSections.isNotEmpty()) {
+            "Cannot call optionalEnd() as there was no previous call to optionalStart()"
+        }
+        val optionalTokens = optionalSections.removeAt(optionalSections.lastIndex)
+        if (optionalTokens.isNotEmpty()) {
+            activeTokens += PatternToken.Optional(optionalTokens.toList())
+        }
     }
 
     /** Creates an immutable formatter from the elements appended so far. */
-    public fun toFormatter(): DateTimeFormatter = DateTimeFormatter.fromPatternTokens(tokens)
+    public fun toFormatter(): DateTimeFormatter {
+        while (optionalSections.isNotEmpty()) optionalEnd()
+        return DateTimeFormatter.fromPatternTokens(tokens)
+    }
 }
 
 internal fun reducedPowerOfTen(power: Int): Long {

@@ -661,6 +661,8 @@ internal sealed interface PatternToken {
         val field: TemporalField,
         val value: Long,
     ) : PatternToken
+
+    data class Optional(val tokens: List<PatternToken>) : PatternToken
 }
 
 internal enum class ParserSetting {
@@ -694,14 +696,45 @@ internal fun validateOffsetPattern(pattern: String): Int =
         ?: throw IllegalArgumentException("Invalid zone offset pattern: $pattern")
 
 internal fun compilePattern(pattern: String): List<PatternToken> {
-    val tokens = mutableListOf<PatternToken>()
+    val rootTokens = mutableListOf<PatternToken>()
+    val optionalSections = mutableListOf<MutableList<PatternToken>>()
+    fun activeTokens(): MutableList<PatternToken> = optionalSections.lastOrNull() ?: rootTokens
+    visitPattern(
+        pattern = pattern,
+        appendToken = { token -> activeTokens().appendPatternToken(token) },
+        optionalStart = { optionalSections.add(mutableListOf()) },
+        optionalEnd = {
+            require(optionalSections.isNotEmpty()) {
+                "Pattern invalid as it contains ] without previous ["
+            }
+            val optionalTokens = optionalSections.removeAt(optionalSections.lastIndex)
+            if (optionalTokens.isNotEmpty()) {
+                activeTokens() += PatternToken.Optional(optionalTokens.toList())
+            }
+        },
+    )
+    while (optionalSections.isNotEmpty()) {
+        val optionalTokens = optionalSections.removeAt(optionalSections.lastIndex)
+        if (optionalTokens.isNotEmpty()) {
+            activeTokens() += PatternToken.Optional(optionalTokens.toList())
+        }
+    }
+    return rootTokens
+}
+
+internal fun visitPattern(
+    pattern: String,
+    appendToken: (PatternToken) -> Unit,
+    optionalStart: () -> Unit,
+    optionalEnd: () -> Unit,
+) {
     var index = 0
     while (index < pattern.length) {
         val character = pattern[index]
         when {
             character == '\'' -> {
                 if (pattern.getOrNull(index + 1) == '\'') {
-                    tokens.appendPatternLiteral("'")
+                    appendToken(PatternToken.Literal("'"))
                     index += 2
                     continue
                 }
@@ -724,23 +757,40 @@ internal fun compilePattern(pattern: String): List<PatternToken> {
                     }
                 }
                 require(closed) { "Pattern ends with an incomplete string literal: $pattern" }
-                tokens.appendPatternLiteral(literal.toString())
+                appendToken(PatternToken.Literal(literal.toString()))
             }
+            character == '[' -> {
+                optionalStart()
+                index++
+            }
+            character == ']' -> {
+                optionalEnd()
+                index++
+            }
+            character == '#' || character == '{' || character == '}' ->
+                throw IllegalArgumentException("Pattern includes reserved character: '$character'")
             character.isAsciiLetter() -> {
                 var end = index + 1
                 while (end < pattern.length && pattern[end] == character) end++
                 val count = end - index
                 validatePatternField(character, count)
-                tokens += PatternToken.Field(character, count)
+                appendToken(PatternToken.Field(character, count))
                 index = end
             }
             else -> {
-                tokens.appendPatternLiteral(character.toString())
+                appendToken(PatternToken.Literal(character.toString()))
                 index++
             }
         }
     }
-    return tokens
+}
+
+internal fun MutableList<PatternToken>.appendPatternToken(token: PatternToken) {
+    if (token is PatternToken.Literal) {
+        appendPatternLiteral(token.text)
+    } else {
+        add(token)
+    }
 }
 
 internal fun MutableList<PatternToken>.appendPatternLiteral(text: String) {
@@ -781,6 +831,11 @@ private fun formatPattern(
             is PatternToken.Fraction -> append(formatPatternFraction(token, temporal))
             is PatternToken.Offset -> append(formatBuilderOffset(token, temporal))
             is PatternToken.ZoneId -> append(formatBuilderZoneId(token, temporal))
+            is PatternToken.Optional -> try {
+                append(formatPattern(token.tokens, temporal))
+            } catch (_: DateTimeException) {
+                // Missing data suppresses the complete optional section.
+            }
             is PatternToken.ParseSetting,
             is PatternToken.DefaultValue,
             -> Unit
@@ -1016,8 +1071,9 @@ private fun parsePattern(
         offset = parsed.offset
         index = parsed.endIndex
     }
-    tokens.forEachIndexed { tokenIndex, token ->
-        when (token) {
+    fun parseTokens(currentTokens: List<PatternToken>) {
+        currentTokens.forEachIndexed { tokenIndex, token ->
+            when (token) {
             is PatternToken.Literal -> {
                 if (!text.matchesAt(index, token.text, caseSensitive)) {
                     throw DateTimeParseException(
@@ -1058,7 +1114,7 @@ private fun parsePattern(
                 }
             }
             is PatternToken.Value -> {
-                val parsed = parsePatternValue(tokens, tokenIndex, token, text, index, strict)
+                val parsed = parsePatternValue(currentTokens, tokenIndex, token, text, index, strict)
                 val previous = values.put(token.field, parsed.value)
                 if (previous != null && previous != parsed.value) {
                     throw DateTimeParseException(
@@ -1071,7 +1127,7 @@ private fun parsePattern(
             }
             is PatternToken.ReducedValue -> {
                 val parsed = parsePatternReducedValue(
-                    tokens,
+                    currentTokens,
                     tokenIndex,
                     token,
                     text,
@@ -1115,6 +1171,21 @@ private fun parsePattern(
                 zone = parsed.zone
                 index = parsed.endIndex
             }
+            is PatternToken.Optional -> {
+                val previousValues = values.toMap()
+                val previousOffset = offset
+                val previousZone = zone
+                val previousIndex = index
+                try {
+                    parseTokens(token.tokens)
+                } catch (_: DateTimeParseException) {
+                    values.clear()
+                    values.putAll(previousValues)
+                    offset = previousOffset
+                    zone = previousZone
+                    index = previousIndex
+                }
+            }
             is PatternToken.ParseSetting -> when (token.setting) {
                 ParserSetting.CASE_SENSITIVE -> caseSensitive = true
                 ParserSetting.CASE_INSENSITIVE -> caseSensitive = false
@@ -1125,7 +1196,9 @@ private fun parsePattern(
                 values[token.field] = token.value
             }
         }
+        }
     }
+    parseTokens(tokens)
     if (index != text.length) {
         throw DateTimeParseException("Text could not be parsed, unparsed text found", text, index)
     }
@@ -1532,6 +1605,7 @@ private fun PatternToken.adjacentFixedNumericWidth(): Int? = when (this) {
     is PatternToken.ZoneId,
     is PatternToken.ParseSetting,
     is PatternToken.DefaultValue,
+    is PatternToken.Optional,
     is PatternToken.Literal -> null
 }
 
@@ -1806,6 +1880,9 @@ private fun describePattern(tokens: List<PatternToken>): String = buildString {
                 .append(',')
                 .append(token.value)
                 .append(')')
+            is PatternToken.Optional -> append('[')
+                .append(describePattern(token.tokens))
+                .append(']')
         }
     }
 }
