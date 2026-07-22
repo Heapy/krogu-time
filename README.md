@@ -38,7 +38,11 @@ Implemented foundations:
 - `Era` and `IsoEra`
 - `Year` core value, leap-year, temporal-field, year-scale arithmetic, and
   comparison behavior, including default parsing and `atDay` date production
-  (clock, formatter overloads, and `MonthDay`/`YearMonth` APIs remain)
+  plus `MonthDay` validation and date production (clock, formatter overloads,
+  and `YearMonth` APIs remain)
+- `MonthDay` value, factories, temporal fields, replacement, year validation,
+  date production and adjustment, ordering, strict ISO parsing, and ISO text
+  output (clock and formatter overloads remain)
 - `LocalDate` core value, full-range epoch conversion, temporal fields,
   replacement, checked calendar arithmetic, complete-unit differences, and
   timeline and calendar-period comparison, including local time composition,

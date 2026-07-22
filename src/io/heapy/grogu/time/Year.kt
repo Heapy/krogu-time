@@ -29,6 +29,13 @@ public class Year private constructor(
     /** Combines this year with a one-based day-of-year. */
     public fun atDay(dayOfYear: Int): LocalDate = LocalDate.ofYearDay(value, dayOfYear)
 
+    /** Returns whether [monthDay] is valid in this year. */
+    public fun isValidMonthDay(monthDay: MonthDay?): Boolean =
+        monthDay != null && monthDay.isValidYear(value)
+
+    /** Combines this year with [monthDay]. */
+    public fun atMonthDay(monthDay: MonthDay): LocalDate = monthDay.atYear(value)
+
     override fun isSupported(field: TemporalField): Boolean =
         if (field is ChronoField) {
             field === ChronoField.YEAR ||
