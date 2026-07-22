@@ -8,6 +8,14 @@ internal fun addExact(first: Long, second: Long): Long {
     return result
 }
 
+internal fun subtractExact(first: Long, second: Long): Long {
+    val result = first - second
+    if (((first xor second) and (first xor result)) < 0) {
+        throw ArithmeticException("long overflow")
+    }
+    return result
+}
+
 internal fun multiplyExact(first: Long, second: Long): Long {
     if (first == 0L || second == 0L) return 0
     if (first == -1L && second == Long.MIN_VALUE) throw ArithmeticException("long overflow")

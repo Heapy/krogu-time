@@ -143,6 +143,8 @@ Implemented foundations:
 - `TemporalAdjusters` complete date-adjuster utility surface
 - `JulianFields` Julian day, modified Julian day, and Rata Die fields with
   full-range epoch conversion and adjustment
+- `IsoFields` quarter-of-year and ISO week-based-year fields and units, with
+  leap-year ranges, field adjustment, and calendar arithmetic
 - `ValueRange`
 - `ChronoUnit`
 - `ChronoField`
