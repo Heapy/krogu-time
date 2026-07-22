@@ -663,7 +663,19 @@ internal sealed interface PatternToken {
     ) : PatternToken
 
     data class Optional(val tokens: List<PatternToken>) : PatternToken
+
+    data class Padded(
+        val token: PatternToken,
+        val width: Int,
+        val padCharacter: Char,
+    ) : PatternToken
 }
+
+internal class PatternSection(
+    val tokens: MutableList<PatternToken> = mutableListOf(),
+    var padWidth: Int = 0,
+    var padCharacter: Char = ' ',
+)
 
 internal enum class ParserSetting {
     CASE_SENSITIVE,
@@ -696,35 +708,40 @@ internal fun validateOffsetPattern(pattern: String): Int =
         ?: throw IllegalArgumentException("Invalid zone offset pattern: $pattern")
 
 internal fun compilePattern(pattern: String): List<PatternToken> {
-    val rootTokens = mutableListOf<PatternToken>()
-    val optionalSections = mutableListOf<MutableList<PatternToken>>()
-    fun activeTokens(): MutableList<PatternToken> = optionalSections.lastOrNull() ?: rootTokens
+    val rootSection = PatternSection()
+    val optionalSections = mutableListOf<PatternSection>()
+    fun activeSection(): PatternSection = optionalSections.lastOrNull() ?: rootSection
     visitPattern(
         pattern = pattern,
-        appendToken = { token -> activeTokens().appendPatternToken(token) },
-        optionalStart = { optionalSections.add(mutableListOf()) },
+        appendToken = { token -> activeSection().appendToken(token) },
+        padNext = { width ->
+            activeSection().padWidth = width
+            activeSection().padCharacter = ' '
+        },
+        optionalStart = { optionalSections.add(PatternSection()) },
         optionalEnd = {
             require(optionalSections.isNotEmpty()) {
                 "Pattern invalid as it contains ] without previous ["
             }
-            val optionalTokens = optionalSections.removeAt(optionalSections.lastIndex)
-            if (optionalTokens.isNotEmpty()) {
-                activeTokens() += PatternToken.Optional(optionalTokens.toList())
+            val optionalSection = optionalSections.removeAt(optionalSections.lastIndex)
+            if (optionalSection.tokens.isNotEmpty()) {
+                activeSection().appendToken(PatternToken.Optional(optionalSection.tokens.toList()))
             }
         },
     )
     while (optionalSections.isNotEmpty()) {
-        val optionalTokens = optionalSections.removeAt(optionalSections.lastIndex)
-        if (optionalTokens.isNotEmpty()) {
-            activeTokens() += PatternToken.Optional(optionalTokens.toList())
+        val optionalSection = optionalSections.removeAt(optionalSections.lastIndex)
+        if (optionalSection.tokens.isNotEmpty()) {
+            activeSection().appendToken(PatternToken.Optional(optionalSection.tokens.toList()))
         }
     }
-    return rootTokens
+    return rootSection.tokens
 }
 
 internal fun visitPattern(
     pattern: String,
     appendToken: (PatternToken) -> Unit,
+    padNext: (Int) -> Unit,
     optionalStart: () -> Unit,
     optionalEnd: () -> Unit,
 ) {
@@ -773,6 +790,16 @@ internal fun visitPattern(
                 var end = index + 1
                 while (end < pattern.length && pattern[end] == character) end++
                 val count = end - index
+                if (character == 'p') {
+                    if (end == pattern.length || !pattern[end].isAsciiLetter()) {
+                        throw IllegalArgumentException(
+                            "Pad letter 'p' must be followed by valid pad pattern: $pattern",
+                        )
+                    }
+                    padNext(count)
+                    index = end
+                    continue
+                }
                 validatePatternField(character, count)
                 appendToken(PatternToken.Field(character, count))
                 index = end
@@ -783,6 +810,17 @@ internal fun visitPattern(
             }
         }
     }
+}
+
+internal fun PatternSection.appendToken(token: PatternToken) {
+    val appendedToken = if (padWidth > 0) {
+        PatternToken.Padded(token, padWidth, padCharacter)
+    } else {
+        token
+    }
+    padWidth = 0
+    padCharacter = ' '
+    tokens.appendPatternToken(appendedToken)
 }
 
 internal fun MutableList<PatternToken>.appendPatternToken(token: PatternToken) {
@@ -835,6 +873,17 @@ private fun formatPattern(
                 append(formatPattern(token.tokens, temporal))
             } catch (_: DateTimeException) {
                 // Missing data suppresses the complete optional section.
+            }
+            is PatternToken.Padded -> {
+                val formatted = formatPattern(listOf(token.token), temporal)
+                if (formatted.length > token.width) {
+                    throw DateTimeException(
+                        "Cannot print as output of ${formatted.length} characters " +
+                            "exceeds pad width of ${token.width}",
+                    )
+                }
+                repeat(token.width - formatted.length) { append(token.padCharacter) }
+                append(formatted)
             }
             is PatternToken.ParseSetting,
             is PatternToken.DefaultValue,
@@ -1059,146 +1108,191 @@ private fun parsePattern(
     var index = 0
     var caseSensitive = true
     var strict = true
-    fun storeOffset(parsed: ParsedPatternOffset, errorIndex: Int) {
+    fun storeOffset(
+        parsed: ParsedPatternOffset,
+        errorIndex: Int,
+        input: String,
+    ) {
         val totalSeconds = parsed.offset.totalSeconds.toLong()
         val previousValue = values.put(ChronoField.OFFSET_SECONDS, totalSeconds)
         if (previousValue != null && previousValue != totalSeconds) {
-            throw DateTimeParseException("Conflict found for offset", text, errorIndex)
+            throw DateTimeParseException("Conflict found for offset", input, errorIndex)
         }
         if (offset != null && offset != parsed.offset) {
-            throw DateTimeParseException("Conflict found for offset", text, errorIndex)
+            throw DateTimeParseException("Conflict found for offset", input, errorIndex)
         }
         offset = parsed.offset
         index = parsed.endIndex
     }
-    fun parseTokens(currentTokens: List<PatternToken>) {
+    fun parseTokens(
+        currentTokens: List<PatternToken>,
+        input: String,
+    ) {
         currentTokens.forEachIndexed { tokenIndex, token ->
             when (token) {
-            is PatternToken.Literal -> {
-                if (!text.matchesAt(index, token.text, caseSensitive)) {
-                    throw DateTimeParseException(
-                        "Text could not be parsed at index $index",
-                        text,
-                        index,
-                    )
-                }
-                index += token.text.length
-            }
-            is PatternToken.Field -> {
-                when (token.symbol) {
-                    'X', 'x', 'Z' -> {
-                        val parsed = parsePatternOffset(token, text, index, caseSensitive)
-                        storeOffset(parsed, index)
-                    }
-                    'V' -> {
-                        val parsed = parsePatternZone(text, index, caseSensitive)
-                        if (zone != null && zone != parsed.zone) {
-                            throw DateTimeParseException("Conflict found for zone", text, index)
-                        }
-                        zone = parsed.zone
-                        index = parsed.endIndex
-                    }
-                    else -> {
-                        val parsed = parsePatternField(token, text, index, strict)
-                        val field = token.symbol.toPatternField()
-                        val previous = values.put(field, parsed.value)
-                        if (previous != null && previous != parsed.value) {
-                            throw DateTimeParseException(
-                                "Conflict found for pattern field ${token.symbol}",
-                                text,
-                                index,
-                            )
-                        }
-                        index = parsed.endIndex
-                    }
-                }
-            }
-            is PatternToken.Value -> {
-                val parsed = parsePatternValue(currentTokens, tokenIndex, token, text, index, strict)
-                val previous = values.put(token.field, parsed.value)
-                if (previous != null && previous != parsed.value) {
-                    throw DateTimeParseException(
-                        "Conflict found for field ${token.field}",
-                        text,
-                        index,
-                    )
-                }
-                index = parsed.endIndex
-            }
-            is PatternToken.ReducedValue -> {
-                val parsed = parsePatternReducedValue(
-                    currentTokens,
-                    tokenIndex,
-                    token,
-                    text,
-                    index,
-                    chronology ?: IsoChronology,
-                    strict,
-                )
-                val previous = values.put(token.field, parsed.value)
-                if (previous != null && previous != parsed.value) {
-                    throw DateTimeParseException(
-                        "Conflict found for field ${token.field}",
-                        text,
-                        index,
-                    )
-                }
-                index = parsed.endIndex
-            }
-            is PatternToken.Fraction -> {
-                val parsed = parsePatternFraction(token, text, index, strict)
-                parsed.value?.let { value ->
-                    val previous = values.put(token.field, value)
-                    if (previous != null && previous != value) {
+                is PatternToken.Literal -> {
+                    if (!input.matchesAt(index, token.text, caseSensitive)) {
                         throw DateTimeParseException(
-                            "Conflict found for field ${token.field}",
-                            text,
+                            "Text could not be parsed at index $index",
+                            input,
                             index,
                         )
                     }
+                    index += token.text.length
                 }
-                index = parsed.endIndex
-            }
-            is PatternToken.Offset -> {
-                val parsed = parseBuilderOffset(token, text, index, caseSensitive, strict)
-                storeOffset(parsed, index)
-            }
-            is PatternToken.ZoneId -> {
-                val parsed = parsePatternZone(text, index, caseSensitive)
-                if (zone != null && zone != parsed.zone) {
-                    throw DateTimeParseException("Conflict found for zone", text, index)
+                is PatternToken.Field -> {
+                    when (token.symbol) {
+                        'X', 'x', 'Z' -> {
+                            val parsed = parsePatternOffset(token, input, index, caseSensitive)
+                            storeOffset(parsed, index, input)
+                        }
+                        'V' -> {
+                            val parsed = parsePatternZone(input, index, caseSensitive)
+                            if (zone != null && zone != parsed.zone) {
+                                throw DateTimeParseException("Conflict found for zone", input, index)
+                            }
+                            zone = parsed.zone
+                            index = parsed.endIndex
+                        }
+                        else -> {
+                            val parsed = parsePatternField(token, input, index, strict)
+                            val field = token.symbol.toPatternField()
+                            val previous = values.put(field, parsed.value)
+                            if (previous != null && previous != parsed.value) {
+                                throw DateTimeParseException(
+                                    "Conflict found for pattern field ${token.symbol}",
+                                    input,
+                                    index,
+                                )
+                            }
+                            index = parsed.endIndex
+                        }
+                    }
                 }
-                zone = parsed.zone
-                index = parsed.endIndex
-            }
-            is PatternToken.Optional -> {
-                val previousValues = values.toMap()
-                val previousOffset = offset
-                val previousZone = zone
-                val previousIndex = index
-                try {
-                    parseTokens(token.tokens)
-                } catch (_: DateTimeParseException) {
-                    values.clear()
-                    values.putAll(previousValues)
-                    offset = previousOffset
-                    zone = previousZone
-                    index = previousIndex
+                is PatternToken.Value -> {
+                    val parsed = parsePatternValue(currentTokens, tokenIndex, token, input, index, strict)
+                    val previous = values.put(token.field, parsed.value)
+                    if (previous != null && previous != parsed.value) {
+                        throw DateTimeParseException(
+                            "Conflict found for field ${token.field}",
+                            input,
+                            index,
+                        )
+                    }
+                    index = parsed.endIndex
+                }
+                is PatternToken.ReducedValue -> {
+                    val parsed = parsePatternReducedValue(
+                        currentTokens,
+                        tokenIndex,
+                        token,
+                        input,
+                        index,
+                        chronology ?: IsoChronology,
+                        strict,
+                    )
+                    val previous = values.put(token.field, parsed.value)
+                    if (previous != null && previous != parsed.value) {
+                        throw DateTimeParseException(
+                            "Conflict found for field ${token.field}",
+                            input,
+                            index,
+                        )
+                    }
+                    index = parsed.endIndex
+                }
+                is PatternToken.Fraction -> {
+                    val parsed = parsePatternFraction(token, input, index, strict)
+                    parsed.value?.let { value ->
+                        val previous = values.put(token.field, value)
+                        if (previous != null && previous != value) {
+                            throw DateTimeParseException(
+                                "Conflict found for field ${token.field}",
+                                input,
+                                index,
+                            )
+                        }
+                    }
+                    index = parsed.endIndex
+                }
+                is PatternToken.Offset -> {
+                    val parsed = parseBuilderOffset(token, input, index, caseSensitive, strict)
+                    storeOffset(parsed, index, input)
+                }
+                is PatternToken.ZoneId -> {
+                    val parsed = parsePatternZone(input, index, caseSensitive)
+                    if (zone != null && zone != parsed.zone) {
+                        throw DateTimeParseException("Conflict found for zone", input, index)
+                    }
+                    zone = parsed.zone
+                    index = parsed.endIndex
+                }
+                is PatternToken.Optional -> {
+                    val previousValues = values.toMap()
+                    val previousOffset = offset
+                    val previousZone = zone
+                    val previousIndex = index
+                    try {
+                        parseTokens(token.tokens, input)
+                    } catch (_: DateTimeParseException) {
+                        values.clear()
+                        values.putAll(previousValues)
+                        offset = previousOffset
+                        zone = previousZone
+                        index = previousIndex
+                    }
+                }
+                is PatternToken.Padded -> {
+                    val strictAtStart = strict
+                    val startIndex = index
+                    if (startIndex >= input.length) {
+                        throw DateTimeParseException(
+                            "Text could not be parsed at index $startIndex",
+                            input,
+                            startIndex,
+                        )
+                    }
+                    val requestedEnd = startIndex.toLong() + token.width
+                    val endIndex = if (requestedEnd > input.length) {
+                        if (strictAtStart) {
+                            throw DateTimeParseException(
+                                "Text could not be parsed at index $startIndex",
+                                input,
+                                startIndex,
+                            )
+                        }
+                        input.length
+                    } else {
+                        requestedEnd.toInt()
+                    }
+                    while (
+                        index < endIndex &&
+                        input[index].equals(token.padCharacter, ignoreCase = !caseSensitive)
+                    ) {
+                        index++
+                    }
+                    parseTokens(listOf(token.token), input.substring(0, endIndex))
+                    if (strictAtStart && index != endIndex) {
+                        throw DateTimeParseException(
+                            "Text could not be parsed at index $startIndex",
+                            input,
+                            startIndex,
+                        )
+                    }
+                }
+                is PatternToken.ParseSetting -> when (token.setting) {
+                    ParserSetting.CASE_SENSITIVE -> caseSensitive = true
+                    ParserSetting.CASE_INSENSITIVE -> caseSensitive = false
+                    ParserSetting.STRICT -> strict = true
+                    ParserSetting.LENIENT -> strict = false
+                }
+                is PatternToken.DefaultValue -> if (token.field !in values) {
+                    values[token.field] = token.value
                 }
             }
-            is PatternToken.ParseSetting -> when (token.setting) {
-                ParserSetting.CASE_SENSITIVE -> caseSensitive = true
-                ParserSetting.CASE_INSENSITIVE -> caseSensitive = false
-                ParserSetting.STRICT -> strict = true
-                ParserSetting.LENIENT -> strict = false
-            }
-            is PatternToken.DefaultValue -> if (token.field !in values) {
-                values[token.field] = token.value
-            }
-        }
         }
     }
-    parseTokens(tokens)
+    parseTokens(tokens, text)
     if (index != text.length) {
         throw DateTimeParseException("Text could not be parsed, unparsed text found", text, index)
     }
@@ -1606,6 +1700,7 @@ private fun PatternToken.adjacentFixedNumericWidth(): Int? = when (this) {
     is PatternToken.ParseSetting,
     is PatternToken.DefaultValue,
     is PatternToken.Optional,
+    is PatternToken.Padded,
     is PatternToken.Literal -> null
 }
 
@@ -1883,6 +1978,16 @@ private fun describePattern(tokens: List<PatternToken>): String = buildString {
             is PatternToken.Optional -> append('[')
                 .append(describePattern(token.tokens))
                 .append(']')
+            is PatternToken.Padded -> append("Pad(")
+                .append(describePattern(listOf(token.token)))
+                .append(',')
+                .append(token.width)
+                .apply {
+                    if (token.padCharacter != ' ') {
+                        append(",'").append(token.padCharacter).append('\'')
+                    }
+                }
+                .append(')')
         }
     }
 }

@@ -51,7 +51,8 @@ Implemented foundations:
   composition, sign/width controls, integer- and chronology-base-date reduced
   value windows, fixed-range fractions, all custom offset-ID patterns,
   explicit region/zone/offset query modes, adjacent fixed-width parsing,
-  nested optional sections through builder methods and bracket patterns,
+  one-shot custom-character padding and `p` pattern modifiers, nested optional
+  sections through builder methods and bracket patterns,
   sequential case/strictness parser controls, parse defaults, unresolved field
   retention, and immutable formatter snapshots; plus
   Java-compatible `ISO_LOCAL_DATE`, `ISO_LOCAL_TIME`,

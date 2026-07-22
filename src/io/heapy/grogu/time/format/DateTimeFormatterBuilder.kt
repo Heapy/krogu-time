@@ -11,30 +11,30 @@ import io.heapy.grogu.time.temporal.TemporalField
  * builder at the time it is created.
  */
 public class DateTimeFormatterBuilder {
-    private val tokens: MutableList<PatternToken> = mutableListOf()
-    private val optionalSections: MutableList<MutableList<PatternToken>> = mutableListOf()
+    private val rootSection: PatternSection = PatternSection()
+    private val optionalSections: MutableList<PatternSection> = mutableListOf()
 
-    private val activeTokens: MutableList<PatternToken>
-        get() = optionalSections.lastOrNull() ?: tokens
+    private val activeSection: PatternSection
+        get() = optionalSections.lastOrNull() ?: rootSection
 
     /** Makes parsing case-sensitive for subsequently appended elements. */
     public fun parseCaseSensitive(): DateTimeFormatterBuilder = apply {
-        activeTokens += PatternToken.ParseSetting(ParserSetting.CASE_SENSITIVE)
+        activeSection.appendToken(PatternToken.ParseSetting(ParserSetting.CASE_SENSITIVE))
     }
 
     /** Makes parsing case-insensitive for subsequently appended elements. */
     public fun parseCaseInsensitive(): DateTimeFormatterBuilder = apply {
-        activeTokens += PatternToken.ParseSetting(ParserSetting.CASE_INSENSITIVE)
+        activeSection.appendToken(PatternToken.ParseSetting(ParserSetting.CASE_INSENSITIVE))
     }
 
     /** Makes parsing strict for subsequently appended elements. */
     public fun parseStrict(): DateTimeFormatterBuilder = apply {
-        activeTokens += PatternToken.ParseSetting(ParserSetting.STRICT)
+        activeSection.appendToken(PatternToken.ParseSetting(ParserSetting.STRICT))
     }
 
     /** Makes parsing lenient for subsequently appended elements. */
     public fun parseLenient(): DateTimeFormatterBuilder = apply {
-        activeTokens += PatternToken.ParseSetting(ParserSetting.LENIENT)
+        activeSection.appendToken(PatternToken.ParseSetting(ParserSetting.LENIENT))
     }
 
     /** Supplies [value] for [field] during parsing when it is still absent. */
@@ -42,14 +42,15 @@ public class DateTimeFormatterBuilder {
         field: TemporalField,
         value: Long,
     ): DateTimeFormatterBuilder = apply {
-        activeTokens += PatternToken.DefaultValue(field, value)
+        activeSection.appendToken(PatternToken.DefaultValue(field, value))
     }
 
     /** Appends the elements described by [pattern]. */
     public fun appendPattern(pattern: String): DateTimeFormatterBuilder = apply {
         visitPattern(
             pattern = pattern,
-            appendToken = { token -> activeTokens.appendPatternToken(token) },
+            appendToken = { token -> activeSection.appendToken(token) },
+            padNext = { width -> padNext(width) },
             optionalStart = { optionalStart() },
             optionalEnd = {
                 if (optionalSections.isEmpty()) {
@@ -68,7 +69,7 @@ public class DateTimeFormatterBuilder {
 
     /** Appends [literal] without interpreting it as a pattern. */
     public fun appendLiteral(literal: String): DateTimeFormatterBuilder = apply {
-        activeTokens.appendPatternLiteral(literal)
+        activeSection.appendToken(PatternToken.Literal(literal))
     }
 
     /** Appends a variable-width numeric [field]. */
@@ -93,7 +94,7 @@ public class DateTimeFormatterBuilder {
         require(maxWidth >= minWidth) {
             "Maximum width must exceed or equal the minimum width but $maxWidth < $minWidth"
         }
-        activeTokens += PatternToken.Value(field, minWidth, maxWidth, signStyle)
+        activeSection.appendToken(PatternToken.Value(field, minWidth, maxWidth, signStyle))
     }
 
     /** Appends a reduced numeric [field] interpreted relative to [baseValue]. */
@@ -116,11 +117,13 @@ public class DateTimeFormatterBuilder {
                 "Unable to add printer-parser as the range exceeds the capacity of an int",
             )
         }
-        activeTokens += PatternToken.ReducedValue(
-            field,
-            width,
-            maxWidth,
-            ReducedValueBase.Value(baseValue),
+        activeSection.appendToken(
+            PatternToken.ReducedValue(
+                field,
+                width,
+                maxWidth,
+                ReducedValueBase.Value(baseValue),
+            ),
         )
     }
 
@@ -136,11 +139,13 @@ public class DateTimeFormatterBuilder {
         require(maxWidth >= width) {
             "Maximum width must exceed or equal the minimum width but $maxWidth < $width"
         }
-        activeTokens += PatternToken.ReducedValue(
-            field,
-            width,
-            maxWidth,
-            ReducedValueBase.Date(baseDate),
+        activeSection.appendToken(
+            PatternToken.ReducedValue(
+                field,
+                width,
+                maxWidth,
+                ReducedValueBase.Date(baseDate),
+            ),
         )
     }
 
@@ -161,7 +166,7 @@ public class DateTimeFormatterBuilder {
         require(maxWidth >= minWidth) {
             "Maximum width must exceed or equal the minimum width but $maxWidth < $minWidth"
         }
-        activeTokens += PatternToken.Fraction(field, minWidth, maxWidth, decimalPoint)
+        activeSection.appendToken(PatternToken.Fraction(field, minWidth, maxWidth, decimalPoint))
     }
 
     /** Appends an ISO zone offset ID, using `Z` for zero. */
@@ -173,27 +178,40 @@ public class DateTimeFormatterBuilder {
         noOffsetText: String,
     ): DateTimeFormatterBuilder = apply {
         validateOffsetPattern(pattern)
-        activeTokens += PatternToken.Offset(pattern, noOffsetText)
+        activeSection.appendToken(PatternToken.Offset(pattern, noOffsetText))
     }
 
     /** Appends an explicit zone ID, without falling back to a bare offset. */
     public fun appendZoneId(): DateTimeFormatterBuilder = apply {
-        activeTokens += PatternToken.ZoneId(ZoneQueryMode.ZONE_ID)
+        activeSection.appendToken(PatternToken.ZoneId(ZoneQueryMode.ZONE_ID))
     }
 
     /** Appends a region zone ID and rejects bare offsets while formatting. */
     public fun appendZoneRegionId(): DateTimeFormatterBuilder = apply {
-        activeTokens += PatternToken.ZoneId(ZoneQueryMode.REGION_ONLY)
+        activeSection.appendToken(PatternToken.ZoneId(ZoneQueryMode.REGION_ONLY))
     }
 
     /** Appends the best available zone ID or offset ID. */
     public fun appendZoneOrOffsetId(): DateTimeFormatterBuilder = apply {
-        activeTokens += PatternToken.ZoneId(ZoneQueryMode.ZONE_OR_OFFSET)
+        activeSection.appendToken(PatternToken.ZoneId(ZoneQueryMode.ZONE_OR_OFFSET))
+    }
+
+    /** Pads the next appended element to [padWidth] characters using spaces. */
+    public fun padNext(padWidth: Int): DateTimeFormatterBuilder = padNext(padWidth, ' ')
+
+    /** Pads the next appended element to [padWidth] characters using [padChar]. */
+    public fun padNext(
+        padWidth: Int,
+        padChar: Char,
+    ): DateTimeFormatterBuilder = apply {
+        require(padWidth >= 1) { "The pad width must be at least one but was $padWidth" }
+        activeSection.padWidth = padWidth
+        activeSection.padCharacter = padChar
     }
 
     /** Starts a nested section that may be absent while formatting or parsing. */
     public fun optionalStart(): DateTimeFormatterBuilder = apply {
-        optionalSections.add(mutableListOf())
+        optionalSections.add(PatternSection())
     }
 
     /** Ends the current optional section. */
@@ -201,16 +219,16 @@ public class DateTimeFormatterBuilder {
         check(optionalSections.isNotEmpty()) {
             "Cannot call optionalEnd() as there was no previous call to optionalStart()"
         }
-        val optionalTokens = optionalSections.removeAt(optionalSections.lastIndex)
-        if (optionalTokens.isNotEmpty()) {
-            activeTokens += PatternToken.Optional(optionalTokens.toList())
+        val optionalSection = optionalSections.removeAt(optionalSections.lastIndex)
+        if (optionalSection.tokens.isNotEmpty()) {
+            activeSection.appendToken(PatternToken.Optional(optionalSection.tokens.toList()))
         }
     }
 
     /** Creates an immutable formatter from the elements appended so far. */
     public fun toFormatter(): DateTimeFormatter {
         while (optionalSections.isNotEmpty()) optionalEnd()
-        return DateTimeFormatter.fromPatternTokens(tokens)
+        return DateTimeFormatter.fromPatternTokens(rootSection.tokens)
     }
 }
 
