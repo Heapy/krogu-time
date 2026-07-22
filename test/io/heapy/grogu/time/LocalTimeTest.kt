@@ -1,12 +1,17 @@
 package io.heapy.grogu.time
 
 import io.heapy.grogu.time.temporal.ChronoField
+import io.heapy.grogu.time.temporal.ChronoUnit
+import io.heapy.grogu.time.temporal.Temporal
 import io.heapy.grogu.time.temporal.TemporalAccessor
+import io.heapy.grogu.time.temporal.TemporalAdjuster
 import io.heapy.grogu.time.temporal.TemporalField
+import io.heapy.grogu.time.temporal.TemporalUnit
 import io.heapy.grogu.time.temporal.UnsupportedTemporalTypeException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class LocalTimeTest {
@@ -112,6 +117,117 @@ class LocalTimeTest {
         assertTrue(earlier.isBefore(later))
     }
 
+    @Test
+    fun supportsTimeUnitsAndAdjustsComponentsAndFields() {
+        val time = LocalTime.of(13, 14, 15, 123_456_789)
+
+        ChronoUnit.entries.forEach { unit ->
+            assertEquals(unit.isTimeBased, time.isSupported(unit), unit.toString())
+        }
+        assertSame(time, time.withHour(13))
+        assertEquals(LocalTime.of(2, 14, 15, 123_456_789), time.withHour(2))
+        assertEquals(LocalTime.of(13, 2, 15, 123_456_789), time.withMinute(2))
+        assertEquals(LocalTime.of(13, 14, 2, 123_456_789), time.withSecond(2))
+        assertEquals(LocalTime.of(13, 14, 15, 2), time.withNano(2))
+
+        val expected = mapOf(
+            ChronoField.NANO_OF_SECOND to (987L to LocalTime.of(13, 14, 15, 987)),
+            ChronoField.NANO_OF_DAY to (987L to LocalTime.ofNanoOfDay(987)),
+            ChronoField.MICRO_OF_SECOND to (987L to LocalTime.of(13, 14, 15, 987_000)),
+            ChronoField.MICRO_OF_DAY to (987L to LocalTime.ofNanoOfDay(987_000)),
+            ChronoField.MILLI_OF_SECOND to (987L to LocalTime.of(13, 14, 15, 987_000_000)),
+            ChronoField.MILLI_OF_DAY to (987L to LocalTime.ofNanoOfDay(987_000_000)),
+            ChronoField.SECOND_OF_MINUTE to (2L to LocalTime.of(13, 14, 2, 123_456_789)),
+            ChronoField.SECOND_OF_DAY to (987L to LocalTime.of(0, 16, 27, 123_456_789)),
+            ChronoField.MINUTE_OF_HOUR to (2L to LocalTime.of(13, 2, 15, 123_456_789)),
+            ChronoField.MINUTE_OF_DAY to (2L to LocalTime.of(0, 2, 15, 123_456_789)),
+            ChronoField.HOUR_OF_AMPM to (2L to LocalTime.of(14, 14, 15, 123_456_789)),
+            ChronoField.CLOCK_HOUR_OF_AMPM to (12L to LocalTime.of(12, 14, 15, 123_456_789)),
+            ChronoField.HOUR_OF_DAY to (2L to LocalTime.of(2, 14, 15, 123_456_789)),
+            ChronoField.CLOCK_HOUR_OF_DAY to (24L to LocalTime.of(0, 14, 15, 123_456_789)),
+            ChronoField.AMPM_OF_DAY to (0L to LocalTime.of(1, 14, 15, 123_456_789)),
+        )
+        expected.forEach { (field, valueAndResult) ->
+            val (value, result) = valueAndResult
+            assertEquals(result, time.with(field, value), field.toString())
+        }
+        assertEquals(
+            LocalTime.of(13, 14, 20, 123_456_789),
+            time.with(TemporalAdjuster { it.with(ChronoField.SECOND_OF_MINUTE, 20) }),
+        )
+        assertFailsWith<DateTimeException> { time.withHour(24) }
+        assertFailsWith<UnsupportedTemporalTypeException> {
+            time.with(ChronoField.DAY_OF_MONTH, 1)
+        }
+    }
+
+    @Test
+    fun addsAndSubtractsWithMidnightWraparound() {
+        val endOfDay = LocalTime.MAX
+        assertEquals(LocalTime.MIDNIGHT, endOfDay.plusNanos(1))
+        assertEquals(LocalTime.of(0, 0, 0, 999_999_999), endOfDay.plusSeconds(1))
+        assertEquals(LocalTime.of(0, 0, 59, 999_999_999), endOfDay.plusMinutes(1))
+        assertEquals(LocalTime.of(0, 59, 59, 999_999_999), endOfDay.plusHours(1))
+
+        val time = LocalTime.of(1, 2, 3, 4)
+        assertEquals(time.plusNanos(1), time.plus(1, ChronoUnit.NANOS))
+        assertEquals(time.plusNanos(1_000), time.plus(1, ChronoUnit.MICROS))
+        assertEquals(time.plusNanos(1_000_000), time.plus(1, ChronoUnit.MILLIS))
+        assertEquals(time.plusSeconds(1), time.plus(1, ChronoUnit.SECONDS))
+        assertEquals(time.plusMinutes(1), time.plus(1, ChronoUnit.MINUTES))
+        assertEquals(time.plusHours(1), time.plus(1, ChronoUnit.HOURS))
+        assertEquals(time.plusHours(12), time.plus(1, ChronoUnit.HALF_DAYS))
+        assertEquals(time.plusHours(2), time.plus(1, TWO_HOUR_UNIT))
+        assertEquals(time.plusSeconds(2).plusNanos(3), time.plus(Duration.ofSeconds(2, 3)))
+        assertEquals(time.minusHours(2), time.minus(1, TWO_HOUR_UNIT))
+        assertEquals(time.minusSeconds(2).minusNanos(3), time.minus(Duration.ofSeconds(2, 3)))
+
+        assertEquals(time, time.plusHours(Long.MAX_VALUE).minusHours(Long.MAX_VALUE))
+        assertEquals(time, time.minusNanos(Long.MIN_VALUE).plusNanos(Long.MIN_VALUE))
+        assertFailsWith<UnsupportedTemporalTypeException> { time.plus(1, ChronoUnit.DAYS) }
+    }
+
+    @Test
+    fun truncatesToUnitsThatDivideAStandardDay() {
+        val time = LocalTime.of(13, 14, 15, 987_654_321)
+        assertSame(time, time.truncatedTo(ChronoUnit.NANOS))
+        assertEquals(LocalTime.of(13, 14, 15, 987_654_000), time.truncatedTo(ChronoUnit.MICROS))
+        assertEquals(LocalTime.of(13, 14, 15, 987_000_000), time.truncatedTo(ChronoUnit.MILLIS))
+        assertEquals(LocalTime.of(13, 14, 15), time.truncatedTo(ChronoUnit.SECONDS))
+        assertEquals(LocalTime.of(13, 14), time.truncatedTo(ChronoUnit.MINUTES))
+        assertEquals(LocalTime.of(13, 0), time.truncatedTo(ChronoUnit.HOURS))
+        assertEquals(LocalTime.of(12, 0), time.truncatedTo(ChronoUnit.HALF_DAYS))
+        assertEquals(LocalTime.MIDNIGHT, time.truncatedTo(ChronoUnit.DAYS))
+        assertEquals(LocalTime.of(12, 0), time.truncatedTo(TWO_HOUR_UNIT))
+        assertFailsWith<UnsupportedTemporalTypeException> { time.truncatedTo(ChronoUnit.WEEKS) }
+        assertFailsWith<UnsupportedTemporalTypeException> { time.truncatedTo(SEVEN_MINUTE_UNIT) }
+    }
+
+    @Test
+    fun measuresCompleteTimeUnitsAndAdjustsAnotherTemporal() {
+        val start = LocalTime.of(10, 30, 40, 500_000_000)
+        val end = LocalTime.of(12, 31, 42, 750_000_000)
+        val expected = mapOf(
+            ChronoUnit.NANOS to 7_262_250_000_000L,
+            ChronoUnit.MICROS to 7_262_250_000L,
+            ChronoUnit.MILLIS to 7_262_250L,
+            ChronoUnit.SECONDS to 7_262L,
+            ChronoUnit.MINUTES to 121L,
+            ChronoUnit.HOURS to 2L,
+            ChronoUnit.HALF_DAYS to 0L,
+        )
+        expected.forEach { (unit, amount) ->
+            assertEquals(amount, start.until(end, unit), unit.toString())
+            assertEquals(-amount, end.until(start, unit), "reverse $unit")
+        }
+        assertEquals(1L, start.until(end, TWO_HOUR_UNIT))
+        assertFailsWith<UnsupportedTemporalTypeException> { start.until(end, ChronoUnit.DAYS) }
+        assertEquals(
+            NanoOfDayTemporal(start.toNanoOfDay()),
+            start.adjustInto(NanoOfDayTemporal()),
+        )
+    }
+
     private data class NanoOfDayAccessor(
         val nanoOfDay: Long? = null,
     ) : TemporalAccessor {
@@ -119,5 +235,50 @@ class LocalTimeTest {
 
         override fun getLong(field: TemporalField): Long =
             nanoOfDay ?: throw UnsupportedTemporalTypeException("Unsupported field: $field")
+    }
+
+    private data class NanoOfDayTemporal(
+        val nanoOfDay: Long? = null,
+    ) : Temporal {
+        override fun isSupported(field: TemporalField): Boolean = field === ChronoField.NANO_OF_DAY
+
+        override fun isSupported(unit: TemporalUnit): Boolean = false
+
+        override fun getLong(field: TemporalField): Long =
+            nanoOfDay ?: throw UnsupportedTemporalTypeException("Unsupported field: $field")
+
+        override fun with(field: TemporalField, newValue: Long): Temporal =
+            if (field === ChronoField.NANO_OF_DAY) copy(nanoOfDay = newValue) else
+                throw UnsupportedTemporalTypeException("Unsupported field: $field")
+
+        override fun plus(amountToAdd: Long, unit: TemporalUnit): Temporal =
+            throw UnsupportedTemporalTypeException("Unsupported unit: $unit")
+
+        override fun until(endExclusive: Temporal, unit: TemporalUnit): Long =
+            throw UnsupportedTemporalTypeException("Unsupported unit: $unit")
+    }
+
+    private companion object {
+        val TWO_HOUR_UNIT: TemporalUnit = exactUnit("TwoHours", Duration.ofHours(2))
+        val SEVEN_MINUTE_UNIT: TemporalUnit = exactUnit("SevenMinutes", Duration.ofMinutes(7))
+
+        fun exactUnit(name: String, duration: Duration): TemporalUnit = object : TemporalUnit {
+            override val duration: Duration = duration
+            override val isDurationEstimated: Boolean = false
+            override val isDateBased: Boolean = false
+            override val isTimeBased: Boolean = true
+
+            override fun <R : Temporal> addTo(temporal: R, amount: Long): R {
+                @Suppress("UNCHECKED_CAST")
+                return temporal.plus(amount * duration.toNanos(), ChronoUnit.NANOS) as R
+            }
+
+            override fun between(
+                temporal1Inclusive: Temporal,
+                temporal2Exclusive: Temporal,
+            ): Long = temporal1Inclusive.until(temporal2Exclusive, ChronoUnit.NANOS) / duration.toNanos()
+
+            override fun toString(): String = name
+        }
     }
 }

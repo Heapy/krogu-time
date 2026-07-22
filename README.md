@@ -45,8 +45,9 @@ Implemented foundations:
 - `Period` factories, parsing, value behavior, temporal integration, checked
   arithmetic, normalization, and `between` (chronology integration remains)
 - `LocalTime` core value, validated factories, day conversions, temporal
-  fields, ordering, and ISO text output (replacement, arithmetic, parsing,
-  and cross-type APIs remain)
+  fields, replacement, truncation, wraparound arithmetic, complete-unit
+  differences, ordering, and ISO text output (parsing, queries, and cross-type
+  APIs remain)
 - `Duration` with the complete Java 21 public API surface, including parsing,
   temporal integration, checked arithmetic, conversions, truncation, and
   `between`
