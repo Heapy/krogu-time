@@ -1,5 +1,6 @@
 package io.heapy.grogu.time
 
+import io.heapy.grogu.time.format.DateTimeParseException
 import io.heapy.grogu.time.temporal.ChronoField
 import io.heapy.grogu.time.temporal.ChronoUnit
 import io.heapy.grogu.time.temporal.Temporal
@@ -115,6 +116,42 @@ class LocalTimeTest {
         assertTrue(earlier < later)
         assertTrue(later.isAfter(earlier))
         assertTrue(earlier.isBefore(later))
+    }
+
+    @Test
+    fun parsesStrictIsoLocalTimes() {
+        val cases = mapOf(
+            "00:00" to LocalTime.MIDNIGHT,
+            "01:02" to LocalTime.of(1, 2),
+            "01:02:03" to LocalTime.of(1, 2, 3),
+            "01:02:03." to LocalTime.of(1, 2, 3),
+            "01:02:03.1" to LocalTime.of(1, 2, 3, 100_000_000),
+            "01:02:03.000001" to LocalTime.of(1, 2, 3, 1_000),
+            "23:59:59.123456789" to LocalTime.of(23, 59, 59, 123_456_789),
+        )
+        cases.forEach { (text, expected) -> assertEquals(expected, LocalTime.parse(text), text) }
+
+        val invalidInputs = mapOf(
+            "" to 0,
+            "1:02" to 0,
+            "01:2" to 3,
+            "01:02:" to 5,
+            "01:02:3" to 5,
+            "01:02:03.1234567890" to 18,
+            "24:00" to 0,
+            "23:60" to 0,
+            "23:59:60" to 0,
+            "23:59.1" to 5,
+            "01:02Z" to 5,
+            "01-02" to 2,
+            "01:02:03,1" to 8,
+            "０１:０２" to 0,
+        )
+        invalidInputs.forEach { (input, expectedIndex) ->
+            val error = assertFailsWith<DateTimeParseException>(input) { LocalTime.parse(input) }
+            assertEquals(input, error.parsedString)
+            assertEquals(expectedIndex, error.errorIndex, input)
+        }
     }
 
     @Test

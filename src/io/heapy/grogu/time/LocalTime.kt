@@ -1,5 +1,6 @@
 package io.heapy.grogu.time
 
+import io.heapy.grogu.time.format.DateTimeParseException
 import io.heapy.grogu.time.internal.floorMod
 import io.heapy.grogu.time.temporal.ChronoField
 import io.heapy.grogu.time.temporal.ChronoUnit
@@ -377,6 +378,66 @@ public class LocalTime private constructor(
                 )
             }
         }
+
+        /** Parses a time using the strict ISO local-time format. */
+        public fun parse(text: CharSequence): LocalTime {
+            val input = text.toString()
+            if (!hasTwoDigits(input, 0)) throw parseFailure(input, 0)
+            if (input.length <= 2 || input[2] != ':') throw parseFailure(input, 2)
+            if (!hasTwoDigits(input, 3)) throw parseFailure(input, 3)
+
+            val hour = parseTwoDigits(input, 0)
+            val minute = parseTwoDigits(input, 3)
+            if (input.length == 5) return createParsed(input, hour, minute, 0, 0)
+            if (input[5] != ':') throw parseFailure(input, 5)
+            if (!hasTwoDigits(input, 6)) throw parseFailure(input, 5)
+
+            val second = parseTwoDigits(input, 6)
+            if (input.length == 8) return createParsed(input, hour, minute, second, 0)
+            if (input[8] != '.') throw parseFailure(input, 8)
+
+            var index = 9
+            var digits = 0
+            var nano = 0
+            while (index < input.length && digits < 9 && input[index].isAsciiDigit()) {
+                nano = nano * 10 + (input[index] - '0')
+                index++
+                digits++
+            }
+            if (index != input.length) throw parseFailure(input, index)
+            repeat(9 - digits) { nano *= 10 }
+            return createParsed(input, hour, minute, second, nano)
+        }
+
+        private fun createParsed(
+            input: String,
+            hour: Int,
+            minute: Int,
+            second: Int,
+            nano: Int,
+        ): LocalTime = try {
+            of(hour, minute, second, nano)
+        } catch (exception: DateTimeException) {
+            throw DateTimeParseException(
+                "Text cannot be parsed to a LocalTime",
+                input,
+                0,
+                exception,
+            )
+        }
+
+        private fun hasTwoDigits(input: String, index: Int): Boolean =
+            index + 1 < input.length &&
+                input[index].isAsciiDigit() &&
+                input[index + 1].isAsciiDigit()
+
+        private fun parseTwoDigits(input: String, index: Int): Int =
+            (input[index] - '0') * 10 + (input[index + 1] - '0')
+
+        private fun Char.isAsciiDigit(): Boolean = this in '0'..'9'
+
+        private fun parseFailure(input: String, errorIndex: Int): DateTimeParseException =
+            DateTimeParseException("Text cannot be parsed to a LocalTime", input, errorIndex)
 
         private fun create(hour: Int, minute: Int, second: Int, nano: Int): LocalTime =
             when {

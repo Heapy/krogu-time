@@ -1,6 +1,7 @@
 package io.heapy.grogu.time
 
 import java.time.LocalTime as JavaLocalTime
+import java.time.format.DateTimeParseException as JavaDateTimeParseException
 import java.time.temporal.ChronoField as JavaChronoField
 import java.time.temporal.ChronoUnit as JavaChronoUnit
 import io.heapy.grogu.time.temporal.ChronoField
@@ -210,6 +211,51 @@ class LocalTimeJavaConformanceTest {
                     )
                 }
             }
+        }
+    }
+
+    @Test
+    fun defaultIsoParsingMatchesJavaTime() {
+        val inputs = listOf(
+            "",
+            "1:02",
+            "01:2",
+            "01:02",
+            "01:02:",
+            "01:02:3",
+            "01:02:03",
+            "01:02:03.",
+            "01:02:03.1",
+            "01:02:03.000001",
+            "01:02:03.123456789",
+            "01:02:03.1234567890",
+            "24:00",
+            "23:60",
+            "23:59:60",
+            "23:59.1",
+            "01:02Z",
+            " 01:02",
+            "01:02 ",
+            "01-02",
+            "01:020",
+            "01:02:03,1",
+            "０１:０２",
+        )
+
+        inputs.forEach { input ->
+            val javaResult = runCatching { JavaLocalTime.parse(input).toString() }
+            val kotlinResult = runCatching { LocalTime.parse(input).toString() }
+            assertEquals(javaResult.getOrNull(), kotlinResult.getOrNull(), input)
+            assertEquals(
+                javaResult.exceptionOrNull()?.javaClass?.simpleName,
+                kotlinResult.exceptionOrNull()?.javaClass?.simpleName,
+                input,
+            )
+            val javaErrorIndex = (javaResult.exceptionOrNull() as? JavaDateTimeParseException)
+                ?.errorIndex
+            val kotlinErrorIndex = (kotlinResult.exceptionOrNull()
+                as? io.heapy.grogu.time.format.DateTimeParseException)?.errorIndex
+            assertEquals(javaErrorIndex, kotlinErrorIndex, input)
         }
     }
 
