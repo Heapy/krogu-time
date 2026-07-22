@@ -120,8 +120,9 @@ Implemented foundations:
   `MinguoChronology`, and `ThaiBuddhistChronology` singletons with generic
   date/date-time factories, locale calendar lookup, JVM/Android
   `ServiceLoader` discovery, localized display names, strict/smart/lenient
-  field-map date resolution, clock injection, period creation, and epoch-second
-  conversion
+  field-map date resolution, clock injection, period creation, epoch-second
+  conversion, and Java-compatible default period and instant-zone factories
+  for custom chronologies
 - `JapaneseDate`, `HijrahDate`, `MinguoDate`, and `ThaiBuddhistDate` factories,
   fields and refined ranges, calendar arithmetic, periods, generic local/zoned
   date-time composition, and Java-compatible value semantics, including

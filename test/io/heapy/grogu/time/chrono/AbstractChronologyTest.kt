@@ -5,6 +5,7 @@ import io.heapy.grogu.time.LocalDate
 import io.heapy.grogu.time.ZoneId
 import io.heapy.grogu.time.format.ResolverStyle
 import io.heapy.grogu.time.temporal.ChronoField
+import io.heapy.grogu.time.temporal.ChronoUnit
 import io.heapy.grogu.time.temporal.TemporalAccessor
 import io.heapy.grogu.time.temporal.TemporalField
 import io.heapy.grogu.time.temporal.ValueRange
@@ -12,6 +13,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotEquals
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class AbstractChronologyTest {
@@ -56,6 +58,22 @@ class AbstractChronologyTest {
         }
     }
 
+    @Test
+    fun suppliesJavaCompatibleDefaultPeriodAndInstantZonedFactories() {
+        val chronology = TestChronology("Test")
+        val period = chronology.period(1, 2, 3)
+        val instant = Instant.ofEpochSecond(1_718_450_123, 456_789_000)
+        val zone = ZoneId.of("Europe/Paris")
+        val zoned = chronology.zonedDateTime(instant, zone)
+
+        assertSame(chronology, period.chronology)
+        assertEquals(1L, period.get(ChronoUnit.YEARS))
+        assertEquals(2L, period.get(ChronoUnit.MONTHS))
+        assertEquals(3L, period.get(ChronoUnit.DAYS))
+        assertEquals(instant, zoned.toInstant())
+        assertEquals(zone, zoned.zone)
+    }
+
     private class TestChronology(
         override val id: String,
     ) : AbstractChronology() {
@@ -76,9 +94,6 @@ class AbstractChronologyTest {
         override fun date(temporal: TemporalAccessor): ChronoLocalDate =
             IsoChronology.date(temporal)
 
-        override fun zonedDateTime(instant: Instant, zone: ZoneId): ChronoZonedDateTime<*> =
-            IsoChronology.zonedDateTime(instant, zone)
-
         override fun isLeapYear(prolepticYear: Long): Boolean =
             IsoChronology.isLeapYear(prolepticYear)
 
@@ -90,8 +105,5 @@ class AbstractChronologyTest {
         override fun eras(): List<Era> = IsoChronology.eras()
 
         override fun range(field: ChronoField): ValueRange = IsoChronology.range(field)
-
-        override fun period(years: Int, months: Int, days: Int): ChronoPeriod =
-            IsoChronology.period(years, months, days)
     }
 }

@@ -88,7 +88,8 @@ public interface Chronology : Comparable<Chronology> {
     }
 
     /** Obtains a zoned date-time for [instant] in [zone]. */
-    public fun zonedDateTime(instant: Instant, zone: ZoneId): ChronoZonedDateTime<*>
+    public fun zonedDateTime(instant: Instant, zone: ZoneId): ChronoZonedDateTime<*> =
+        ChronoZonedDateTimeImpl.ofInstant(this, instant, zone)
 
     /** Obtains the current date using the system clock in the default time-zone. */
     public fun dateNow(): ChronoLocalDate = dateNow(Clock.systemDefaultZone())
@@ -166,7 +167,8 @@ public interface Chronology : Comparable<Chronology> {
     ): ChronoLocalDate? = resolveChronologyDate(this, fieldValues, resolverStyle)
 
     /** Obtains a period defined by this chronology. */
-    public fun period(years: Int, months: Int, days: Int): ChronoPeriod
+    public fun period(years: Int, months: Int, days: Int): ChronoPeriod =
+        ChronoPeriodImpl(this, years, months, days)
 
     override fun compareTo(other: Chronology): Int = id.compareTo(other.id)
 
