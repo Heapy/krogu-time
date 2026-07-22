@@ -22,6 +22,13 @@ class InstantFactoryTest {
             OffsetTime.of(LocalTime.of(1, 30), ZoneOffset.ofHours(1)),
             OffsetTime.ofInstant(beforeTransition, paris),
         )
+        assertEquals(
+            OffsetDateTime.of(
+                LocalDateTime.of(2024, 3, 31, 1, 30),
+                ZoneOffset.ofHours(1),
+            ),
+            OffsetDateTime.ofInstant(beforeTransition, paris),
+        )
 
         assertEquals(
             LocalTime.of(3, 30),
@@ -34,6 +41,13 @@ class InstantFactoryTest {
         assertEquals(
             OffsetTime.of(LocalTime.of(3, 30), ZoneOffset.ofHours(2)),
             OffsetTime.ofInstant(afterTransition, paris),
+        )
+        assertEquals(
+            OffsetDateTime.of(
+                LocalDateTime.of(2024, 3, 31, 3, 30),
+                ZoneOffset.ofHours(2),
+            ),
+            OffsetDateTime.ofInstant(afterTransition, paris),
         )
     }
 

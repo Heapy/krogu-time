@@ -261,7 +261,7 @@ public class OffsetDateTime private constructor(
         /** Obtains the current offset date-time from [clock]. */
         public fun now(clock: Clock): OffsetDateTime {
             val instant = clock.instant()
-            return ofInstant(instant, clock.zone.rules.getOffset(instant))
+            return ofInstant(instant, clock.zone)
         }
 
         public fun of(date: LocalDate, time: LocalTime, offset: ZoneOffset): OffsetDateTime =
@@ -298,12 +298,14 @@ public class OffsetDateTime private constructor(
             offset,
         )
 
-        /** Obtains an offset date-time representing [instant] at [offset]. */
-        public fun ofInstant(instant: Instant, offset: ZoneOffset): OffsetDateTime =
-            OffsetDateTime(
+        /** Obtains an offset date-time representing [instant] in [zone]. */
+        public fun ofInstant(instant: Instant, zone: ZoneId): OffsetDateTime {
+            val offset = zone.rules.getOffset(instant)
+            return OffsetDateTime(
                 LocalDateTime.ofEpochSecond(instant.epochSecond, instant.nano, offset),
                 offset,
             )
+        }
 
         /** Obtains an offset date-time from a temporal accessor. */
         public fun from(temporal: TemporalAccessor): OffsetDateTime {

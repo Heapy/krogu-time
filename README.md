@@ -218,8 +218,8 @@ Implemented foundations:
   differences, timeline and structural ordering, epoch-second conversion,
   strict ISO parsing, and ISO text output, including system-default,
   injected-clock, and explicit-zone current values and formatter overloads
-- `OffsetDateTime` immutable composition, factories, fixed-offset/instant
-  conversion, same-instant/similar-local region-zone composition,
+- `OffsetDateTime` immutable composition, factories, fixed-offset and region-zone
+  instant conversion, same-instant/similar-local region-zone composition,
   Java-compatible standard int/long fields and units, replacement, truncation,
   checked local arithmetic, complete-unit differences across offsets, timeline
   and structural ordering, strict ISO parsing, ISO text output, and

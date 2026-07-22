@@ -2,6 +2,7 @@ package io.heapy.grogu.time
 
 import java.time.Instant as JavaInstant
 import java.time.OffsetDateTime as JavaOffsetDateTime
+import java.time.ZoneId as JavaZoneId
 import java.time.ZoneOffset as JavaZoneOffset
 import java.time.temporal.ChronoField as JavaChronoField
 import java.time.temporal.ChronoUnit as JavaChronoUnit
@@ -83,6 +84,18 @@ class OffsetDateTimeJavaConformanceTest {
                     OffsetDateTime.ofInstant(instant, offset).toString(),
                 )
             }
+        }
+        listOf(
+            Instant.parse("2024-03-31T00:30:00Z"),
+            Instant.parse("2024-03-31T01:30:00Z"),
+        ).forEach { instant ->
+            assertEquals(
+                JavaOffsetDateTime.ofInstant(
+                    JavaInstant.ofEpochSecond(instant.epochSecond, instant.nano.toLong()),
+                    JavaZoneId.of("Europe/Paris"),
+                ).toString(),
+                OffsetDateTime.ofInstant(instant, ZoneId.of("Europe/Paris")).toString(),
+            )
         }
 
         val amounts = listOf(Long.MIN_VALUE, -1L, 0L, 1L, Long.MAX_VALUE)
