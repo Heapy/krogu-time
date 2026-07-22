@@ -3215,67 +3215,10 @@ private fun resolvePatternValues(
             throw DateTimeParseException("Invalid instant fields", text, 0, exception)
         }
     }
-    val year = try {
-        resolvePatternYear(fieldValues, chronology, resolverStyle)
+    val date = try {
+        resolveParsedDateFields(fieldValues, chronology, resolverStyle)
     } catch (exception: RuntimeException) {
         throw DateTimeParseException("Text cannot be parsed to a date", text, 0, exception)
-    }
-    val month = fieldValues[ChronoField.MONTH_OF_YEAR]
-    val day = fieldValues[ChronoField.DAY_OF_MONTH]
-    val calendarDate = if (year != null && month != null && day != null) {
-        try {
-            resolveDateFieldsInChronology(
-                chronology = chronology,
-                year = year.toPatternInt('u', text),
-                month = month.toPatternInt('M', text),
-                day = day.toPatternInt('d', text),
-                resolverStyle = resolverStyle,
-            )
-        } catch (exception: RuntimeException) {
-            throw DateTimeParseException("Text cannot be parsed to a date", text, 0, exception)
-        }
-    } else {
-        null
-    }
-    val dayOfYear = fieldValues[ChronoField.DAY_OF_YEAR]
-    val ordinalDate = if (year != null && dayOfYear != null) {
-        try {
-            resolveOrdinalDateInChronology(
-                chronology = chronology,
-                year = year.toPatternInt('u', text),
-                dayOfYear = dayOfYear.toPatternInt('D', text),
-                resolverStyle = resolverStyle,
-            )
-        } catch (exception: RuntimeException) {
-            throw DateTimeParseException("Text cannot be parsed to a date", text, 0, exception)
-        }
-    } else {
-        null
-    }
-    val customDates = try {
-        resolveCustomDateFields(fieldValues, chronology, resolverStyle)
-    } catch (exception: RuntimeException) {
-        throw DateTimeParseException("Text cannot be parsed to a date", text, 0, exception)
-    }
-    val dayOfWeek = fieldValues[ChronoField.DAY_OF_WEEK]
-    val resolvedDates = listOfNotNull(calendarDate, ordinalDate) + customDates
-    val date = resolvedDates.firstOrNull()
-    if (
-        date != null &&
-        resolvedDates.any { candidate -> candidate.toEpochDay() != date.toEpochDay() }
-    ) {
-        throw DateTimeParseException("Conflict found: resolved dates differ", text, 0)
-    }
-    if (
-        date != null &&
-        dayOfWeek != null &&
-        date.getLong(ChronoField.DAY_OF_WEEK) != dayOfWeek
-    ) {
-        throw DateTimeParseException(
-            "Conflict found: resolved day-of-week differs from parsed value",
-            text,
-            0,
-        )
     }
 
     val hour = fieldValues[ChronoField.HOUR_OF_DAY]
@@ -3316,36 +3259,84 @@ private fun resolvePatternValues(
     )
 }
 
-private fun resolveCustomDateFields(
+private fun resolveParsedDateFields(
     fieldValues: MutableMap<TemporalField, Long>,
     chronology: Chronology,
     resolverStyle: ResolverStyle,
-): List<ChronoLocalDate> {
-    val partialTemporal = ParsedTemporalAccessor(
-        chronology = chronology,
-        fields = fieldValues,
-    )
-    val resolvedDates = mutableListOf<ChronoLocalDate>()
-    repeat(MAX_FIELD_RESOLVE_PASSES) {
+): ChronoLocalDate? {
+    var resolvedDate: ChronoLocalDate? = null
+
+    fun mergeDate(candidate: ChronoLocalDate?) {
+        if (candidate == null) return
+        if (candidate.chronology != chronology) {
+            throw DateTimeException(
+                "ChronoLocalDate must use the effective parsed chronology: $chronology",
+            )
+        }
+        val previous = resolvedDate
+        if (previous != null && previous.toEpochDay() != candidate.toEpochDay()) {
+            throw DateTimeException(
+                "Conflict found: Fields resolved to two different dates: $previous $candidate",
+            )
+        }
+        resolvedDate = candidate
+    }
+
+    mergeDate(chronology.resolveDate(fieldValues, resolverStyle))
+    var changedCount = 0
+    while (changedCount < MAX_FIELD_RESOLVE_PASSES) {
         var changed = false
         for (field in fieldValues.keys.toList()) {
             val previousValues = fieldValues.toMap()
+            val partialTemporal = ParsedTemporalAccessor(
+                date = resolvedDate,
+                chronology = chronology,
+                fields = fieldValues,
+            )
             val resolved = field.resolve(fieldValues, partialTemporal, resolverStyle)
             resolved?.let { temporal ->
-                resolvedDates += if (temporal is ChronoLocalDate) {
+                mergeDate(if (temporal is ChronoLocalDate) {
                     temporal
                 } else {
                     chronology.date(temporal)
-                }
+                })
             }
             if (resolved != null || fieldValues != previousValues) {
                 changed = true
                 break
             }
         }
-        if (!changed) return resolvedDates
+        if (!changed) break
+        changedCount++
     }
-    throw DateTimeException("One of the parsed fields has an incorrectly implemented resolve method")
+    if (changedCount == MAX_FIELD_RESOLVE_PASSES) {
+        throw DateTimeException("One of the parsed fields has an incorrectly implemented resolve method")
+    }
+    if (changedCount > 0) {
+        mergeDate(chronology.resolveDate(fieldValues, resolverStyle))
+    }
+    resolvedDate?.let { date -> crossCheckDateFields(date, fieldValues) }
+    return resolvedDate
+}
+
+private fun crossCheckDateFields(
+    date: ChronoLocalDate,
+    fieldValues: MutableMap<TemporalField, Long>,
+) {
+    for ((field, parsedValue) in fieldValues.toMap()) {
+        if (!date.isSupported(field)) continue
+        val resolvedValue = try {
+            date.getLong(field)
+        } catch (_: RuntimeException) {
+            continue
+        }
+        if (resolvedValue != parsedValue) {
+            throw DateTimeException(
+                "Conflict found: Field $field $resolvedValue differs from $field $parsedValue derived from $date",
+            )
+        }
+        fieldValues.remove(field)
+    }
 }
 
 private const val MAX_FIELD_RESOLVE_PASSES: Int = 50
@@ -3612,55 +3603,6 @@ private fun MutableMap<TemporalField, Long>.updateTimeField(
     }
 }
 
-private fun resolvePatternYear(
-    values: MutableMap<TemporalField, Long>,
-    chronology: Chronology,
-    resolverStyle: ResolverStyle,
-): Long? {
-    val prolepticYear = values[ChronoField.YEAR]
-    val yearOfEraValue = values[ChronoField.YEAR_OF_ERA]
-    val eraValue = values[ChronoField.ERA]
-    if (yearOfEraValue == null) {
-        eraValue?.let { chronology.range(ChronoField.ERA).checkValidValue(it, ChronoField.ERA) }
-        return prolepticYear
-    }
-
-    val yearOfEra = if (resolverStyle == ResolverStyle.LENIENT) {
-        yearOfEraValue.toInt().takeIf { it.toLong() == yearOfEraValue }
-            ?: throw DateTimeException("Invalid value for YearOfEra: $yearOfEraValue")
-    } else {
-        chronology.range(ChronoField.YEAR_OF_ERA)
-            .checkValidIntValue(yearOfEraValue, ChronoField.YEAR_OF_ERA)
-    }
-    val resolvedYear = when {
-        eraValue != null -> {
-            val era = chronology.eraOf(
-                chronology.range(ChronoField.ERA)
-                    .checkValidIntValue(eraValue, ChronoField.ERA),
-            )
-            chronology.prolepticYear(era, yearOfEra).toLong()
-        }
-        prolepticYear != null -> {
-            val year = chronology.range(ChronoField.YEAR)
-                .checkValidIntValue(prolepticYear, ChronoField.YEAR)
-            chronology.prolepticYear(chronology.dateYearDay(year, 1).era, yearOfEra).toLong()
-        }
-        resolverStyle == ResolverStyle.STRICT -> return null
-        else -> chronology.eras().lastOrNull()
-            ?.let { era -> chronology.prolepticYear(era, yearOfEra).toLong() }
-            ?: yearOfEra.toLong()
-    }
-    if (prolepticYear != null && prolepticYear != resolvedYear) {
-        throw DateTimeException(
-            "Conflict found: Year $prolepticYear differs from YearOfEra $yearOfEraValue",
-        )
-    }
-    values.remove(ChronoField.YEAR_OF_ERA)
-    values.remove(ChronoField.ERA)
-    values[ChronoField.YEAR] = resolvedYear
-    return resolvedYear
-}
-
 private fun Char.toPatternField(): TemporalField = when (this) {
     'u' -> ChronoField.YEAR
     'y' -> ChronoField.YEAR_OF_ERA
@@ -3672,10 +3614,6 @@ private fun Char.toPatternField(): TemporalField = when (this) {
     'S' -> ChronoField.NANO_OF_SECOND
     else -> error("Unsupported numeric pattern field: $this")
 }
-
-private fun Long.toPatternInt(field: Char, text: String): Int =
-    toInt().takeIf { it.toLong() == this }
-        ?: throw DateTimeParseException("Invalid value for pattern field $field: $this", text, 0)
 
 private val POWERS_OF_TEN: IntArray = intArrayOf(
     1,
@@ -4731,17 +4669,6 @@ private fun resolveDateFieldsInChronology(
     ResolverStyle.LENIENT -> chronology.date(year, 1, 1)
         .plus(month.toLong() - 1, ChronoUnit.MONTHS)
         .plus(day.toLong() - 1, ChronoUnit.DAYS)
-}
-
-private fun resolveOrdinalDateInChronology(
-    chronology: Chronology,
-    year: Int,
-    dayOfYear: Int,
-    resolverStyle: ResolverStyle,
-): ChronoLocalDate = if (resolverStyle == ResolverStyle.LENIENT) {
-    chronology.dateYearDay(year, 1).plus(dayOfYear.toLong() - 1, ChronoUnit.DAYS)
-} else {
-    chronology.dateYearDay(year, dayOfYear)
 }
 
 private class UnresolvedParsedTemporalAccessor(

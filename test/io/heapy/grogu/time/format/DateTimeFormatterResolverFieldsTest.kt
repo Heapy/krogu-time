@@ -3,6 +3,8 @@ package io.heapy.grogu.time.format
 import io.heapy.grogu.time.LocalDate
 import io.heapy.grogu.time.LocalTime
 import io.heapy.grogu.time.ZoneOffset
+import io.heapy.grogu.time.chrono.JapaneseChronology
+import io.heapy.grogu.time.chrono.JapaneseDate
 import io.heapy.grogu.time.temporal.ChronoField
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -157,6 +159,49 @@ class DateTimeFormatterResolverFieldsTest {
         assertEquals(
             LocalDate.of(2008, 6, 3),
             LocalDate.from(ignoredWeekday.parse(wrongWeekday)),
+        )
+    }
+
+    @Test
+    fun resolvesProlepticMonthAlignedWeeksAndJapaneseEraYears() {
+        val prolepticMonth = DateTimeFormatterBuilder()
+            .appendValue(ChronoField.PROLEPTIC_MONTH)
+            .appendLiteral('/')
+            .appendValue(ChronoField.DAY_OF_MONTH)
+            .toFormatter()
+            .withResolverStyle(ResolverStyle.STRICT)
+        assertEquals(
+            LocalDate.of(2024, 2, 29),
+            LocalDate.from(prolepticMonth.parse("24289/29")),
+        )
+
+        val alignedMonth = DateTimeFormatterBuilder()
+            .appendValue(ChronoField.YEAR)
+            .appendLiteral('/')
+            .appendValue(ChronoField.MONTH_OF_YEAR)
+            .appendLiteral('/')
+            .appendValue(ChronoField.ALIGNED_WEEK_OF_MONTH)
+            .appendLiteral('/')
+            .appendValue(ChronoField.ALIGNED_DAY_OF_WEEK_IN_MONTH)
+            .toFormatter()
+            .withResolverStyle(ResolverStyle.STRICT)
+        assertEquals(
+            LocalDate.of(2024, 2, 10),
+            LocalDate.from(alignedMonth.parse("2024/2/2/3")),
+        )
+
+        val japaneseOrdinal = DateTimeFormatterBuilder()
+            .appendValue(ChronoField.ERA)
+            .appendLiteral('/')
+            .appendValue(ChronoField.YEAR_OF_ERA)
+            .appendLiteral('/')
+            .appendValue(ChronoField.DAY_OF_YEAR)
+            .toFormatter()
+            .withChronology(JapaneseChronology)
+            .withResolverStyle(ResolverStyle.STRICT)
+        assertEquals(
+            JapaneseDate.of(2019, 5, 1),
+            JapaneseDate.from(japaneseOrdinal.parse("3/1/1")),
         )
     }
 }

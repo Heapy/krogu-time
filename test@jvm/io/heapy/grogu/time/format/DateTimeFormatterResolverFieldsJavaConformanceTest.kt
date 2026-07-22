@@ -166,4 +166,81 @@ class DateTimeFormatterResolverFieldsJavaConformanceTest {
             }.isSuccess,
         )
     }
+
+    @Test
+    fun chronologyStandardFieldCombinationsMatchJavaTime() {
+        val scenarios = listOf(
+            FormatterScenario(
+                text = "24289/29",
+                fields = listOf("PROLEPTIC_MONTH", "DAY_OF_MONTH"),
+            ),
+            FormatterScenario(
+                text = "2024/2/2/3",
+                fields = listOf(
+                    "YEAR",
+                    "MONTH_OF_YEAR",
+                    "ALIGNED_WEEK_OF_MONTH",
+                    "ALIGNED_DAY_OF_WEEK_IN_MONTH",
+                ),
+            ),
+            FormatterScenario(
+                text = "2024/2/2/4",
+                fields = listOf(
+                    "YEAR",
+                    "MONTH_OF_YEAR",
+                    "ALIGNED_WEEK_OF_MONTH",
+                    "DAY_OF_WEEK",
+                ),
+            ),
+            FormatterScenario(
+                text = "2024/9/4",
+                fields = listOf("YEAR", "ALIGNED_WEEK_OF_YEAR", "ALIGNED_DAY_OF_WEEK_IN_YEAR"),
+            ),
+            FormatterScenario(
+                text = "2024/9/4",
+                fields = listOf("YEAR", "ALIGNED_WEEK_OF_YEAR", "DAY_OF_WEEK"),
+            ),
+        )
+        scenarios.forEach { scenario ->
+            val javaFormatter = javaFormatter(scenario.fields)
+            val groguFormatter = groguFormatter(scenario.fields)
+            assertEquals(
+                java.time.LocalDate.from(javaFormatter.parse(scenario.text)).toEpochDay(),
+                io.heapy.grogu.time.LocalDate.from(groguFormatter.parse(scenario.text)).toEpochDay(),
+                scenario.toString(),
+            )
+        }
+
+        val javaJapanese = javaFormatter(listOf("ERA", "YEAR_OF_ERA", "DAY_OF_YEAR"))
+            .withChronology(java.time.chrono.JapaneseChronology.INSTANCE)
+        val groguJapanese = groguFormatter(listOf("ERA", "YEAR_OF_ERA", "DAY_OF_YEAR"))
+            .withChronology(io.heapy.grogu.time.chrono.JapaneseChronology)
+        assertEquals(
+            java.time.chrono.JapaneseDate.from(javaJapanese.parse("3/1/1")).toEpochDay(),
+            io.heapy.grogu.time.chrono.JapaneseDate.from(groguJapanese.parse("3/1/1")).toEpochDay(),
+        )
+    }
+
+    private fun javaFormatter(fields: List<String>): java.time.format.DateTimeFormatter {
+        val builder = java.time.format.DateTimeFormatterBuilder()
+        fields.forEachIndexed { index, name ->
+            if (index != 0) builder.appendLiteral('/')
+            builder.appendValue(java.time.temporal.ChronoField.valueOf(name))
+        }
+        return builder.toFormatter().withResolverStyle(java.time.format.ResolverStyle.STRICT)
+    }
+
+    private fun groguFormatter(fields: List<String>): DateTimeFormatter {
+        val builder = DateTimeFormatterBuilder()
+        fields.forEachIndexed { index, name ->
+            if (index != 0) builder.appendLiteral('/')
+            builder.appendValue(io.heapy.grogu.time.temporal.ChronoField.valueOf(name))
+        }
+        return builder.toFormatter().withResolverStyle(ResolverStyle.STRICT)
+    }
+
+    private data class FormatterScenario(
+        val text: String,
+        val fields: List<String>,
+    )
 }

@@ -50,8 +50,9 @@ Implemented foundations:
   with default and explicit locale factories plus immutable locale, resolver-style,
   resolver-field, chronology, and zone overrides, plus `localizedBy` calendar,
   numbering-system, region, and CLDR timezone-extension overrides,
-  including pre-resolution field filtering across calendar, ordinal, and ISO
-  week dates, chronology-aware date conversion, instant conversion, parsed
+  including pre-resolution field filtering and canonical chronology resolution
+  across calendar, ordinal, proleptic-month, aligned-week, and ISO week dates,
+  chronology-aware date conversion, instant conversion, parsed
   chronology, and parsed default-zone behavior, and strict/smart/lenient ISO,
   non-ISO calendar, and RFC 1123 resolution (including excess-day handling); numeric
   `ofPattern` date/time fields, including ordinal day `D`, aligned week `F`,
