@@ -66,6 +66,7 @@ Implemented foundations:
   temporal integration, checked arithmetic, conversions, truncation, and
   `between`
 - temporal interfaces and exceptions
+- `TemporalAdjusters` complete date-adjuster utility surface
 - `ValueRange`
 - `ChronoUnit`
 - `ChronoField`
