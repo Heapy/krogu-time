@@ -78,4 +78,21 @@ class ChronoLocalDateTest {
         assertEquals(LocalDate.of(2024, 2, 29), chronology.date(LocalDate.of(2024, 2, 29)))
         assertEquals(LocalDate.of(2024, 3, 1), chronology.dateNow(fixed))
     }
+
+    @Test
+    fun defaultAtTimeFactoryCombinesCustomDatesWithLocalTime() {
+        val date = DefaultAtTimeDate(LocalDate.of(2024, 2, 29))
+        val time = LocalTime.of(12, 30, 45, 123_456_789)
+        val dateTime = date.atTime(time)
+
+        assertSame(date, dateTime.date)
+        assertSame(time, dateTime.time)
+    }
+
+    private class DefaultAtTimeDate(
+        delegate: LocalDate,
+    ) : ChronoLocalDate by delegate {
+        override fun atTime(localTime: LocalTime): ChronoLocalDateTime<*> =
+            super<ChronoLocalDate>.atTime(localTime)
+    }
 }

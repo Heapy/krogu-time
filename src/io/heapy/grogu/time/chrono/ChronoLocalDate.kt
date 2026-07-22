@@ -79,7 +79,8 @@ public interface ChronoLocalDate : Temporal, TemporalAdjuster, Comparable<Chrono
     public fun format(formatter: DateTimeFormatter): String = formatter.format(this)
 
     /** Combines this date with [localTime]. */
-    public fun atTime(localTime: LocalTime): ChronoLocalDateTime<*>
+    public fun atTime(localTime: LocalTime): ChronoLocalDateTime<*> =
+        ChronoLocalDateTimeImpl.of(this, localTime)
 
     override fun compareTo(other: ChronoLocalDate): Int {
         val epochComparison = toEpochDay().compareTo(other.toEpochDay())

@@ -130,8 +130,8 @@ Implemented foundations:
   Umm al-Qura month table for 1300 through 1600 AH
 - `ChronoLocalDate` chronology, era, leap-year and length contracts, generic
   conversion, covariant date arithmetic, standard queries, epoch-day adjustment,
-  formatter-based output, chronology-aware and timeline ordering, with
-  `LocalDate` integration
+  formatter-based output, Java-compatible default local-time composition,
+  chronology-aware and timeline ordering, with `LocalDate` integration
 - `ChronoLocalDateTime` chronology/date/time contracts, generic conversion and
   chronology factories, covariant arithmetic, standard queries, epoch/instant
   conversion, adjustment, formatter-based output, chronology-aware and
