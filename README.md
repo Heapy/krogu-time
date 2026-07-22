@@ -150,8 +150,8 @@ Implemented foundations:
   `ZonedDateTime` integration
 - `ChronoPeriod` chronology, unit, sign, arithmetic, normalization, application,
   and generic date-difference contracts, with `Period` integration
-- `Year` core value, leap-year, Java-compatible int/long temporal fields,
-  year-scale arithmetic, and
+- `Year` core value, leap-year, Java-compatible int/long temporal fields and
+  field-adjustment validation, year-scale arithmetic, and
   comparison behavior, including non-ISO epoch-day conversion, ISO-guarded
   temporal adjustment, default parsing, and `atDay` date production plus
   system-default/injected-clock/explicit-zone current-value factories and

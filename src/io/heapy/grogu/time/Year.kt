@@ -106,10 +106,10 @@ public class Year private constructor(
 
     override fun with(field: TemporalField, newValue: Long): Year {
         if (field !is ChronoField) return field.adjustInto(this, newValue)
-        val newYear = field.checkValidIntValue(newValue)
+        field.checkValidValue(newValue)
         return when (field) {
-            ChronoField.YEAR_OF_ERA -> of(if (value < 1) 1 - newYear else newYear)
-            ChronoField.YEAR -> of(newYear)
+            ChronoField.YEAR_OF_ERA -> of(if (value < 1) 1 - newValue.toInt() else newValue.toInt())
+            ChronoField.YEAR -> of(newValue.toInt())
             ChronoField.ERA -> if (getLong(ChronoField.ERA) == newValue) this else of(1 - value)
             else -> throw UnsupportedTemporalTypeException("Unsupported field: $field")
         }

@@ -106,6 +106,12 @@ class YearTest {
         assertFailsWith<UnsupportedTemporalTypeException> {
             ce.getLong(ChronoField.MONTH_OF_YEAR)
         }
+        assertFailsWith<UnsupportedTemporalTypeException> {
+            ce.with(ChronoField.EPOCH_DAY, 0)
+        }
+        assertFailsWith<DateTimeException> {
+            ce.with(ChronoField.EPOCH_DAY, Long.MIN_VALUE)
+        }
     }
 
     @Test
