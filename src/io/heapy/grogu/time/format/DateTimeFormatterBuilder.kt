@@ -1,6 +1,7 @@
 package io.heapy.grogu.time.format
 
 import io.heapy.grogu.time.DateTimeException
+import io.heapy.grogu.time.Locale
 import io.heapy.grogu.time.chrono.ChronoLocalDate
 import io.heapy.grogu.time.temporal.TemporalField
 
@@ -274,9 +275,12 @@ public class DateTimeFormatterBuilder {
     }
 
     /** Creates an immutable formatter from the elements appended so far. */
-    public fun toFormatter(): DateTimeFormatter {
+    public fun toFormatter(): DateTimeFormatter = toFormatter(Locale.getDefault())
+
+    /** Creates an immutable formatter using [locale] for locale-sensitive elements. */
+    public fun toFormatter(locale: Locale): DateTimeFormatter {
         while (optionalSections.isNotEmpty()) optionalEnd()
-        return DateTimeFormatter.fromPatternTokens(rootSection.tokens)
+        return DateTimeFormatter.fromPatternTokens(rootSection.tokens, locale)
     }
 }
 

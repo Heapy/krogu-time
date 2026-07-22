@@ -33,6 +33,8 @@ Implemented foundations:
 
 - `DateTimeException`
 - `DateTimeParseException`
+- KMP `Locale` values backed by canonical BCP 47 language tags, including
+  platform FORMAT-locale discovery on JVM, Android, and iOS
 - `ResolverStyle`, `FormatStyle`, `SignStyle`, and `TextStyle` formatter
   configuration enums
 - `DecimalStyle` standard symbols, immutable symbol replacement, digit
@@ -41,7 +43,8 @@ Implemented foundations:
   (locale factories remain)
 - `DateTimeFormatter` core formatting, appendable output, parsing, temporal
   queries, ordered `parseBest` conversion, and query-failure wrapping, with
-  immutable resolver-style, resolver-field, chronology, and zone overrides,
+  default and explicit locale factories plus immutable locale, resolver-style,
+  resolver-field, chronology, and zone overrides,
   including pre-resolution field filtering across calendar, ordinal, and ISO
   week dates, chronology-aware date conversion, instant conversion, parsed
   chronology, and parsed default-zone behavior, and strict/smart/lenient ISO,

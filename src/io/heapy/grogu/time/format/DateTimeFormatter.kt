@@ -5,6 +5,7 @@ import io.heapy.grogu.time.Instant
 import io.heapy.grogu.time.LocalDate
 import io.heapy.grogu.time.LocalDateTime
 import io.heapy.grogu.time.LocalTime
+import io.heapy.grogu.time.Locale
 import io.heapy.grogu.time.OffsetDateTime
 import io.heapy.grogu.time.OffsetTime
 import io.heapy.grogu.time.Period
@@ -38,6 +39,7 @@ public class DateTimeFormatter private constructor(
     private val decimalStyleScope: DecimalStyleScope = DecimalStyleScope.ALL,
     private val resolverParser: ((String, ResolverStyle) -> TemporalAccessor)? = null,
     private val patternTokens: List<PatternToken>? = null,
+    public val locale: Locale = Locale.getDefault(),
     public val decimalStyle: DecimalStyle = DecimalStyle.STANDARD,
     public val resolverStyle: ResolverStyle = ResolverStyle.STRICT,
     public val resolverFields: Set<TemporalField>? = null,
@@ -97,6 +99,7 @@ public class DateTimeFormatter private constructor(
                 resolverParser = resolverParser,
                 patternTokens = patternTokens,
                 builderTokens = builderTokens,
+                locale = locale,
                 decimalStyle = decimalStyle,
                 resolverStyle = resolverStyle,
                 resolverFields = resolverFields,
@@ -118,6 +121,7 @@ public class DateTimeFormatter private constructor(
                 resolverParser = resolverParser,
                 patternTokens = patternTokens,
                 builderTokens = builderTokens,
+                locale = locale,
                 decimalStyle = decimalStyle,
                 resolverStyle = resolverStyle,
                 resolverFields = resolverFields,
@@ -142,6 +146,7 @@ public class DateTimeFormatter private constructor(
             resolverParser = resolverParser,
             patternTokens = patternTokens,
             builderTokens = builderTokens,
+            locale = locale,
             decimalStyle = decimalStyle,
             resolverStyle = resolverStyle,
             resolverFields = resolverFields?.toSet(),
@@ -163,6 +168,7 @@ public class DateTimeFormatter private constructor(
                 resolverParser = resolverParser,
                 patternTokens = patternTokens,
                 builderTokens = builderTokens,
+                locale = locale,
                 decimalStyle = decimalStyle,
                 resolverStyle = resolverStyle,
                 resolverFields = resolverFields,
@@ -184,6 +190,29 @@ public class DateTimeFormatter private constructor(
                 resolverParser = resolverParser,
                 patternTokens = patternTokens,
                 builderTokens = builderTokens,
+                locale = locale,
+                decimalStyle = decimalStyle,
+                resolverStyle = resolverStyle,
+                resolverFields = resolverFields,
+                chronology = chronology,
+                zone = zone,
+            )
+        }
+
+    /** Returns a formatter using [locale] for locale-sensitive elements. */
+    public fun withLocale(locale: Locale): DateTimeFormatter =
+        if (locale == this.locale) {
+            this
+        } else {
+            DateTimeFormatter(
+                printer = printer,
+                parser = parser,
+                description = description,
+                decimalStyleScope = decimalStyleScope,
+                resolverParser = resolverParser,
+                patternTokens = patternTokens,
+                builderTokens = builderTokens,
+                locale = locale,
                 decimalStyle = decimalStyle,
                 resolverStyle = resolverStyle,
                 resolverFields = resolverFields,
@@ -329,15 +358,25 @@ public class DateTimeFormatter private constructor(
     public companion object {
         /** Creates a formatter from a date-time pattern. */
         public fun ofPattern(pattern: String): DateTimeFormatter =
-            fromPatternTokens(compilePattern(pattern))
+            ofPattern(pattern, Locale.getDefault())
 
-        internal fun fromPatternTokens(tokens: List<PatternToken>): DateTimeFormatter {
+        /** Creates a formatter from a date-time [pattern] using [locale]. */
+        public fun ofPattern(
+            pattern: String,
+            locale: Locale,
+        ): DateTimeFormatter = fromPatternTokens(compilePattern(pattern), locale)
+
+        internal fun fromPatternTokens(
+            tokens: List<PatternToken>,
+            locale: Locale = Locale.getDefault(),
+        ): DateTimeFormatter {
             val snapshot = tokens.toList()
             return DateTimeFormatter(
                 printer = { temporal -> formatPattern(snapshot, temporal) },
                 parser = { text -> parsePattern(snapshot, text.toString(), ResolverStyle.SMART) },
                 description = describePattern(snapshot),
                 builderTokens = snapshot,
+                locale = locale,
                 resolverParser = { text, style -> parsePattern(snapshot, text, style) },
                 patternTokens = snapshot,
                 resolverStyle = ResolverStyle.SMART,
