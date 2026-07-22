@@ -618,6 +618,13 @@ internal sealed interface PatternToken {
         val symbol: Char,
         val count: Int,
     ) : PatternToken
+
+    data class Value(
+        val field: TemporalField,
+        val minWidth: Int,
+        val maxWidth: Int,
+        val signStyle: SignStyle,
+    ) : PatternToken
 }
 
 internal fun compilePattern(pattern: String): List<PatternToken> {
@@ -703,8 +710,33 @@ private fun formatPattern(
         when (token) {
             is PatternToken.Literal -> append(token.text)
             is PatternToken.Field -> append(formatPatternField(token, temporal))
+            is PatternToken.Value -> append(formatPatternValue(token, temporal))
         }
     }
+}
+
+private fun formatPatternValue(
+    token: PatternToken.Value,
+    temporal: TemporalAccessor,
+): String {
+    val value = temporal.getLong(token.field)
+    val negative = value < 0
+    val digits = value.toString().let { if (negative) it.drop(1) else it }
+    if (digits.length > token.maxWidth) {
+        throw DateTimeException(
+            "Field ${token.field} cannot be printed as the value $value exceeds the maximum print width of ${token.maxWidth}",
+        )
+    }
+    val prefix = when {
+        negative && token.signStyle == SignStyle.NOT_NEGATIVE -> throw DateTimeException(
+            "Field ${token.field} cannot be printed as the value $value cannot be negative according to the SignStyle",
+        )
+        negative && token.signStyle != SignStyle.NEVER -> "-"
+        !negative && token.signStyle == SignStyle.ALWAYS -> "+"
+        !negative && token.signStyle == SignStyle.EXCEEDS_PAD && digits.length > token.minWidth -> "+"
+        else -> ""
+    }
+    return prefix + digits.padStart(token.minWidth, '0')
 }
 
 private fun formatPatternField(
@@ -794,7 +826,7 @@ private fun parsePattern(
     text: String,
     resolverStyle: ResolverStyle,
 ): TemporalAccessor {
-    val values = mutableMapOf<Char, Long>()
+    val values = mutableMapOf<TemporalField, Long>()
     var offset: ZoneOffset? = null
     var zone: ZoneId? = null
     var index = 0
@@ -830,7 +862,8 @@ private fun parsePattern(
                     }
                     else -> {
                         val parsed = parsePatternField(token, text, index)
-                        val previous = values.put(token.symbol, parsed.value)
+                        val field = token.symbol.toPatternField()
+                        val previous = values.put(field, parsed.value)
                         if (previous != null && previous != parsed.value) {
                             throw DateTimeParseException(
                                 "Conflict found for pattern field ${token.symbol}",
@@ -841,6 +874,18 @@ private fun parsePattern(
                         index = parsed.endIndex
                     }
                 }
+            }
+            is PatternToken.Value -> {
+                val parsed = parsePatternValue(token, text, index)
+                val previous = values.put(token.field, parsed.value)
+                if (previous != null && previous != parsed.value) {
+                    throw DateTimeParseException(
+                        "Conflict found for field ${token.field}",
+                        text,
+                        index,
+                    )
+                }
+                index = parsed.endIndex
             }
         }
     }
@@ -952,6 +997,42 @@ private data class ParsedPatternField(
     val endIndex: Int,
 )
 
+private fun parsePatternValue(
+    token: PatternToken.Value,
+    text: String,
+    startIndex: Int,
+): ParsedPatternField {
+    var index = startIndex
+    val sign = text.getOrNull(index).takeIf { it == '+' || it == '-' }
+    val signAllowed = when (sign) {
+        '+' -> token.signStyle == SignStyle.ALWAYS || token.signStyle == SignStyle.EXCEEDS_PAD
+        '-' -> token.signStyle in listOf(SignStyle.NORMAL, SignStyle.ALWAYS, SignStyle.EXCEEDS_PAD)
+        else -> token.signStyle != SignStyle.ALWAYS
+    }
+    if (!signAllowed) {
+        throw DateTimeParseException("Text could not be parsed at index $startIndex", text, startIndex)
+    }
+    if (sign != null) index++
+
+    val digitsStart = index
+    while (index < text.length && text[index] in '0'..'9' && index - digitsStart < token.maxWidth) {
+        index++
+    }
+    val digitCount = index - digitsStart
+    if (digitCount < token.minWidth ||
+        token.signStyle == SignStyle.EXCEEDS_PAD &&
+        ((sign == '+' && digitCount <= token.minWidth) || (sign == null && digitCount > token.minWidth))
+    ) {
+        throw DateTimeParseException("Text could not be parsed at index $startIndex", text, startIndex)
+    }
+
+    val unsigned = text.substring(digitsStart, index)
+    val numericText = if (sign == '-') "-$unsigned" else unsigned
+    val value = numericText.toLongOrNull()
+        ?: throw DateTimeParseException("Invalid numeric value", text, startIndex)
+    return ParsedPatternField(value, index)
+}
+
 private fun parsePatternField(
     token: PatternToken.Field,
     text: String,
@@ -991,16 +1072,15 @@ private fun parsePatternField(
 }
 
 private fun resolvePatternValues(
-    values: Map<Char, Long>,
+    values: Map<TemporalField, Long>,
     text: String,
     resolverStyle: ResolverStyle,
     offset: ZoneOffset?,
     zone: ZoneId?,
 ): TemporalAccessor {
-    val year = values['u'] ?: values['y']
-    val month = values['M']
-    val day = values['d']
-    val hasDateFields = year != null || month != null || day != null
+    val year = values[ChronoField.YEAR] ?: values[ChronoField.YEAR_OF_ERA]
+    val month = values[ChronoField.MONTH_OF_YEAR]
+    val day = values[ChronoField.DAY_OF_MONTH]
     val date = if (year != null && month != null && day != null) {
         resolveIsoDateFields(
             year = year.toPatternInt('u', text),
@@ -1011,15 +1091,13 @@ private fun resolvePatternValues(
             target = "date",
         )
     } else {
-        if (hasDateFields) throw DateTimeParseException("Unable to resolve date fields", text, 0)
         null
     }
 
-    val hour = values['H']
-    val minute = values['m']
-    val second = values['s']
-    val fraction = values['S']
-    val hasTimeFields = hour != null || minute != null || second != null || fraction != null
+    val hour = values[ChronoField.HOUR_OF_DAY]
+    val minute = values[ChronoField.MINUTE_OF_HOUR]
+    val second = values[ChronoField.SECOND_OF_MINUTE]
+    val fraction = values[ChronoField.NANO_OF_SECOND]
     val resolvedTime = if (hour != null && minute != null) {
         resolvePatternTime(
             hour = hour.toPatternInt('H', text),
@@ -1030,7 +1108,6 @@ private fun resolvePatternValues(
             text = text,
         )
     } else {
-        if (hasTimeFields) throw DateTimeParseException("Unable to resolve time fields", text, 0)
         null
     }
 
@@ -1044,8 +1121,21 @@ private fun resolvePatternValues(
         time = resolvedTime?.time,
         offset = offset,
         zone = zone,
+        fields = values,
         excessDays = if (date == null) resolvedTime?.excessDays ?: Period.ZERO else Period.ZERO,
     )
+}
+
+private fun Char.toPatternField(): TemporalField = when (this) {
+    'u' -> ChronoField.YEAR
+    'y' -> ChronoField.YEAR_OF_ERA
+    'M' -> ChronoField.MONTH_OF_YEAR
+    'd' -> ChronoField.DAY_OF_MONTH
+    'H' -> ChronoField.HOUR_OF_DAY
+    'm' -> ChronoField.MINUTE_OF_HOUR
+    's' -> ChronoField.SECOND_OF_MINUTE
+    'S' -> ChronoField.NANO_OF_SECOND
+    else -> error("Unsupported numeric pattern field: $this")
 }
 
 private fun Long.toPatternInt(field: Char, text: String): Int =
@@ -1097,6 +1187,15 @@ private fun describePattern(tokens: List<PatternToken>): String = buildString {
         when (token) {
             is PatternToken.Literal -> append('\'').append(token.text).append('\'')
             is PatternToken.Field -> append("Value(").append(token.symbol).append(',').append(token.count).append(')')
+            is PatternToken.Value -> append("Value(")
+                .append(token.field)
+                .append(',')
+                .append(token.minWidth)
+                .append(',')
+                .append(token.maxWidth)
+                .append(',')
+                .append(token.signStyle)
+                .append(')')
         }
     }
 }
@@ -1902,6 +2001,7 @@ private class ParsedTemporalAccessor(
     private val zone: ZoneId? = null,
     private val instant: Instant? = null,
     private val chronology: Chronology = date?.chronology ?: IsoChronology,
+    private val fields: Map<TemporalField, Long> = emptyMap(),
     override val excessDays: Period = Period.ZERO,
     override val leapSecond: Boolean = false,
 ) : TemporalAccessor, ParsedState {
@@ -1922,6 +2022,7 @@ private class ParsedTemporalAccessor(
             zone = zone,
             instant = instant,
             chronology = chronology,
+            fields = fields,
             excessDays = excessDays,
             leapSecond = leapSecond,
         )
@@ -1939,6 +2040,7 @@ private class ParsedTemporalAccessor(
                 zone = defaultZone,
                 instant = instant,
                 chronology = chronology,
+                fields = fields,
                 excessDays = excessDays,
                 leapSecond = leapSecond,
             )
@@ -1951,8 +2053,9 @@ private class ParsedTemporalAccessor(
         is ChronoField if date != null && field.isDateBased -> date.isSupported(field)
         is ChronoField if time != null && field.isTimeBased -> time.isSupported(field)
         is ChronoField if instant != null -> instant.isSupported(field)
+        is ChronoField if field in fields -> true
         is ChronoField -> false
-        else -> field.isSupportedBy(this)
+        else -> field in fields || field.isSupportedBy(this)
     }
 
     override fun range(field: TemporalField): ValueRange = when (field) {
@@ -1962,8 +2065,9 @@ private class ParsedTemporalAccessor(
         is ChronoField if date != null && field.isDateBased -> date.range(field)
         is ChronoField if time != null && field.isTimeBased -> time.range(field)
         is ChronoField if instant != null -> instant.range(field)
+        is ChronoField if field in fields -> field.range
         is ChronoField -> unsupported(field)
-        else -> field.rangeRefinedBy(this)
+        else -> if (field in fields) field.range else field.rangeRefinedBy(this)
     }
 
     override fun getLong(field: TemporalField): Long = when (field) {
@@ -1979,8 +2083,9 @@ private class ParsedTemporalAccessor(
         is ChronoField if date != null && field.isDateBased -> date.getLong(field)
         is ChronoField if time != null && field.isTimeBased -> time.getLong(field)
         is ChronoField if instant != null -> instant.getLong(field)
+        is ChronoField if field in fields -> fields.getValue(field)
         is ChronoField -> unsupported(field)
-        else -> field.getFrom(this)
+        else -> fields[field] ?: field.getFrom(this)
     }
 
     override fun <R> query(query: TemporalQuery<R>): R {

@@ -47,7 +47,8 @@ Implemented foundations:
   calendar, and RFC 1123 resolution (including excess-day handling); numeric
   `ofPattern` date/time fields, exact fractions, reduced years, adjacent
   fields, quoted literals, ISO/RFC-style offsets, and region zone IDs;
-  `DateTimeFormatterBuilder` pattern/literal composition with immutable
+  `DateTimeFormatterBuilder` pattern/literal and generic numeric-value
+  composition, sign/width controls, unresolved field retention, and immutable
   formatter snapshots; plus
   Java-compatible `ISO_LOCAL_DATE`, `ISO_LOCAL_TIME`,
   `ISO_LOCAL_DATE_TIME`, `ISO_INSTANT`, `ISO_OFFSET_DATE`, `ISO_DATE`,
