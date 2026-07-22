@@ -1,5 +1,6 @@
 package io.heapy.grogu.time
 
+import io.heapy.grogu.time.chrono.HijrahDate
 import io.heapy.grogu.time.format.DateTimeParseException
 import io.heapy.grogu.time.temporal.ChronoField
 import io.heapy.grogu.time.temporal.ChronoUnit
@@ -121,6 +122,9 @@ class YearTest {
             YearRecordingTemporal(2024),
             Year.of(2024).adjustInto(YearRecordingTemporal()),
         )
+        assertFailsWith<DateTimeException> {
+            Year.of(1445).adjustInto(HijrahDate.of(1445, 9, 1))
+        }
         assertTrue(Year.of(2024).isAfter(Year.of(2023)))
         assertTrue(Year.of(2023).isBefore(Year.of(2024)))
         assertEquals("-1", Year.of(-1).toString())

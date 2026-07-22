@@ -1,5 +1,6 @@
 package io.heapy.grogu.time
 
+import io.heapy.grogu.time.chrono.Chronology
 import io.heapy.grogu.time.chrono.IsoChronology
 import io.heapy.grogu.time.format.DateTimeFormatter
 import io.heapy.grogu.time.format.DateTimeParseException
@@ -74,6 +75,9 @@ public class MonthDay private constructor(
         dayOfMonth != 29 || month !== Month.FEBRUARY || Year.isLeap(year.toLong())
 
     override fun adjustInto(temporal: Temporal): Temporal {
+        if (Chronology.from(temporal) != IsoChronology) {
+            throw DateTimeException("Adjustment only supported on ISO date-time")
+        }
         val adjusted = temporal.with(ChronoField.MONTH_OF_YEAR, monthValue.toLong())
         val resolvedDay = minOf(
             adjusted.range(ChronoField.DAY_OF_MONTH).maximum,

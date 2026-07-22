@@ -1,5 +1,6 @@
 package io.heapy.grogu.time
 
+import io.heapy.grogu.time.chrono.Chronology
 import io.heapy.grogu.time.chrono.IsoChronology
 import io.heapy.grogu.time.format.DateTimeFormatter
 import io.heapy.grogu.time.format.DateTimeParseException
@@ -186,8 +187,12 @@ public class YearMonth private constructor(
             plusMonths(-monthsToSubtract)
         }
 
-    override fun adjustInto(temporal: Temporal): Temporal =
-        temporal.with(ChronoField.PROLEPTIC_MONTH, prolepticMonth)
+    override fun adjustInto(temporal: Temporal): Temporal {
+        if (Chronology.from(temporal) != IsoChronology) {
+            throw DateTimeException("Adjustment only supported on ISO date-time")
+        }
+        return temporal.with(ChronoField.PROLEPTIC_MONTH, prolepticMonth)
+    }
 
     override fun until(endExclusive: Temporal, unit: TemporalUnit): Long {
         val end = from(endExclusive)

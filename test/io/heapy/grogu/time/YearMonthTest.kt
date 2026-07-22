@@ -1,5 +1,6 @@
 package io.heapy.grogu.time
 
+import io.heapy.grogu.time.chrono.HijrahDate
 import io.heapy.grogu.time.format.DateTimeParseException
 import io.heapy.grogu.time.temporal.ChronoField
 import io.heapy.grogu.time.temporal.ChronoUnit
@@ -106,6 +107,9 @@ class YearMonthTest {
         assertEquals(LocalDate.of(2024, 2, 29), start.atEndOfMonth())
         assertFailsWith<DateTimeException> { start.atDay(30) }
         assertEquals(LocalDate.of(2024, 2, 29), start.adjustInto(LocalDate.of(2023, 1, 31)))
+        assertFailsWith<DateTimeException> {
+            YearMonth.of(1445, 9).adjustInto(HijrahDate.of(1445, 9, 1))
+        }
 
         assertEquals(start, Year.of(2024).atMonth(Month.FEBRUARY))
         assertEquals(start, Year.of(2024).atMonth(2))

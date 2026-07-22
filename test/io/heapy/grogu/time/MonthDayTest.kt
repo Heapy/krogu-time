@@ -1,5 +1,6 @@
 package io.heapy.grogu.time
 
+import io.heapy.grogu.time.chrono.HijrahDate
 import io.heapy.grogu.time.format.DateTimeParseException
 import io.heapy.grogu.time.temporal.ChronoField
 import io.heapy.grogu.time.temporal.UnsupportedTemporalTypeException
@@ -55,6 +56,9 @@ class MonthDayTest {
         assertEquals(LocalDate.of(2024, 2, 29), leapDay.atYear(2024))
         assertEquals(LocalDate.of(2023, 2, 28), leapDay.atYear(2023))
         assertEquals(LocalDate.of(2023, 2, 28), leapDay.adjustInto(LocalDate.of(2023, 1, 31)))
+        assertFailsWith<DateTimeException> {
+            leapDay.adjustInto(HijrahDate.of(1445, 9, 1))
+        }
 
         assertTrue(Year.of(2024).isValidMonthDay(leapDay))
         assertFalse(Year.of(2023).isValidMonthDay(leapDay))
