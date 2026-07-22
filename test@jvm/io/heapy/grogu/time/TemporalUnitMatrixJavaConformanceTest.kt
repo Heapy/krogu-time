@@ -51,6 +51,28 @@ class TemporalUnitMatrixJavaConformanceTest {
         assertEquals(emptyList(), mismatches)
     }
 
+    @Test
+    fun temporalUntilCombinationsMatchJavaTime() {
+        val temporals = temporals()
+        val mismatches = temporals.flatMap { start ->
+            temporals.flatMap { end ->
+                ChronoUnit.entries.mapNotNull { kotlinUnit ->
+                    val javaUnit = java.time.temporal.ChronoUnit.valueOf(kotlinUnit.name)
+                    val javaOutcome = outcome { start.java.until(end.java, javaUnit) }
+                    val kotlinOutcome = outcome { start.kotlin.until(end.kotlin, kotlinUnit) }
+                    if (javaOutcome == kotlinOutcome) {
+                        null
+                    } else {
+                        "${start.name} until ${end.name} in $kotlinUnit: " +
+                            "Java=$javaOutcome, Kotlin=$kotlinOutcome"
+                    }
+                }
+            }
+        }
+
+        assertEquals(emptyList(), mismatches)
+    }
+
     private fun temporals(): List<TemporalPair> {
         val javaDate = java.time.LocalDate.of(2024, 3, 30)
         val kotlinDate = LocalDate.of(2024, 3, 30)
