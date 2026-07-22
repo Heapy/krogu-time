@@ -632,6 +632,13 @@ internal sealed interface PatternToken {
         val maxWidth: Int,
         val baseValue: Int,
     ) : PatternToken
+
+    data class Fraction(
+        val field: TemporalField,
+        val minWidth: Int,
+        val maxWidth: Int,
+        val decimalPoint: Boolean,
+    ) : PatternToken
 }
 
 internal fun compilePattern(pattern: String): List<PatternToken> {
@@ -719,8 +726,31 @@ private fun formatPattern(
             is PatternToken.Field -> append(formatPatternField(token, temporal))
             is PatternToken.Value -> append(formatPatternValue(token, temporal))
             is PatternToken.ReducedValue -> append(formatPatternReducedValue(token, temporal))
+            is PatternToken.Fraction -> append(formatPatternFraction(token, temporal))
         }
     }
+}
+
+private fun formatPatternFraction(
+    token: PatternToken.Fraction,
+    temporal: TemporalAccessor,
+): String {
+    val range = token.field.range
+    val value = temporal.getLong(token.field)
+    if (!range.isValidValue(value)) {
+        throw DateTimeException("Invalid value for ${token.field}: $value")
+    }
+    val rangeSize = range.maximum - range.minimum + 1
+    var remainder = value - range.minimum
+    val digits = buildString(token.maxWidth) {
+        repeat(token.maxWidth) {
+            remainder *= 10
+            append(remainder / rangeSize)
+            remainder %= rangeSize
+        }
+    }.trimEnd('0').padEnd(token.minWidth, '0')
+    if (digits.isEmpty()) return ""
+    return if (token.decimalPoint) ".$digits" else digits
 }
 
 private fun formatPatternReducedValue(
@@ -923,6 +953,20 @@ private fun parsePattern(
                 }
                 index = parsed.endIndex
             }
+            is PatternToken.Fraction -> {
+                val parsed = parsePatternFraction(token, text, index)
+                parsed.value?.let { value ->
+                    val previous = values.put(token.field, value)
+                    if (previous != null && previous != value) {
+                        throw DateTimeParseException(
+                            "Conflict found for field ${token.field}",
+                            text,
+                            index,
+                        )
+                    }
+                }
+                index = parsed.endIndex
+            }
         }
     }
     if (index != text.length) {
@@ -1033,6 +1077,45 @@ private data class ParsedPatternField(
     val endIndex: Int,
 )
 
+private data class ParsedPatternFraction(
+    val value: Long?,
+    val endIndex: Int,
+)
+
+private fun parsePatternFraction(
+    token: PatternToken.Fraction,
+    text: String,
+    startIndex: Int,
+): ParsedPatternFraction {
+    var index = startIndex
+    if (token.decimalPoint) {
+        if (text.getOrNull(index) != '.') {
+            if (token.minWidth == 0) return ParsedPatternFraction(null, startIndex)
+            throw DateTimeParseException("Text could not be parsed at index $startIndex", text, startIndex)
+        }
+        index++
+    }
+
+    val digitsStart = index
+    while (index < text.length && text[index] in '0'..'9' && index - digitsStart < token.maxWidth) {
+        index++
+    }
+    val digitCount = index - digitsStart
+    if (digitCount < token.minWidth) {
+        throw DateTimeParseException("Text could not be parsed at index $startIndex", text, startIndex)
+    }
+    if (digitCount == 0) {
+        return ParsedPatternFraction(token.field.range.minimum, index)
+    }
+
+    val numerator = text.substring(digitsStart, index).toLongOrNull()
+        ?: throw DateTimeParseException("Invalid fraction", text, startIndex)
+    val range = token.field.range
+    val rangeSize = range.maximum - range.minimum + 1
+    val value = range.minimum + numerator * rangeSize / reducedPowerOfTen(digitCount)
+    return ParsedPatternFraction(value, index)
+}
+
 private fun parsePatternValue(
     tokens: List<PatternToken>,
     tokenIndex: Int,
@@ -1086,6 +1169,9 @@ private fun PatternToken.adjacentFixedNumericWidth(): Int? = when (this) {
         symbol == 'S' || symbol in listOf('M', 'd', 'H', 'm', 's') && count > 1
     }
     is PatternToken.ReducedValue -> minWidth.takeIf { minWidth == maxWidth }
+    is PatternToken.Fraction -> minWidth.takeIf {
+        minWidth == maxWidth && !decimalPoint
+    }
     is PatternToken.Literal -> null
 }
 
@@ -1291,6 +1377,15 @@ private fun describePattern(tokens: List<PatternToken>): String = buildString {
                 .append(token.maxWidth)
                 .append(',')
                 .append(token.baseValue)
+                .append(')')
+            is PatternToken.Fraction -> append("Fraction(")
+                .append(token.field)
+                .append(',')
+                .append(token.minWidth)
+                .append(',')
+                .append(token.maxWidth)
+                .append(',')
+                .append(if (token.decimalPoint) "DecimalPoint" else "")
                 .append(')')
         }
     }

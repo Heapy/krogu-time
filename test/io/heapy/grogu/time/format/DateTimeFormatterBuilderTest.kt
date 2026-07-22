@@ -2,6 +2,7 @@ package io.heapy.grogu.time.format
 
 import io.heapy.grogu.time.LocalDateTime
 import io.heapy.grogu.time.LocalDate
+import io.heapy.grogu.time.LocalTime
 import io.heapy.grogu.time.temporal.ChronoField
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -107,6 +108,36 @@ class DateTimeFormatterBuilderTest {
     }
 
     @Test
+    fun appendsTrimmedAndFixedFractions() {
+        val trimmed = DateTimeFormatterBuilder()
+            .appendPattern("HH:mm:ss")
+            .appendFraction(ChronoField.NANO_OF_SECOND, 0, 9, true)
+            .toFormatter()
+        assertEquals("05:06:07", trimmed.format(LocalTime.of(5, 6, 7)))
+        assertEquals("05:06:07.12", trimmed.format(LocalTime.of(5, 6, 7, 120_000_000)))
+        assertEquals(
+            LocalTime.of(5, 6, 7, 120_000_000),
+            trimmed.parse("05:06:07.12", LocalTime::from),
+        )
+
+        val fixed = DateTimeFormatterBuilder()
+            .appendFraction(ChronoField.NANO_OF_SECOND, 3, 3, false)
+            .toFormatter()
+        assertEquals("120", fixed.format(LocalTime.of(5, 6, 7, 120_000_000)))
+        assertEquals(120_000_000, fixed.parse("120").getLong(ChronoField.NANO_OF_SECOND))
+    }
+
+    @Test
+    fun supportsFractionsOfGenericFixedRangeFields() {
+        val formatter = DateTimeFormatterBuilder()
+            .appendFraction(ChronoField.SECOND_OF_MINUTE, 0, 9, true)
+            .toFormatter()
+
+        assertEquals(".25", formatter.format(LocalTime.of(5, 6, 15)))
+        assertEquals(15, formatter.parse(".25").getLong(ChronoField.SECOND_OF_MINUTE))
+    }
+
+    @Test
     fun rejectsInvalidNumericWidths() {
         val builder = DateTimeFormatterBuilder()
 
@@ -127,6 +158,15 @@ class DateTimeFormatterBuilderTest {
         }
         assertFailsWith<IllegalArgumentException> {
             builder.appendValueReduced(ChronoField.MONTH_OF_YEAR, 1, 2, 13)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            builder.appendFraction(ChronoField.NANO_OF_SECOND, -1, 3, true)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            builder.appendFraction(ChronoField.NANO_OF_SECOND, 4, 3, true)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            builder.appendFraction(ChronoField.DAY_OF_MONTH, 0, 9, true)
         }
     }
 }

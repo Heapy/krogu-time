@@ -74,6 +74,26 @@ public class DateTimeFormatterBuilder {
         tokens += PatternToken.ReducedValue(field, width, maxWidth, baseValue)
     }
 
+    /** Appends the fractional value of a fixed-range [field]. */
+    public fun appendFraction(
+        field: TemporalField,
+        minWidth: Int,
+        maxWidth: Int,
+        decimalPoint: Boolean,
+    ): DateTimeFormatterBuilder = apply {
+        require(field.range.isFixed) { "Field must have a fixed set of values: $field" }
+        require(minWidth in 0..9) {
+            "Minimum width must be from 0 to 9 inclusive but was $minWidth"
+        }
+        require(maxWidth in 1..9) {
+            "Maximum width must be from 1 to 9 inclusive but was $maxWidth"
+        }
+        require(maxWidth >= minWidth) {
+            "Maximum width must exceed or equal the minimum width but $maxWidth < $minWidth"
+        }
+        tokens += PatternToken.Fraction(field, minWidth, maxWidth, decimalPoint)
+    }
+
     /** Creates an immutable formatter from the elements appended so far. */
     public fun toFormatter(): DateTimeFormatter = DateTimeFormatter.fromPatternTokens(tokens)
 }

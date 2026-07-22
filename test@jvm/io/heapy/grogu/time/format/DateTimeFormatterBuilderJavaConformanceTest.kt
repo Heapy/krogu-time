@@ -127,4 +127,42 @@ class DateTimeFormatterBuilderJavaConformanceTest {
             )
         }
     }
+
+    @Test
+    fun fractionFormattingAndParsingMatchesJavaTime() {
+        val javaFormatter = java.time.format.DateTimeFormatterBuilder()
+            .appendPattern("HH:mm:ss")
+            .appendFraction(java.time.temporal.ChronoField.NANO_OF_SECOND, 0, 9, true)
+            .toFormatter()
+        val groguFormatter = DateTimeFormatterBuilder()
+            .appendPattern("HH:mm:ss")
+            .appendFraction(io.heapy.grogu.time.temporal.ChronoField.NANO_OF_SECOND, 0, 9, true)
+            .toFormatter()
+
+        listOf(0, 120_000_000, 123_456_789).forEach { nano ->
+            val javaTime = java.time.LocalTime.of(5, 6, 7, nano)
+            val groguTime = io.heapy.grogu.time.LocalTime.of(5, 6, 7, nano)
+            val javaText = javaFormatter.format(javaTime)
+            val groguText = groguFormatter.format(groguTime)
+
+            assertEquals(javaText, groguText)
+            assertEquals(
+                java.time.LocalTime.parse(javaText, javaFormatter).toString(),
+                groguFormatter.parse(groguText, io.heapy.grogu.time.LocalTime::from).toString(),
+            )
+        }
+
+        val javaGeneric = java.time.format.DateTimeFormatterBuilder()
+            .appendFraction(java.time.temporal.ChronoField.SECOND_OF_MINUTE, 0, 9, true)
+            .toFormatter()
+        val groguGeneric = DateTimeFormatterBuilder()
+            .appendFraction(io.heapy.grogu.time.temporal.ChronoField.SECOND_OF_MINUTE, 0, 9, true)
+            .toFormatter()
+        assertEquals(javaGeneric.format(java.time.LocalTime.of(5, 6, 15)), ".25")
+        assertEquals(groguGeneric.format(io.heapy.grogu.time.LocalTime.of(5, 6, 15)), ".25")
+        assertEquals(
+            javaGeneric.parse(".25").getLong(java.time.temporal.ChronoField.SECOND_OF_MINUTE),
+            groguGeneric.parse(".25").getLong(io.heapy.grogu.time.temporal.ChronoField.SECOND_OF_MINUTE),
+        )
+    }
 }
