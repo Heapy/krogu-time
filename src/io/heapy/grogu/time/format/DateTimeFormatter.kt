@@ -35,6 +35,7 @@ public class DateTimeFormatter private constructor(
     private val patternTokens: List<PatternToken>? = null,
     public val decimalStyle: DecimalStyle = DecimalStyle.STANDARD,
     public val resolverStyle: ResolverStyle = ResolverStyle.STRICT,
+    public val resolverFields: Set<TemporalField>? = null,
     public val chronology: Chronology? = null,
     public val zone: ZoneId? = null,
 ) {
@@ -50,9 +51,23 @@ public class DateTimeFormatter private constructor(
     /** Parses [text] into a temporal accessor. */
     public fun parse(text: CharSequence): TemporalAccessor {
         val standardized = decimalStyleScope.standardize(text, decimalStyle)
-        val parsed = patternTokens?.let { tokens ->
-            parsePattern(tokens, standardized, resolverStyle, chronology)
-        } ?: resolverParser?.invoke(standardized, resolverStyle) ?: parser(standardized)
+        val parsed = when {
+            resolverFields != null -> parsePattern(
+                tokens = patternTokens ?: builderTokens,
+                text = standardized,
+                resolverStyle = resolverStyle,
+                chronology = chronology,
+                resolverFields = resolverFields,
+            )
+            patternTokens != null -> parsePattern(
+                tokens = patternTokens,
+                text = standardized,
+                resolverStyle = resolverStyle,
+                chronology = chronology,
+            )
+            resolverParser != null -> resolverParser.invoke(standardized, resolverStyle)
+            else -> parser(standardized)
+        }
         return try {
             applyOverrides(parsed)
         } catch (exception: DateTimeParseException) {
@@ -79,6 +94,7 @@ public class DateTimeFormatter private constructor(
                 builderTokens = builderTokens,
                 decimalStyle = decimalStyle,
                 resolverStyle = resolverStyle,
+                resolverFields = resolverFields,
                 chronology = chronology,
                 zone = zone,
             )
@@ -99,10 +115,35 @@ public class DateTimeFormatter private constructor(
                 builderTokens = builderTokens,
                 decimalStyle = decimalStyle,
                 resolverStyle = resolverStyle,
+                resolverFields = resolverFields,
                 chronology = chronology,
                 zone = zone,
             )
         }
+
+    /** Returns a formatter that resolves only the supplied parsed [resolverFields]. */
+    public fun withResolverFields(
+        vararg resolverFields: TemporalField,
+    ): DateTimeFormatter = withResolverFields(resolverFields.toSet())
+
+    /** Returns a formatter that resolves only [resolverFields], or all fields when `null`. */
+    public fun withResolverFields(resolverFields: Set<TemporalField>?): DateTimeFormatter {
+        if (resolverFields == this.resolverFields) return this
+        return DateTimeFormatter(
+            printer = printer,
+            parser = parser,
+            description = description,
+            decimalStyleScope = decimalStyleScope,
+            resolverParser = resolverParser,
+            patternTokens = patternTokens,
+            builderTokens = builderTokens,
+            decimalStyle = decimalStyle,
+            resolverStyle = resolverStyle,
+            resolverFields = resolverFields?.toSet(),
+            chronology = chronology,
+            zone = zone,
+        )
+    }
 
     /** Returns a formatter that overrides the chronology while formatting and parsing. */
     public fun withChronology(chronology: Chronology?): DateTimeFormatter =
@@ -119,6 +160,7 @@ public class DateTimeFormatter private constructor(
                 builderTokens = builderTokens,
                 decimalStyle = decimalStyle,
                 resolverStyle = resolverStyle,
+                resolverFields = resolverFields,
                 chronology = chronology,
                 zone = zone,
             )
@@ -139,6 +181,7 @@ public class DateTimeFormatter private constructor(
                 builderTokens = builderTokens,
                 decimalStyle = decimalStyle,
                 resolverStyle = resolverStyle,
+                resolverFields = resolverFields,
                 chronology = chronology,
                 zone = zone,
             )
@@ -1413,6 +1456,7 @@ private fun parsePattern(
     text: String,
     resolverStyle: ResolverStyle,
     chronology: Chronology? = null,
+    resolverFields: Set<TemporalField>? = null,
 ): TemporalAccessor {
     val values = mutableMapOf<TemporalField, Long>()
     var offset: ZoneOffset? = null
@@ -1673,12 +1717,15 @@ private fun parsePattern(
     if (index != text.length) {
         throw DateTimeParseException("Text could not be parsed, unparsed text found", text, index)
     }
+    val resolvingValues = resolverFields?.let { fields ->
+        values.filterKeys(fields::contains)
+    } ?: values
     return resolvePatternValues(
-        values = values,
+        values = resolvingValues,
         text = text,
         resolverStyle = resolverStyle,
         chronology = effectiveChronology(),
-        offset = offset,
+        offset = offset.takeIf { ChronoField.OFFSET_SECONDS in resolvingValues },
         zone = zone,
         leapSecond = leapSecond,
     )
@@ -2333,7 +2380,7 @@ private fun resolvePatternValues(
     }
     val month = values[ChronoField.MONTH_OF_YEAR]
     val day = values[ChronoField.DAY_OF_MONTH]
-    val date = if (year != null && month != null && day != null) {
+    val calendarDate = if (year != null && month != null && day != null) {
         try {
             resolveDateFieldsInChronology(
                 chronology = chronology,
@@ -2347,6 +2394,62 @@ private fun resolvePatternValues(
         }
     } else {
         null
+    }
+    val dayOfYear = values[ChronoField.DAY_OF_YEAR]
+    val ordinalDate = if (year != null && dayOfYear != null) {
+        try {
+            resolveOrdinalDateInChronology(
+                chronology = chronology,
+                year = year.toPatternInt('u', text),
+                dayOfYear = dayOfYear.toPatternInt('D', text),
+                resolverStyle = resolverStyle,
+            )
+        } catch (exception: RuntimeException) {
+            throw DateTimeParseException("Text cannot be parsed to a date", text, 0, exception)
+        }
+    } else {
+        null
+    }
+    val weekBasedYear = values[IsoFields.WEEK_BASED_YEAR]
+    val weekOfYear = values[IsoFields.WEEK_OF_WEEK_BASED_YEAR]
+    val dayOfWeek = values[ChronoField.DAY_OF_WEEK]
+    val weekDate = if (
+        chronology == IsoChronology &&
+        weekBasedYear != null &&
+        weekOfYear != null &&
+        dayOfWeek != null
+    ) {
+        try {
+            resolveIsoWeekDate(
+                weekBasedYear = weekBasedYear.toPatternInt('Y', text),
+                week = weekOfYear.toPatternInt('w', text),
+                dayOfWeek = dayOfWeek.toPatternInt('e', text),
+                resolverStyle = resolverStyle,
+            )
+        } catch (exception: RuntimeException) {
+            throw DateTimeParseException("Text cannot be parsed to a date", text, 0, exception)
+        }
+    } else {
+        null
+    }
+    val resolvedDates = listOfNotNull(calendarDate, ordinalDate, weekDate)
+    val date = resolvedDates.firstOrNull()
+    if (
+        date != null &&
+        resolvedDates.any { candidate -> candidate.toEpochDay() != date.toEpochDay() }
+    ) {
+        throw DateTimeParseException("Conflict found: resolved dates differ", text, 0)
+    }
+    if (
+        date != null &&
+        dayOfWeek != null &&
+        date.getLong(ChronoField.DAY_OF_WEEK) != dayOfWeek
+    ) {
+        throw DateTimeParseException(
+            "Conflict found: resolved day-of-week differs from parsed value",
+            text,
+            0,
+        )
     }
 
     val hour = values[ChronoField.HOUR_OF_DAY]
@@ -3111,33 +3214,7 @@ private fun parseIsoWeekDate(
     val week = parseFixedDigits(mainText, marker + 2, 2, input, "ISO week date")
     val dayOfWeek = parseFixedDigits(mainText, marker + 5, 1, input, "ISO week date")
     val date = try {
-        var base = LocalDate.of(weekBasedYear, 1, 4)
-        var normalizedDay = dayOfWeek
-        if (resolverStyle == ResolverStyle.LENIENT) {
-            if (normalizedDay > 7) {
-                base = base.plusWeeks(((normalizedDay - 1) / 7).toLong())
-                normalizedDay = (normalizedDay - 1) % 7 + 1
-            } else if (normalizedDay < 1) {
-                base = base.plusWeeks(((normalizedDay - 7) / 7).toLong())
-                normalizedDay = (normalizedDay + 6) % 7 + 1
-            }
-        } else {
-            if (normalizedDay !in 1..7) throw DateTimeException("Invalid ISO week date")
-            if (week !in 1..53) throw DateTimeException("Invalid ISO week date")
-        }
-        base.plusWeeks((week - 1).toLong())
-            .plusDays((normalizedDay - base.dayOfWeek.value).toLong())
-            .also {
-                if (
-                    resolverStyle == ResolverStyle.STRICT &&
-                    (
-                        it.get(IsoFields.WEEK_BASED_YEAR) != weekBasedYear ||
-                            it.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR) != week
-                    )
-                ) {
-                    throw DateTimeException("Invalid ISO week date")
-                }
-            }
+        resolveIsoWeekDate(weekBasedYear, week, dayOfWeek, resolverStyle)
     } catch (exception: RuntimeException) {
         throw DateTimeParseException(
             "Text cannot be parsed to an ISO week date",
@@ -3411,6 +3488,53 @@ private fun resolveDateFieldsInChronology(
     ResolverStyle.LENIENT -> chronology.date(year, 1, 1)
         .plus(month.toLong() - 1, ChronoUnit.MONTHS)
         .plus(day.toLong() - 1, ChronoUnit.DAYS)
+}
+
+private fun resolveOrdinalDateInChronology(
+    chronology: Chronology,
+    year: Int,
+    dayOfYear: Int,
+    resolverStyle: ResolverStyle,
+): ChronoLocalDate = if (resolverStyle == ResolverStyle.LENIENT) {
+    chronology.dateYearDay(year, 1).plus(dayOfYear.toLong() - 1, ChronoUnit.DAYS)
+} else {
+    chronology.dateYearDay(year, dayOfYear)
+}
+
+private fun resolveIsoWeekDate(
+    weekBasedYear: Int,
+    week: Int,
+    dayOfWeek: Int,
+    resolverStyle: ResolverStyle,
+): LocalDate {
+    var base = LocalDate.of(weekBasedYear, 1, 4)
+    var normalizedDay = dayOfWeek
+    if (resolverStyle == ResolverStyle.LENIENT) {
+        if (normalizedDay > 7) {
+            base = base.plusWeeks(((normalizedDay - 1) / 7).toLong())
+            normalizedDay = (normalizedDay - 1) % 7 + 1
+        } else if (normalizedDay < 1) {
+            base = base.plusWeeks(((normalizedDay - 7) / 7).toLong())
+            normalizedDay = (normalizedDay + 6) % 7 + 1
+        }
+    } else {
+        if (normalizedDay !in 1..7 || week !in 1..53) {
+            throw DateTimeException("Invalid ISO week date")
+        }
+    }
+    return base.plusWeeks((week - 1).toLong())
+        .plusDays((normalizedDay - base.dayOfWeek.value).toLong())
+        .also { date ->
+            if (
+                resolverStyle == ResolverStyle.STRICT &&
+                (
+                    date.get(IsoFields.WEEK_BASED_YEAR) != weekBasedYear ||
+                        date.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR) != week
+                )
+            ) {
+                throw DateTimeException("Invalid ISO week date")
+            }
+        }
 }
 
 private class ParsedTemporalAccessor(

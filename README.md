@@ -41,10 +41,11 @@ Implemented foundations:
   (locale factories remain)
 - `DateTimeFormatter` core formatting, appendable output, parsing, temporal
   queries, ordered `parseBest` conversion, and query-failure wrapping, with
-  immutable resolver-style, chronology, and zone overrides, including
-  chronology-aware date conversion, instant conversion, parsed chronology,
-  and parsed default-zone behavior, and strict/smart/lenient ISO, non-ISO
-  calendar, and RFC 1123 resolution (including excess-day handling); numeric
+  immutable resolver-style, resolver-field, chronology, and zone overrides,
+  including pre-resolution field filtering across calendar, ordinal, and ISO
+  week dates, chronology-aware date conversion, instant conversion, parsed
+  chronology, and parsed default-zone behavior, and strict/smart/lenient ISO,
+  non-ISO calendar, and RFC 1123 resolution (including excess-day handling); numeric
   `ofPattern` date/time fields, exact fractions, reduced years, adjacent
   fields, quoted literals, ISO/RFC-style offsets, and region zone IDs;
   `DateTimeFormatterBuilder` pattern/literal and generic numeric-value
@@ -54,8 +55,8 @@ Implemented foundations:
   patterns, explicit region/zone/offset query modes, chronology-ID
   formatting/parsing with chronology-aware date and reduced-value resolution,
   adjacent fixed-width parsing, one-shot custom-character padding and `p`
-  pattern modifiers, nested optional sections through builder methods and bracket
-  patterns, required and optional
+  pattern modifiers, nested optional sections through builder methods and
+  bracket patterns, required and optional
   reuse of complete formatter graphs through `append` and `appendOptional`
   with outer resolver/chronology/zone/decimal overrides and shared sequential
   parser settings,
