@@ -40,8 +40,9 @@ Implemented foundations:
   comparison behavior (clock, formatting, and date-producing APIs remain)
 - `LocalDate` core value, full-range epoch conversion, temporal fields,
   replacement, checked calendar arithmetic, complete-unit differences, and
-  timeline and calendar-period comparison, including local time composition
-  (clock, parsing/formatters, and zone APIs remain)
+  timeline and calendar-period comparison, including local time composition,
+  strict ISO parsing, and ISO text output (clock, formatter overloads, queries,
+  and zone APIs remain)
 - `Period` factories, parsing, value behavior, temporal integration, checked
   arithmetic, normalization, and `between` (chronology integration remains)
 - `LocalTime` core value, validated factories, day conversions, temporal
@@ -62,5 +63,6 @@ Implemented foundations:
 
 Remaining work includes standard temporal queries and adjusters, other local
 and offset date/time types, instants and clocks, chronology integration, zones
-and rules, formatters and parsers beyond duration and period parsing, alternate
-chronologies, and complete cross-type conformance coverage.
+and rules, formatters and parsers beyond the implemented ISO defaults and
+amount parsers, alternate chronologies, and complete cross-type conformance
+coverage.

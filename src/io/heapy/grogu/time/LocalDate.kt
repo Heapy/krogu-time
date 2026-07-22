@@ -1,6 +1,7 @@
 package io.heapy.grogu.time
 
 import io.heapy.grogu.time.chrono.IsoEra
+import io.heapy.grogu.time.format.DateTimeParseException
 import io.heapy.grogu.time.internal.addExact
 import io.heapy.grogu.time.internal.floorDiv
 import io.heapy.grogu.time.internal.floorMod
@@ -448,5 +449,83 @@ public class LocalDate private constructor(
                 )
             }
         }
+
+        /** Parses a date using the strict ISO local-date format. */
+        public fun parse(text: CharSequence): LocalDate {
+            val input = text.toString()
+            if (input.isEmpty()) throw parseFailure(input, 0)
+
+            var index = 0
+            val sign = when (input[0]) {
+                '+' -> {
+                    index++
+                    1
+                }
+                '-' -> {
+                    index++
+                    -1
+                }
+                else -> 1
+            }
+            val signed = index == 1
+            val yearStart = index
+            var yearValue = 0L
+            while (index < input.length && input[index].isAsciiDigit()) {
+                if (index - yearStart < 10) {
+                    yearValue = yearValue * 10 + (input[index] - '0')
+                }
+                index++
+            }
+            val yearDigits = index - yearStart
+            if (yearDigits > 10) throw parseFailure(input, yearStart + 10)
+            val validYearWidth = when {
+                !signed -> yearDigits == 4
+                sign < 0 -> yearDigits in 4..10
+                else -> yearDigits in 5..10
+            }
+            if (!validYearWidth || sign < 0 && yearValue == 0L) {
+                throw parseFailure(input, 0)
+            }
+            if (index >= input.length || input[index] != '-') {
+                throw parseFailure(input, index.coerceAtMost(yearStart + 10))
+            }
+
+            val monthStart = ++index
+            if (!hasTwoDigits(input, monthStart)) throw parseFailure(input, monthStart)
+            val month = parseTwoDigits(input, monthStart)
+            index += 2
+            if (index >= input.length || input[index] != '-') throw parseFailure(input, index)
+
+            val dayStart = ++index
+            if (!hasTwoDigits(input, dayStart)) throw parseFailure(input, dayStart)
+            val day = parseTwoDigits(input, dayStart)
+            index += 2
+            if (index != input.length) throw parseFailure(input, index)
+
+            val year = if (sign < 0) -yearValue else yearValue
+            return try {
+                of(ChronoField.YEAR.checkValidIntValue(year), month, day)
+            } catch (exception: DateTimeException) {
+                throw DateTimeParseException(
+                    "Text cannot be parsed to a LocalDate",
+                    input,
+                    0,
+                    exception,
+                )
+            }
+        }
+
+        private fun hasTwoDigits(input: String, index: Int): Boolean =
+            index + 1 < input.length &&
+                input[index].isAsciiDigit() &&
+                input[index + 1].isAsciiDigit()
+
+        private fun parseTwoDigits(input: String, index: Int): Int =
+            (input[index] - '0') * 10 + (input[index + 1] - '0')
+
+        private fun Char.isAsciiDigit(): Boolean = this in '0'..'9'
+
+        private fun parseFailure(input: String, errorIndex: Int): DateTimeParseException =
+            DateTimeParseException("Text cannot be parsed to a LocalDate", input, errorIndex)
     }
 }

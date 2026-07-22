@@ -1,6 +1,7 @@
 package io.heapy.grogu.time
 
 import io.heapy.grogu.time.chrono.IsoEra
+import io.heapy.grogu.time.format.DateTimeParseException
 import io.heapy.grogu.time.temporal.ChronoField
 import io.heapy.grogu.time.temporal.ChronoUnit
 import io.heapy.grogu.time.temporal.Temporal
@@ -24,6 +25,42 @@ class LocalDateTest {
         assertFailsWith<DateTimeException> { LocalDate.of(2024, 4, 31) }
         assertFailsWith<DateTimeException> { LocalDate.of(2024, 13, 1) }
         assertFailsWith<DateTimeException> { LocalDate.of(Year.MAX_VALUE + 1, 1, 1) }
+    }
+
+    @Test
+    fun parsesStrictIsoLocalDates() {
+        val cases = mapOf(
+            "0000-01-01" to LocalDate.of(0, 1, 1),
+            "2024-02-29" to LocalDate.of(2024, 2, 29),
+            "-0001-01-01" to LocalDate.of(-1, 1, 1),
+            "+10000-01-01" to LocalDate.of(10_000, 1, 1),
+            "-999999999-01-01" to LocalDate.MIN,
+            "+999999999-12-31" to LocalDate.MAX,
+        )
+        cases.forEach { (text, expected) -> assertEquals(expected, LocalDate.parse(text), text) }
+
+        val invalidInputs = mapOf(
+            "" to 0,
+            "2024-2-29" to 5,
+            "2024-02-9" to 8,
+            "2024/02/29" to 4,
+            "2024-02/29" to 7,
+            "2023-02-29" to 0,
+            "2024-13-01" to 0,
+            "2024-02-30" to 0,
+            "999-01-01" to 0,
+            "+2024-01-01" to 0,
+            "10000-01-01" to 0,
+            "2024-02-29Z" to 10,
+            " 2024-02-29" to 0,
+            "2024-02-29 " to 10,
+            "２０２４-０２-２９" to 0,
+        )
+        invalidInputs.forEach { (input, expectedIndex) ->
+            val error = assertFailsWith<DateTimeParseException>(input) { LocalDate.parse(input) }
+            assertEquals(input, error.parsedString)
+            assertEquals(expectedIndex, error.errorIndex, input)
+        }
     }
 
     @Test

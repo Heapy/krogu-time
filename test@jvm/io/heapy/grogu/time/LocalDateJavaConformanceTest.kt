@@ -1,6 +1,7 @@
 package io.heapy.grogu.time
 
 import java.time.LocalDate as JavaLocalDate
+import java.time.format.DateTimeParseException as JavaDateTimeParseException
 import java.time.temporal.ChronoField as JavaChronoField
 import java.time.temporal.ChronoUnit as JavaChronoUnit
 import io.heapy.grogu.time.temporal.ChronoField
@@ -37,6 +38,65 @@ class LocalDateJavaConformanceTest {
             assertEquals(javaDate.lengthOfYear(), date.lengthOfYear())
             assertEquals(javaDate.toEpochDay(), date.toEpochDay())
             assertEquals(javaDate.toString(), date.toString())
+        }
+    }
+
+    @Test
+    fun defaultIsoParsingMatchesJavaTime() {
+        val inputs = listOf(
+            "",
+            "0000-01-01",
+            "2024-02-29",
+            "-0001-01-01",
+            "+10000-01-01",
+            "-999999999-01-01",
+            "+999999999-12-31",
+            "2024-2-29",
+            "2024-02-9",
+            "2024/02/29",
+            "2024-02/29",
+            "2023-02-29",
+            "2024-13-01",
+            "2024-02-30",
+            "999-01-01",
+            "+2024-01-01",
+            "10000-01-01",
+            "+00000-01-01",
+            "-0000-01-01",
+            "+0000-01-01",
+            "00000-01-01",
+            "+1000000000-01-01",
+            "-1000000000-01-01",
+            "+5294967295-01-01",
+            "-3294967297-01-01",
+            "+12345678901-01-01",
+            "-12345678901-01-01",
+            "202A-01-01",
+            "2024--01-01",
+            "2024-001-01",
+            "2024-0101",
+            "2024-01-001",
+            "2024-01-01-",
+            "2024-02-29Z",
+            " 2024-02-29",
+            "2024-02-29 ",
+            "２０２４-０２-２９",
+        )
+
+        inputs.forEach { input ->
+            val javaResult = runCatching { JavaLocalDate.parse(input).toString() }
+            val kotlinResult = runCatching { LocalDate.parse(input).toString() }
+            assertEquals(javaResult.getOrNull(), kotlinResult.getOrNull(), input)
+            assertEquals(
+                javaResult.exceptionOrNull()?.javaClass?.simpleName,
+                kotlinResult.exceptionOrNull()?.javaClass?.simpleName,
+                input,
+            )
+            val javaErrorIndex = (javaResult.exceptionOrNull() as? JavaDateTimeParseException)
+                ?.errorIndex
+            val kotlinErrorIndex = (kotlinResult.exceptionOrNull()
+                as? io.heapy.grogu.time.format.DateTimeParseException)?.errorIndex
+            assertEquals(javaErrorIndex, kotlinErrorIndex, input)
         }
     }
 
