@@ -40,13 +40,15 @@ Implemented foundations:
   Java-compatible numeric values, Japanese title-case lookup and defensive era
   enumeration, and the single-era Hijrah range
 - `Chronology` identity, lookup, ordering, era/leap/range contracts, plus the
-  `IsoChronology`, `JapaneseChronology`, `MinguoChronology`, and
-  `ThaiBuddhistChronology` singletons with generic date/date-time factories,
-  clock injection, period creation, and epoch-second conversion
-- `JapaneseDate`, `MinguoDate`, and `ThaiBuddhistDate` factories, fields and
-  refined ranges, calendar arithmetic, periods, generic local/zoned date-time
-  composition, and Java-compatible value semantics across their ISO-backed date
-  ranges, including Japanese era transitions and short transition years
+  `IsoChronology`, `JapaneseChronology`, `HijrahChronology`,
+  `MinguoChronology`, and `ThaiBuddhistChronology` singletons with generic
+  date/date-time factories, clock injection, period creation, and epoch-second
+  conversion
+- `JapaneseDate`, `HijrahDate`, `MinguoDate`, and `ThaiBuddhistDate` factories,
+  fields and refined ranges, calendar arithmetic, periods, generic local/zoned
+  date-time composition, and Java-compatible value semantics, including
+  Japanese era transitions and short transition years and the bundled OpenJDK
+  Umm al-Qura month table for 1300 through 1600 AH
 - `ChronoLocalDate` chronology, era, leap-year and length contracts, generic
   conversion, covariant date arithmetic, standard queries, epoch-day adjustment,
   chronology-aware and timeline ordering, with `LocalDate` integration
@@ -159,8 +161,11 @@ Implemented foundations:
 
 Remaining work includes formatters and parsers beyond the implemented ISO
 defaults and amount parsers, locale-backed week-rule selection and display names,
-the remaining alternate chronologies, and complete cross-type conformance
-coverage.
+and complete cross-type conformance coverage.
 
 The bundled TZDB source is generated reproducibly from the OpenJDK 21
 `lib/tzdb.dat` file by `tools/generate-tzdb-data.rb`.
+
+The bundled Umm al-Qura month table is generated reproducibly from OpenJDK 21's
+`hijrah-config-Hijrah-umalqura_islamic-umalqura.properties` module resource by
+`tools/generate-hijrah-data.rb`.

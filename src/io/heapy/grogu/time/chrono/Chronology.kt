@@ -120,6 +120,11 @@ public interface Chronology : Comparable<Chronology> {
         public fun of(id: String): Chronology = when (id) {
             IsoChronology.id, IsoChronology.calendarType -> IsoChronology
             JapaneseChronology.id, JapaneseChronology.calendarType -> JapaneseChronology
+            HijrahChronology.id,
+            HijrahChronology.calendarType,
+            "Hijrah",
+            "islamic",
+            -> HijrahChronology
             MinguoChronology.id, MinguoChronology.calendarType -> MinguoChronology
             ThaiBuddhistChronology.id, ThaiBuddhistChronology.calendarType -> ThaiBuddhistChronology
             else -> throw DateTimeException("Unknown chronology: $id")
@@ -127,6 +132,12 @@ public interface Chronology : Comparable<Chronology> {
 
         /** Returns the chronologies currently available to this library. */
         public fun getAvailableChronologies(): Set<Chronology> =
-            setOf(IsoChronology, JapaneseChronology, MinguoChronology, ThaiBuddhistChronology)
+            setOf(
+                IsoChronology,
+                JapaneseChronology,
+                HijrahChronology,
+                MinguoChronology,
+                ThaiBuddhistChronology,
+            )
     }
 }
