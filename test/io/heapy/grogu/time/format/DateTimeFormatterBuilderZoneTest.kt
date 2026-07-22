@@ -89,6 +89,31 @@ class DateTimeFormatterBuilderZoneTest {
     }
 
     @Test
+    fun preferredZonesDisambiguateLocalizedNamesAndAreSnapshotted() {
+        val preferredZone = ZoneId.of("Asia/Shanghai")
+        val preferredZones = mutableSetOf(preferredZone)
+        val zoned = ZonedDateTime.of(
+            LocalDateTime.of(2024, 1, 1, 5, 6),
+            preferredZone,
+        )
+        val formatters = listOf(
+            DateTimeFormatterBuilder()
+                .appendZoneText(TextStyle.SHORT, preferredZones)
+                .toFormatter(Locale.US),
+            DateTimeFormatterBuilder()
+                .appendGenericZoneText(TextStyle.SHORT, preferredZones)
+                .toFormatter(Locale.US),
+        )
+        preferredZones.clear()
+
+        formatters.forEach { formatter ->
+            val text = formatter.format(zoned)
+            assertEquals(preferredZone, formatter.parse(text, ZoneId::from))
+            assertEquals("ZoneText(SHORT)", formatter.toString())
+        }
+    }
+
+    @Test
     fun zoneTextPatternWidthsAreValidated() {
         listOf("z", "zz", "zzz", "zzzz", "v", "vvvv").forEach { pattern ->
             DateTimeFormatter.ofPattern(pattern)

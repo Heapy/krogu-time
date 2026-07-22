@@ -65,7 +65,8 @@ Implemented foundations:
   lazy `ofLocalizedDate`, `ofLocalizedTime`, and `ofLocalizedDateTime`
   factories backed by platform locale patterns and chronology-aware style
   lookup; localized specific and generic zone-name patterns `z`/`v`, including
-  daylight-aware formatting and localized parsing;
+  daylight-aware formatting, localized parsing, and preferred-zone
+  disambiguation;
   Java-compatible aggregate and partial time-field
   normalization for nano/micro/milli, second/minute-of-day, and AM/PM clocks;
   `DateTimeFormatterBuilder` pattern/literal and generic numeric-value
@@ -75,7 +76,7 @@ Implemented foundations:
   default and explicit-width instant formatting/parsing, all custom offset-ID
   patterns, FULL/SHORT `GMT` localized offsets and `O` patterns, explicit
   localized date/time style composition and pattern lookup, specific and
-  generic localized zone-name text,
+  generic localized zone-name text with preferred-zone parsing,
   region/zone/offset query modes, chronology-ID formatting/parsing with
   chronology-aware date and reduced-value resolution, adjacent fixed-width
   parsing, one-shot custom-character padding and `p` pattern modifiers, nested

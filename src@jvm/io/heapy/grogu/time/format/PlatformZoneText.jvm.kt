@@ -34,13 +34,24 @@ internal actual fun parseLocaleZoneText(
     style: TextStyle,
     generic: Boolean,
     caseSensitive: Boolean,
+    preferredZoneIds: Set<String>,
 ): ParsedLocaleZoneText? {
     val builder = DateTimeFormatterBuilder()
     if (caseSensitive) builder.parseCaseSensitive() else builder.parseCaseInsensitive()
     if (generic) {
-        builder.appendGenericZoneText(java.time.format.TextStyle.valueOf(style.name))
+        val javaStyle = java.time.format.TextStyle.valueOf(style.name)
+        if (preferredZoneIds.isEmpty()) {
+            builder.appendGenericZoneText(javaStyle)
+        } else {
+            builder.appendGenericZoneText(javaStyle, preferredZoneIds.mapTo(mutableSetOf(), ZoneId::of))
+        }
     } else {
-        builder.appendZoneText(java.time.format.TextStyle.valueOf(style.name))
+        val javaStyle = java.time.format.TextStyle.valueOf(style.name)
+        if (preferredZoneIds.isEmpty()) {
+            builder.appendZoneText(javaStyle)
+        } else {
+            builder.appendZoneText(javaStyle, preferredZoneIds.mapTo(mutableSetOf(), ZoneId::of))
+        }
     }
     val position = ParsePosition(startIndex)
     val parsed = builder

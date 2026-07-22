@@ -29,10 +29,13 @@ internal actual fun parseLocaleZoneText(
     style: TextStyle,
     generic: Boolean,
     caseSensitive: Boolean,
+    preferredZoneIds: Set<String>,
 ): ParsedLocaleZoneText? {
     if (style.asNormal() == TextStyle.NARROW) return null
     val locale = NSLocale(localeIdentifier = languageTag)
-    val zoneIds = preferredZoneIds(languageTag) + NSTimeZone.knownTimeZoneNames.mapNotNull { it as? String }
+    val zoneIds = preferredZoneIds +
+        preferredZoneIds(languageTag) +
+        NSTimeZone.knownTimeZoneNames.mapNotNull { it as? String }
     val styles = if (generic) {
         listOf(genericZoneNameStyle(style))
     } else {

@@ -20,4 +20,5 @@ internal expect fun parseLocaleZoneText(
     style: TextStyle,
     generic: Boolean,
     caseSensitive: Boolean,
+    preferredZoneIds: Set<String>,
 ): ParsedLocaleZoneText?

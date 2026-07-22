@@ -1082,6 +1082,7 @@ internal sealed interface PatternToken {
     data class ZoneText(
         val style: TextStyle,
         val generic: Boolean,
+        val preferredZoneIds: Set<String> = emptySet(),
     ) : PatternToken
 
     data class ZoneId(val queryMode: ZoneQueryMode) : PatternToken
@@ -2538,6 +2539,7 @@ private fun parsePatternZoneText(
         style = token.style,
         generic = token.generic,
         caseSensitive = caseSensitive,
+        preferredZoneIds = token.preferredZoneIds,
     )
     if (localized != null) {
         val parsedZone = try {

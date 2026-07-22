@@ -130,4 +130,53 @@ class DateTimeFormatterBuilderZoneJavaConformanceTest {
             }
         }
     }
+
+    @Test
+    fun preferredZoneAmbiguityResolutionMatchesJavaTime() {
+        val javaPreferred = java.time.ZoneId.of("Asia/Shanghai")
+        val preferred = ZoneId.of("Asia/Shanghai")
+        val javaTemporal = java.time.ZonedDateTime.of(
+            2024,
+            1,
+            1,
+            5,
+            6,
+            0,
+            0,
+            javaPreferred,
+        )
+        val temporal = io.heapy.grogu.time.ZonedDateTime.of(
+            2024,
+            1,
+            1,
+            5,
+            6,
+            0,
+            0,
+            preferred,
+        )
+
+        listOf(false, true).forEach { generic ->
+            val javaBuilder = java.time.format.DateTimeFormatterBuilder()
+            val builder = DateTimeFormatterBuilder()
+            if (generic) {
+                javaBuilder.appendGenericZoneText(JavaTextStyle.SHORT, setOf(javaPreferred))
+                builder.appendGenericZoneText(TextStyle.SHORT, setOf(preferred))
+            } else {
+                javaBuilder.appendZoneText(JavaTextStyle.SHORT, setOf(javaPreferred))
+                builder.appendZoneText(TextStyle.SHORT, setOf(preferred))
+            }
+            val javaFormatter = javaBuilder.toFormatter(JavaLocale.US)
+            val formatter = builder.toFormatter(io.heapy.grogu.time.Locale.US)
+            val javaText = javaFormatter.format(javaTemporal)
+            val text = formatter.format(temporal)
+
+            assertEquals(javaText, text)
+            assertEquals(
+                java.time.ZoneId.from(javaFormatter.parse(javaText)).id,
+                ZoneId.from(formatter.parse(text)).id,
+                "generic=$generic text=$text",
+            )
+        }
+    }
 }

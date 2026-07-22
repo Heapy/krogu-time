@@ -2,6 +2,7 @@ package io.heapy.grogu.time.format
 
 import io.heapy.grogu.time.DateTimeException
 import io.heapy.grogu.time.Locale
+import io.heapy.grogu.time.ZoneId
 import io.heapy.grogu.time.chrono.ChronoLocalDate
 import io.heapy.grogu.time.chrono.Chronology
 import io.heapy.grogu.time.temporal.TemporalField
@@ -255,13 +256,39 @@ public class DateTimeFormatterBuilder {
     }
 
     /** Appends a localized, daylight-aware zone name. */
-    public fun appendZoneText(textStyle: TextStyle): DateTimeFormatterBuilder = apply {
-        activeSection.appendToken(PatternToken.ZoneText(textStyle, generic = false))
+    public fun appendZoneText(textStyle: TextStyle): DateTimeFormatterBuilder =
+        appendZoneText(textStyle, emptySet())
+
+    /** Appends a localized zone name, preferring [preferredZones] while parsing ambiguity. */
+    public fun appendZoneText(
+        textStyle: TextStyle,
+        preferredZones: Set<ZoneId>,
+    ): DateTimeFormatterBuilder = apply {
+        activeSection.appendToken(
+            PatternToken.ZoneText(
+                style = textStyle,
+                generic = false,
+                preferredZoneIds = preferredZones.mapTo(linkedSetOf(), ZoneId::id),
+            ),
+        )
     }
 
     /** Appends a localized generic zone name. */
-    public fun appendGenericZoneText(textStyle: TextStyle): DateTimeFormatterBuilder = apply {
-        activeSection.appendToken(PatternToken.ZoneText(textStyle, generic = true))
+    public fun appendGenericZoneText(textStyle: TextStyle): DateTimeFormatterBuilder =
+        appendGenericZoneText(textStyle, emptySet())
+
+    /** Appends a generic zone name, preferring [preferredZones] while parsing ambiguity. */
+    public fun appendGenericZoneText(
+        textStyle: TextStyle,
+        preferredZones: Set<ZoneId>,
+    ): DateTimeFormatterBuilder = apply {
+        activeSection.appendToken(
+            PatternToken.ZoneText(
+                style = textStyle,
+                generic = true,
+                preferredZoneIds = preferredZones.mapTo(linkedSetOf(), ZoneId::id),
+            ),
+        )
     }
 
     /** Appends an explicit zone ID, without falling back to a bare offset. */
