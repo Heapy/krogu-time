@@ -199,17 +199,21 @@ public interface Chronology : Comparable<Chronology> {
             -> HijrahChronology
             MinguoChronology.id, MinguoChronology.calendarType -> MinguoChronology
             ThaiBuddhistChronology.id, ThaiBuddhistChronology.calendarType -> ThaiBuddhistChronology
-            else -> throw DateTimeException("Unknown chronology: $id")
+            else -> loadChronologies().firstOrNull { chronology ->
+                chronology.id == id || chronology.calendarType == id
+            } ?: throw DateTimeException("Unknown chronology: $id")
         }
 
         /** Returns the chronologies currently available to this library. */
         public fun getAvailableChronologies(): Set<Chronology> =
-            setOf(
-                IsoChronology,
-                JapaneseChronology,
-                HijrahChronology,
-                MinguoChronology,
-                ThaiBuddhistChronology,
-            )
+            builtInChronologies() + loadChronologies()
+
+        private fun builtInChronologies(): Set<Chronology> = setOf(
+            IsoChronology,
+            JapaneseChronology,
+            HijrahChronology,
+            MinguoChronology,
+            ThaiBuddhistChronology,
+        )
     }
 }

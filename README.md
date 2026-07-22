@@ -118,9 +118,10 @@ Implemented foundations:
   recommended `AbstractChronology` base with shared resolution and value
   behavior, and the `IsoChronology`, `JapaneseChronology`, `HijrahChronology`,
   `MinguoChronology`, and `ThaiBuddhistChronology` singletons with generic
-  date/date-time factories, locale calendar lookup, localized display names,
-  strict/smart/lenient field-map date resolution, clock injection, period
-  creation, and epoch-second conversion
+  date/date-time factories, locale calendar lookup, JVM/Android
+  `ServiceLoader` discovery, localized display names, strict/smart/lenient
+  field-map date resolution, clock injection, period creation, and epoch-second
+  conversion
 - `JapaneseDate`, `HijrahDate`, `MinguoDate`, and `ThaiBuddhistDate` factories,
   fields and refined ranges, calendar arithmetic, periods, generic local/zoned
   date-time composition, and Java-compatible value semantics, including
