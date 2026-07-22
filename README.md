@@ -151,16 +151,17 @@ Implemented foundations:
   explicit-zone current-value factories and formatter overloads
 - `Period` factories, parsing, value behavior, chronology-validated temporal
   integration, checked arithmetic, normalization, and concrete/generic `between`
-- `LocalTime` core value, validated factories, day conversions, temporal
-  fields, replacement, truncation, wraparound arithmetic, complete-unit
+- `LocalTime` core value, validated component/day and instant/zone factories,
+  temporal fields, replacement, truncation, wraparound arithmetic, complete-unit
   differences, ordering, strict ISO parsing, ISO text output, offset/date
   composition, and system-default/injected-clock/explicit-zone current-value
   factories and formatter overloads
 - `LocalDateTime` immutable composition, factories, local field access,
-  epoch/fixed-offset/zone conversion, replacement, truncation, checked date/time
-  arithmetic, complete-unit differences, boundaries, ordering, strict ISO
-  parsing, ISO text output, and system-default/injected-clock/explicit-zone
-  current-value factories and formatter overloads
+  epoch/fixed-offset and instant/zone conversion, replacement, truncation,
+  checked date/time arithmetic, complete-unit differences, boundaries,
+  ordering, strict ISO parsing, ISO text output, and system-default,
+  injected-clock, and explicit-zone current-value factories and formatter
+  overloads
 - `Duration` with the complete Java 21 public API surface, including parsing,
   temporal integration, checked arithmetic, conversions, truncation, and
   `between`
@@ -190,12 +191,12 @@ Implemented foundations:
 - `ZoneOffsetTransitionRule` recurring month/day/weekday rules, UTC/standard/
   wall-time definitions, end-of-day handling, annual transition creation,
   validation, value semantics, and Java-compatible text output
-- `OffsetTime` immutable composition, factories, local and offset fields,
-  offset conversion with same-local and same-instant semantics, replacement,
-  truncation, wraparound arithmetic, complete-unit differences, timeline and
-  structural ordering, epoch-second conversion, strict ISO parsing, and ISO
-  text output, including system-default/injected-clock/explicit-zone current
-  values and formatter overloads
+- `OffsetTime` immutable composition, component and instant/zone factories,
+  local and offset fields, offset conversion with same-local and same-instant
+  semantics, replacement, truncation, wraparound arithmetic, complete-unit
+  differences, timeline and structural ordering, epoch-second conversion,
+  strict ISO parsing, and ISO text output, including system-default,
+  injected-clock, and explicit-zone current values and formatter overloads
 - `OffsetDateTime` immutable composition, factories, fixed-offset/instant
   conversion, same-instant/similar-local region-zone composition, all standard
   fields and units, replacement, truncation, checked local arithmetic,

@@ -444,6 +444,12 @@ public class LocalDateTime private constructor(
         public fun of(date: LocalDate, time: LocalTime): LocalDateTime =
             LocalDateTime(date, time)
 
+        /** Obtains the local date-time at [instant] in [zone]. */
+        public fun ofInstant(instant: Instant, zone: ZoneId): LocalDateTime {
+            val offset = zone.rules.getOffset(instant)
+            return ofEpochSecond(instant.epochSecond, instant.nano, offset)
+        }
+
         /** Obtains a local date-time from epoch seconds interpreted with [offset]. */
         public fun ofEpochSecond(
             epochSecond: Long,

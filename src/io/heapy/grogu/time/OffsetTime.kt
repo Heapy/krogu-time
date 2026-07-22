@@ -199,6 +199,12 @@ public class OffsetTime private constructor(
             offset: ZoneOffset,
         ): OffsetTime = OffsetTime(LocalTime.of(hour, minute, second, nanoOfSecond), offset)
 
+        /** Obtains the offset time at [instant] in [zone]. */
+        public fun ofInstant(instant: Instant, zone: ZoneId): OffsetTime {
+            val offset = zone.rules.getOffset(instant)
+            return OffsetTime(LocalTime.ofInstant(instant, offset), offset)
+        }
+
         public fun from(temporal: TemporalAccessor): OffsetTime {
             if (temporal is OffsetTime) return temporal
             return try {

@@ -375,6 +375,14 @@ public class LocalTime private constructor(
             return create(validHour, validMinute, validSecond, validNano)
         }
 
+        /** Obtains the local time at [instant] in [zone]. */
+        public fun ofInstant(instant: Instant, zone: ZoneId): LocalTime {
+            val offset = zone.rules.getOffset(instant)
+            val localSecond = instant.epochSecond + offset.totalSeconds
+            val secondOfDay = floorMod(localSecond, SECONDS_PER_DAY.toLong())
+            return ofNanoOfDay(secondOfDay * NANOS_PER_SECOND + instant.nano)
+        }
+
         /** Obtains a time from the whole second within the day. */
         public fun ofSecondOfDay(secondOfDay: Long): LocalTime {
             ChronoField.SECOND_OF_DAY.checkValidValue(secondOfDay)
