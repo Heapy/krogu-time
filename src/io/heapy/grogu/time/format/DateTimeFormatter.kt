@@ -974,6 +974,8 @@ internal sealed interface PatternToken {
         val noOffsetText: String,
     ) : PatternToken
 
+    data class LocalizedOffset(val style: TextStyle) : PatternToken
+
     data class ZoneId(val queryMode: ZoneQueryMode) : PatternToken
 
     data object ChronologyId : PatternToken
@@ -1124,7 +1126,16 @@ internal fun visitPattern(
                     continue
                 }
                 validatePatternField(character, count)
-                appendToken(PatternToken.Field(character, count))
+                appendToken(
+                    when {
+                        character == 'O' -> PatternToken.LocalizedOffset(
+                            if (count == 1) TextStyle.SHORT else TextStyle.FULL,
+                        )
+                        character == 'Z' && count == 4 ->
+                            PatternToken.LocalizedOffset(TextStyle.FULL)
+                        else -> PatternToken.Field(character, count)
+                    },
+                )
                 index = end
             }
             else -> {
@@ -1159,6 +1170,9 @@ private fun validatePatternField(symbol: Char, count: Int) {
             "Too many pattern letters: $symbol"
         }
         'S' -> require(count <= 9) { "Minimum width must be from 0 to 9 inclusive but was $count" }
+        'O' -> require(count == 1 || count == 4) {
+            "Pattern letter count must be 1 or 4: $symbol"
+        }
         'X', 'x', 'Z' -> require(count <= 5) { "Too many pattern letters: $symbol" }
         'V' -> require(count == 2) { "Pattern letter count must be 2: V" }
         else -> throw IllegalArgumentException("Unknown pattern letter: $symbol")
@@ -1180,6 +1194,7 @@ private fun formatPattern(
             is PatternToken.Instant -> append(formatPatternInstant(token, temporal))
             is PatternToken.Composite -> append(formatPattern(token.tokens, temporal))
             is PatternToken.Offset -> append(formatBuilderOffset(token, temporal))
+            is PatternToken.LocalizedOffset -> append(formatBuilderLocalizedOffset(token, temporal))
             is PatternToken.ZoneId -> append(formatBuilderZoneId(token, temporal))
             PatternToken.ChronologyId -> append(formatBuilderChronologyId(temporal))
             is PatternToken.Optional -> try {
@@ -1262,6 +1277,16 @@ private fun formatBuilderZoneId(
     }
     return zone.id
 }
+
+private fun formatBuilderLocalizedOffset(
+    token: PatternToken.LocalizedOffset,
+    temporal: TemporalAccessor,
+): String = "GMT" + formatBuilderOffset(token.offsetToken(), temporal)
+
+private fun PatternToken.LocalizedOffset.offsetToken(): PatternToken.Offset = PatternToken.Offset(
+    pattern = if (style == TextStyle.FULL) "+HH:MM:ss" else "+H:mm:ss",
+    noOffsetText = "",
+)
 
 private fun formatBuilderOffset(
     token: PatternToken.Offset,
@@ -1625,6 +1650,24 @@ private fun parsePattern(
                 is PatternToken.Offset -> {
                     val parsed = parseBuilderOffset(token, input, index, caseSensitive, strict)
                     storeOffset(parsed, index, input)
+                }
+                is PatternToken.LocalizedOffset -> {
+                    val startIndex = index
+                    if (!input.matchesAt(startIndex, "GMT", caseSensitive)) {
+                        throw DateTimeParseException(
+                            "Text could not be parsed at index $startIndex",
+                            input,
+                            startIndex,
+                        )
+                    }
+                    val parsed = parseBuilderOffset(
+                        token = token.offsetToken(),
+                        text = input,
+                        startIndex = startIndex + 3,
+                        caseSensitive = caseSensitive,
+                        strict = strict,
+                    )
+                    storeOffset(parsed, startIndex, input)
                 }
                 is PatternToken.ZoneId -> {
                     val parsed = parsePatternZone(input, index, caseSensitive)
@@ -2233,6 +2276,7 @@ private fun PatternToken.adjacentFixedNumericWidth(): Int? = when (this) {
     is PatternToken.Instant,
     is PatternToken.Composite,
     is PatternToken.Offset,
+    is PatternToken.LocalizedOffset,
     is PatternToken.ZoneId,
     PatternToken.ChronologyId,
     is PatternToken.ParseSetting,
@@ -2640,6 +2684,9 @@ private fun describePattern(tokens: List<PatternToken>): String = buildString {
                 .append(",'")
                 .append(token.noOffsetText.replace("'", "''"))
                 .append("')")
+            is PatternToken.LocalizedOffset -> append("LocalizedOffset(")
+                .append(token.style)
+                .append(')')
             is PatternToken.ZoneId -> append(
                 when (token.queryMode) {
                     ZoneQueryMode.ZONE_ID -> "ZoneId()"

@@ -216,6 +216,14 @@ public class DateTimeFormatterBuilder {
         activeSection.appendToken(PatternToken.Offset(pattern, noOffsetText))
     }
 
+    /** Appends a `GMT`-prefixed offset using the requested full or short [style]. */
+    public fun appendLocalizedOffset(style: TextStyle): DateTimeFormatterBuilder = apply {
+        require(style == TextStyle.FULL || style == TextStyle.SHORT) {
+            "Style must be either full or short"
+        }
+        activeSection.appendToken(PatternToken.LocalizedOffset(style))
+    }
+
     /** Appends an explicit zone ID, without falling back to a bare offset. */
     public fun appendZoneId(): DateTimeFormatterBuilder = apply {
         activeSection.appendToken(PatternToken.ZoneId(ZoneQueryMode.ZONE_ID))
