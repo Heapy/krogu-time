@@ -1,6 +1,7 @@
 package io.heapy.grogu.time.chrono
 
 import io.heapy.grogu.time.DateTimeException
+import io.heapy.grogu.time.LocalTime
 import io.heapy.grogu.time.temporal.ChronoField
 import io.heapy.grogu.time.temporal.ChronoUnit
 import io.heapy.grogu.time.temporal.Temporal
@@ -72,6 +73,9 @@ public interface ChronoLocalDate : Temporal, TemporalAdjuster, Comparable<Chrono
 
     /** Calculates the chronology-specific period until [endDateExclusive]. */
     public fun until(endDateExclusive: ChronoLocalDate): ChronoPeriod
+
+    /** Combines this date with [localTime]. */
+    public fun atTime(localTime: LocalTime): ChronoLocalDateTime<*>
 
     override fun compareTo(other: ChronoLocalDate): Int {
         val epochComparison = toEpochDay().compareTo(other.toEpochDay())

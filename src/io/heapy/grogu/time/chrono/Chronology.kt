@@ -3,6 +3,7 @@ package io.heapy.grogu.time.chrono
 import io.heapy.grogu.time.DateTimeException
 import io.heapy.grogu.time.Clock
 import io.heapy.grogu.time.LocalDate
+import io.heapy.grogu.time.LocalTime
 import io.heapy.grogu.time.ZoneId
 import io.heapy.grogu.time.temporal.ChronoField
 import io.heapy.grogu.time.temporal.TemporalAccessor
@@ -51,6 +52,16 @@ public interface Chronology : Comparable<Chronology> {
 
     /** Converts [temporal] to a date in this chronology. */
     public fun date(temporal: TemporalAccessor): ChronoLocalDate
+
+    /** Converts [temporal] to a local date-time in this chronology. */
+    public fun localDateTime(temporal: TemporalAccessor): ChronoLocalDateTime<*> = try {
+        date(temporal).atTime(LocalTime.from(temporal))
+    } catch (exception: DateTimeException) {
+        throw DateTimeException(
+            "Unable to obtain ChronoLocalDateTime from TemporalAccessor: $temporal",
+            exception,
+        )
+    }
 
     /** Obtains the current date using the system clock in [zone]. */
     public fun dateNow(zone: ZoneId): ChronoLocalDate = dateNow(Clock.system(zone))

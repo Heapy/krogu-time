@@ -1,6 +1,7 @@
 package io.heapy.grogu.time
 
 import io.heapy.grogu.time.chrono.IsoChronology
+import io.heapy.grogu.time.chrono.ChronoLocalDateTime
 import io.heapy.grogu.time.format.DateTimeParseException
 import io.heapy.grogu.time.internal.addExact
 import io.heapy.grogu.time.internal.floorDiv
@@ -21,9 +22,9 @@ import io.heapy.grogu.time.temporal.ValueRange
 
 /** A date-time without a time-zone in the ISO-8601 calendar system. */
 public class LocalDateTime private constructor(
-    public val date: LocalDate,
-    public val time: LocalTime,
-) : Temporal, TemporalAdjuster, Comparable<LocalDateTime> {
+    override val date: LocalDate,
+    override val time: LocalTime,
+) : ChronoLocalDateTime<LocalDate> {
     public val year: Int
         get() = date.year
 
@@ -80,24 +81,24 @@ public class LocalDateTime private constructor(
             TemporalQueries.localDate() -> date
             TemporalQueries.localTime() -> time
             TemporalQueries.precision() -> ChronoUnit.NANOS
-            else -> return super<Temporal>.query(query)
+            else -> return super<ChronoLocalDateTime>.query(query)
         }
         @Suppress("UNCHECKED_CAST")
         return result as R
     }
 
     /** Returns the local-date part. */
-    public fun toLocalDate(): LocalDate = date
+    override fun toLocalDate(): LocalDate = date
 
     /** Returns the local-time part. */
-    public fun toLocalTime(): LocalTime = time
+    override fun toLocalTime(): LocalTime = time
 
     /** Converts this local date-time to epoch seconds using [offset]. */
-    public fun toEpochSecond(offset: ZoneOffset): Long =
+    override fun toEpochSecond(offset: ZoneOffset): Long =
         date.toEpochDay() * SECONDS_PER_DAY + time.toSecondOfDay() - offset.totalSeconds
 
     /** Combines this local date-time with [offset] to create an instant. */
-    public fun toInstant(offset: ZoneOffset): Instant =
+    override fun toInstant(offset: ZoneOffset): Instant =
         Instant.ofEpochSecond(toEpochSecond(offset), nano.toLong())
 
     /** Combines this local date-time with [offset]. */
@@ -318,19 +319,23 @@ public class LocalDateTime private constructor(
     private fun with(newDate: LocalDate, newTime: LocalTime): LocalDateTime =
         if (date == newDate && time == newTime) this else LocalDateTime(newDate, newTime)
 
-    override fun compareTo(other: LocalDateTime): Int {
+    override fun compareTo(other: ChronoLocalDateTime<*>): Int {
+        if (other !is LocalDateTime) return super<ChronoLocalDateTime>.compareTo(other)
         val dateComparison = date.compareTo(other.date)
         return if (dateComparison != 0) dateComparison else time.compareTo(other.time)
     }
 
     /** Whether this date-time is after [other] on the local timeline. */
-    public fun isAfter(other: LocalDateTime): Boolean = compareTo(other) > 0
+    override fun isAfter(other: ChronoLocalDateTime<*>): Boolean =
+        if (other is LocalDateTime) compareTo(other) > 0 else super<ChronoLocalDateTime>.isAfter(other)
 
     /** Whether this date-time is before [other] on the local timeline. */
-    public fun isBefore(other: LocalDateTime): Boolean = compareTo(other) < 0
+    override fun isBefore(other: ChronoLocalDateTime<*>): Boolean =
+        if (other is LocalDateTime) compareTo(other) < 0 else super<ChronoLocalDateTime>.isBefore(other)
 
     /** Whether this date-time represents the same local date and time as [other]. */
-    public fun isEqual(other: LocalDateTime): Boolean = compareTo(other) == 0
+    override fun isEqual(other: ChronoLocalDateTime<*>): Boolean =
+        if (other is LocalDateTime) compareTo(other) == 0 else super<ChronoLocalDateTime>.isEqual(other)
 
     override fun equals(other: Any?): Boolean =
         this === other ||

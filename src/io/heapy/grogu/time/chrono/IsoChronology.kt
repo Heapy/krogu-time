@@ -58,7 +58,7 @@ public object IsoChronology : Chronology {
     override fun dateNow(clock: Clock): LocalDate = LocalDate.now(clock)
 
     /** Converts [temporal] to an ISO local date-time. */
-    public fun localDateTime(temporal: TemporalAccessor): LocalDateTime =
+    override fun localDateTime(temporal: TemporalAccessor): LocalDateTime =
         LocalDateTime.from(temporal)
 
     /** Converts [temporal] to an ISO zoned date-time. */

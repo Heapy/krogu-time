@@ -321,7 +321,7 @@ public class LocalDate private constructor(
     }
 
     /** Combines this date with [time]. */
-    public fun atTime(time: LocalTime): LocalDateTime = LocalDateTime.of(this, time)
+    override fun atTime(localTime: LocalTime): LocalDateTime = LocalDateTime.of(this, localTime)
 
     /** Combines this date with an offset time. */
     public fun atTime(time: OffsetTime): OffsetDateTime = OffsetDateTime.of(this, time.time, time.offset)
