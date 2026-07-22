@@ -70,6 +70,9 @@ public interface ChronoLocalDate : Temporal, TemporalAdjuster, Comparable<Chrono
     /** Converts this date to the shared epoch-day count. */
     public fun toEpochDay(): Long = getLong(ChronoField.EPOCH_DAY)
 
+    /** Calculates the chronology-specific period until [endDateExclusive]. */
+    public fun until(endDateExclusive: ChronoLocalDate): ChronoPeriod
+
     override fun compareTo(other: ChronoLocalDate): Int {
         val epochComparison = toEpochDay().compareTo(other.toEpochDay())
         return if (epochComparison != 0) epochComparison else chronology.compareTo(other.chronology)

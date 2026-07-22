@@ -42,6 +42,8 @@ Implemented foundations:
 - `ChronoLocalDate` chronology, era, leap-year and length contracts, generic
   conversion, covariant date arithmetic, standard queries, epoch-day adjustment,
   chronology-aware and timeline ordering, with `LocalDate` integration
+- `ChronoPeriod` chronology, unit, sign, arithmetic, normalization, application,
+  and generic date-difference contracts, with `Period` integration
 - `Year` core value, leap-year, temporal-field, year-scale arithmetic, and
   comparison behavior, including default parsing and `atDay` date production
   plus injected-clock/explicit-zone current-value factories and `MonthDay`
@@ -62,8 +64,8 @@ Implemented foundations:
   earliest-valid zoned start-of-day composition, strict ISO parsing, and ISO
   text output, with injected-clock/explicit-zone current-value factories
   (system-default current values and formatter overloads remain)
-- `Period` factories, parsing, value behavior, temporal integration, checked
-  arithmetic, normalization, and `between` (chronology integration remains)
+- `Period` factories, parsing, value behavior, chronology-validated temporal
+  integration, checked arithmetic, normalization, and concrete/generic `between`
 - `LocalTime` core value, validated factories, day conversions, temporal
   fields, replacement, truncation, wraparound arithmetic, complete-unit
   differences, ordering, strict ISO parsing, ISO text output, offset/date
@@ -135,7 +137,7 @@ Implemented foundations:
 - `ChronoUnit`
 - `ChronoField`
 
-Remaining work includes the generic chronology period, local-date-time, and
+Remaining work includes the generic chronology local-date-time and
 zoned-date-time type hierarchies, no-argument system-default current-value
 factories and system-default-zone lookup, a bundled region time-zone database,
 formatters and parsers beyond the implemented ISO defaults and amount parsers,

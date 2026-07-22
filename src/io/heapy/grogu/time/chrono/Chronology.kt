@@ -73,6 +73,9 @@ public interface Chronology : Comparable<Chronology> {
     /** Returns this chronology's range for [field]. */
     public fun range(field: ChronoField): ValueRange
 
+    /** Obtains a period defined by this chronology. */
+    public fun period(years: Int, months: Int, days: Int): ChronoPeriod
+
     override fun compareTo(other: Chronology): Int = id.compareTo(other.id)
 
     public companion object {

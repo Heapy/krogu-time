@@ -295,6 +295,9 @@ public class LocalDate private constructor(
         )
     }
 
+    override fun until(endDateExclusive: ChronoLocalDate): Period =
+        until(from(endDateExclusive))
+
     override fun until(endExclusive: Temporal, unit: TemporalUnit): Long {
         val end = from(endExclusive)
         if (unit !is ChronoUnit) return unit.between(this, end)

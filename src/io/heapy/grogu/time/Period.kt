@@ -1,10 +1,13 @@
 package io.heapy.grogu.time
 
+import io.heapy.grogu.time.chrono.ChronoPeriod
+import io.heapy.grogu.time.chrono.IsoChronology
 import io.heapy.grogu.time.format.DateTimeParseException
 import io.heapy.grogu.time.internal.addExact
 import io.heapy.grogu.time.temporal.ChronoUnit
 import io.heapy.grogu.time.temporal.Temporal
 import io.heapy.grogu.time.temporal.TemporalAmount
+import io.heapy.grogu.time.temporal.TemporalQueries
 import io.heapy.grogu.time.temporal.TemporalUnit
 import io.heapy.grogu.time.temporal.UnsupportedTemporalTypeException
 
@@ -13,17 +16,20 @@ public class Period private constructor(
     public val years: Int,
     public val months: Int,
     public val days: Int,
-) : TemporalAmount {
+) : ChronoPeriod {
+    override val chronology: IsoChronology
+        get() = IsoChronology
+
     /** The supported units in descending significance. */
     override val units: List<TemporalUnit>
         get() = SUPPORTED_UNITS
 
     /** Whether every component is zero. */
-    public val isZero: Boolean
+    override val isZero: Boolean
         get() = years == 0 && months == 0 && days == 0
 
     /** Whether any component is negative. */
-    public val isNegative: Boolean
+    override val isNegative: Boolean
         get() = years < 0 || months < 0 || days < 0
 
     override fun get(unit: TemporalUnit): Long = when (unit) {
@@ -46,7 +52,7 @@ public class Period private constructor(
         if (days == this.days) this else create(years, months, days)
 
     /** Returns this period with [amountToAdd] added component by component. */
-    public fun plus(amountToAdd: TemporalAmount): Period {
+    override fun plus(amountToAdd: TemporalAmount): Period {
         val period = from(amountToAdd)
         return create(
             toIntExact(years.toLong() + period.years),
@@ -80,7 +86,7 @@ public class Period private constructor(
         )
 
     /** Returns this period with [amountToSubtract] subtracted component by component. */
-    public fun minus(amountToSubtract: TemporalAmount): Period {
+    override fun minus(amountToSubtract: TemporalAmount): Period {
         val period = from(amountToSubtract)
         return create(
             toIntExact(years.toLong() - period.years),
@@ -114,7 +120,7 @@ public class Period private constructor(
         }
 
     /** Returns this period with every component multiplied by [scalar]. */
-    public fun multipliedBy(scalar: Int): Period {
+    override fun multipliedBy(scalar: Int): Period {
         if (isZero || scalar == 1) return this
         return create(
             toIntExact(years.toLong() * scalar),
@@ -124,10 +130,10 @@ public class Period private constructor(
     }
 
     /** Returns this period with every component negated. */
-    public fun negated(): Period = multipliedBy(-1)
+    override fun negated(): Period = multipliedBy(-1)
 
     /** Returns this period with its years and months normalized to a 12-month year. */
-    public fun normalized(): Period {
+    override fun normalized(): Period {
         val totalMonths = toTotalMonths()
         val splitYears = totalMonths / 12
         val splitMonths = (totalMonths % 12).toInt()
@@ -139,6 +145,7 @@ public class Period private constructor(
     public fun toTotalMonths(): Long = years * 12L + months
 
     override fun addTo(temporal: Temporal): Temporal {
+        validateChronology(temporal)
         var result = temporal
         if (months == 0) {
             if (years != 0) result = result.plus(years.toLong(), ChronoUnit.YEARS)
@@ -151,6 +158,7 @@ public class Period private constructor(
     }
 
     override fun subtractFrom(temporal: Temporal): Temporal {
+        validateChronology(temporal)
         var result = temporal
         if (months == 0) {
             if (years != 0) result = result.minus(years.toLong(), ChronoUnit.YEARS)
@@ -160,6 +168,15 @@ public class Period private constructor(
         }
         if (days != 0) result = result.minus(days.toLong(), ChronoUnit.DAYS)
         return result
+    }
+
+    private fun validateChronology(temporal: Temporal) {
+        val temporalChronology = temporal.query(TemporalQueries.chronology())
+        if (temporalChronology != null && temporalChronology !== IsoChronology) {
+            throw DateTimeException(
+                "Chronology mismatch, expected: ISO, actual: ${temporalChronology.id}",
+            )
+        }
     }
 
     override fun equals(other: Any?): Boolean =
@@ -215,6 +232,9 @@ public class Period private constructor(
         /** Converts a temporal amount whose units are years, months, and days. */
         public fun from(amount: TemporalAmount): Period {
             if (amount is Period) return amount
+            if (amount is ChronoPeriod && amount.chronology !== IsoChronology) {
+                throw DateTimeException("Period requires ISO chronology: $amount")
+            }
             var years = 0
             var months = 0
             var days = 0

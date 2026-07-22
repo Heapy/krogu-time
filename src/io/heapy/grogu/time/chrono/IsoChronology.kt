@@ -84,7 +84,7 @@ public object IsoChronology : Chronology {
     override fun range(field: ChronoField): ValueRange = field.range
 
     /** Obtains an ISO period from independent year, month, and day components. */
-    public fun period(years: Int, months: Int, days: Int): Period =
+    override fun period(years: Int, months: Int, days: Int): Period =
         Period.of(years, months, days)
 
     /** Converts ISO date-time fields at [zoneOffset] to an epoch-second count. */
