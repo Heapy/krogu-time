@@ -30,10 +30,11 @@ public class DateTimeFormatter private constructor(
     private val resolverParser: ((String, ResolverStyle) -> TemporalAccessor)? = null,
     public val decimalStyle: DecimalStyle = DecimalStyle.STANDARD,
     public val resolverStyle: ResolverStyle = ResolverStyle.STRICT,
+    public val zone: ZoneId? = null,
 ) {
     /** Formats [temporal] into a string. */
     public fun format(temporal: TemporalAccessor): String =
-        decimalStyleScope.localize(printer(temporal), decimalStyle)
+        decimalStyleScope.localize(printer(adjustForFormatting(temporal)), decimalStyle)
 
     /** Formats [temporal] and appends the result to [appendable]. */
     public fun formatTo(temporal: TemporalAccessor, appendable: Appendable) {
@@ -43,7 +44,8 @@ public class DateTimeFormatter private constructor(
     /** Parses [text] into a temporal accessor. */
     public fun parse(text: CharSequence): TemporalAccessor {
         val standardized = decimalStyleScope.standardize(text, decimalStyle)
-        return resolverParser?.invoke(standardized, resolverStyle) ?: parser(standardized)
+        val parsed = resolverParser?.invoke(standardized, resolverStyle) ?: parser(standardized)
+        return applyZoneOverride(parsed)
     }
 
     /** Returns a formatter using [decimalStyle] for numeric symbols. */
@@ -59,6 +61,7 @@ public class DateTimeFormatter private constructor(
                 resolverParser = resolverParser,
                 decimalStyle = decimalStyle,
                 resolverStyle = resolverStyle,
+                zone = zone,
             )
         }
 
@@ -75,6 +78,24 @@ public class DateTimeFormatter private constructor(
                 resolverParser = resolverParser,
                 decimalStyle = decimalStyle,
                 resolverStyle = resolverStyle,
+                zone = zone,
+            )
+        }
+
+    /** Returns a formatter that overrides the zone while formatting and parsing. */
+    public fun withZone(zone: ZoneId?): DateTimeFormatter =
+        if (zone == this.zone) {
+            this
+        } else {
+            DateTimeFormatter(
+                printer = printer,
+                parser = parser,
+                description = description,
+                decimalStyleScope = decimalStyleScope,
+                resolverParser = resolverParser,
+                decimalStyle = decimalStyle,
+                resolverStyle = resolverStyle,
+                zone = zone,
             )
         }
 
@@ -129,6 +150,39 @@ public class DateTimeFormatter private constructor(
             0,
             cause,
         )
+    }
+
+    private fun adjustForFormatting(temporal: TemporalAccessor): TemporalAccessor {
+        val overrideZone = zone ?: return temporal
+        if (overrideZone == temporal.query(TemporalQueries.zoneId())) return temporal
+        if (temporal.isSupported(ChronoField.INSTANT_SECONDS)) {
+            return ZonedDateTime.ofInstant(Instant.from(temporal), overrideZone)
+        }
+
+        val normalizedZone = overrideZone.normalized()
+        if (
+            normalizedZone is ZoneOffset &&
+            temporal.isSupported(ChronoField.OFFSET_SECONDS) &&
+            temporal.getLong(ChronoField.OFFSET_SECONDS) != normalizedZone.totalSeconds.toLong()
+        ) {
+            throw DateTimeException(
+                "Unable to apply override zone '$overrideZone' because the temporal object " +
+                    "being formatted has a different offset but does not represent an instant: " +
+                    temporal,
+            )
+        }
+        return ZoneOverrideTemporalAccessor(temporal, overrideZone)
+    }
+
+    private fun applyZoneOverride(parsed: TemporalAccessor): TemporalAccessor {
+        val overrideZone = zone ?: return parsed
+        return if (parsed is ParsedTemporalAccessor) {
+            parsed.withDefaultZone(overrideZone)
+        } else if (parsed.query(TemporalQueries.zoneId()) == null) {
+            ZoneOverrideTemporalAccessor(parsed, overrideZone)
+        } else {
+            parsed
+        }
     }
 
     override fun toString(): String = description
@@ -1192,6 +1246,31 @@ private interface ParsedState {
     val leapSecond: Boolean
 }
 
+private class ZoneOverrideTemporalAccessor(
+    private val delegate: TemporalAccessor,
+    private val zone: ZoneId,
+) : TemporalAccessor {
+    override fun isSupported(field: TemporalField): Boolean = delegate.isSupported(field)
+
+    override fun range(field: TemporalField): ValueRange = delegate.range(field)
+
+    override fun getLong(field: TemporalField): Long = delegate.getLong(field)
+
+    override fun <R> query(query: TemporalQuery<R>): R {
+        val result: Any? = when (query) {
+            TemporalQueries.zoneId() -> zone
+            TemporalQueries.chronology(),
+            TemporalQueries.precision(),
+            -> return delegate.query(query)
+            else -> return super<TemporalAccessor>.query(query)
+        }
+        @Suppress("UNCHECKED_CAST")
+        return result as R
+    }
+
+    override fun toString(): String = "$delegate with zone $zone"
+}
+
 private class ParsedTemporalAccessor(
     private val date: LocalDate? = null,
     private val time: LocalTime? = null,
@@ -1201,6 +1280,21 @@ private class ParsedTemporalAccessor(
     override val excessDays: Period = Period.ZERO,
     override val leapSecond: Boolean = false,
 ) : TemporalAccessor, ParsedState {
+    fun withDefaultZone(defaultZone: ZoneId): ParsedTemporalAccessor =
+        if (zone != null) {
+            this
+        } else {
+            ParsedTemporalAccessor(
+                date = date,
+                time = time,
+                offset = offset,
+                zone = defaultZone,
+                instant = instant,
+                excessDays = excessDays,
+                leapSecond = leapSecond,
+            )
+        }
+
     override fun isSupported(field: TemporalField): Boolean = when (field) {
         ChronoField.INSTANT_SECONDS ->
             instant != null || date != null && time != null && (offset != null || zone != null)
