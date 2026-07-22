@@ -6,9 +6,17 @@ import io.heapy.grogu.time.LocalDateTime
 import io.heapy.grogu.time.LocalTime
 import io.heapy.grogu.time.OffsetDateTime
 import io.heapy.grogu.time.OffsetTime
+import io.heapy.grogu.time.ZoneId
+import io.heapy.grogu.time.ZoneOffset
 import io.heapy.grogu.time.ZonedDateTime
+import io.heapy.grogu.time.chrono.IsoChronology
+import io.heapy.grogu.time.temporal.ChronoField
 import io.heapy.grogu.time.temporal.TemporalAccessor
+import io.heapy.grogu.time.temporal.TemporalField
+import io.heapy.grogu.time.temporal.TemporalQueries
 import io.heapy.grogu.time.temporal.TemporalQuery
+import io.heapy.grogu.time.temporal.UnsupportedTemporalTypeException
+import io.heapy.grogu.time.temporal.ValueRange
 
 /** A formatter that prints and parses date-time objects. */
 public class DateTimeFormatter private constructor(
@@ -40,6 +48,35 @@ public class DateTimeFormatter private constructor(
             parser = { text -> LocalDate.parse(text) },
             description =
                 "Value(Year,4,10,EXCEEDS_PAD)'-'Value(MonthOfYear,2)'-'Value(DayOfMonth,2)",
+        )
+
+        /** The strict ISO formatter for a date with a required offset. */
+        public val ISO_OFFSET_DATE: DateTimeFormatter = DateTimeFormatter(
+            printer = { temporal ->
+                LocalDate.from(temporal).toString() + ZoneOffset.from(temporal)
+            },
+            parser = { text -> parseIsoDate(text, offsetRequired = true) },
+            description =
+                "ParseCaseSensitive(false)" +
+                    "(Value(Year,4,10,EXCEEDS_PAD)'-'Value(MonthOfYear,2)" +
+                    "'-'Value(DayOfMonth,2))Offset(+HH:MM:ss,'Z')",
+        )
+
+        /** The strict ISO formatter for a date with an optional offset. */
+        public val ISO_DATE: DateTimeFormatter = DateTimeFormatter(
+            printer = { temporal ->
+                buildString {
+                    append(LocalDate.from(temporal))
+                    if (temporal.isSupported(ChronoField.OFFSET_SECONDS)) {
+                        append(ZoneOffset.from(temporal))
+                    }
+                }
+            },
+            parser = { text -> parseIsoDate(text, offsetRequired = false) },
+            description =
+                "ParseCaseSensitive(false)" +
+                    "(Value(Year,4,10,EXCEEDS_PAD)'-'Value(MonthOfYear,2)" +
+                    "'-'Value(DayOfMonth,2))[Offset(+HH:MM:ss,'Z')]",
         )
 
         /** The strict ISO formatter for a time without a date or offset. */
@@ -139,6 +176,64 @@ public class DateTimeFormatter private constructor(
 private fun formatIsoLocalDateTime(dateTime: LocalDateTime): String =
     "${dateTime.date}T${formatIsoLocalTime(dateTime.time)}"
 
+private fun parseIsoDate(
+    text: CharSequence,
+    offsetRequired: Boolean,
+): TemporalAccessor {
+    val input = text.toString()
+    val offsetStart = isoOffsetStart(input)
+    if (offsetRequired && offsetStart == null) {
+        throw DateTimeParseException("Text cannot be parsed to an ISO date", input, input.length)
+    }
+    val dateEnd = offsetStart ?: input.length
+    val date = try {
+        LocalDate.parse(input.substring(0, dateEnd))
+    } catch (exception: DateTimeParseException) {
+        throw DateTimeParseException(
+            "Text cannot be parsed to an ISO date",
+            input,
+            exception.errorIndex,
+            exception,
+        )
+    }
+    val offset = offsetStart?.let { index ->
+        val offsetText = input.substring(index)
+        try {
+            ZoneOffset.of(if (offsetText.equals("z", ignoreCase = true)) "Z" else offsetText)
+        } catch (exception: RuntimeException) {
+            throw DateTimeParseException(
+                "Text cannot be parsed to an ISO date",
+                input,
+                index,
+                exception,
+            )
+        }
+    }
+    return ParsedTemporalAccessor(date = date, offset = offset)
+}
+
+private fun isoOffsetStart(input: String): Int? {
+    if (input.endsWith('Z', ignoreCase = true)) return input.lastIndex
+    val offsetWithSeconds = input.length - 9
+    if (
+        offsetWithSeconds > 0 &&
+        input[offsetWithSeconds] in "+-" &&
+        input[offsetWithSeconds + 3] == ':' &&
+        input[offsetWithSeconds + 6] == ':'
+    ) {
+        return offsetWithSeconds
+    }
+    val offsetWithoutSeconds = input.length - 6
+    if (
+        offsetWithoutSeconds > 0 &&
+        input[offsetWithoutSeconds] in "+-" &&
+        input[offsetWithoutSeconds + 3] == ':'
+    ) {
+        return offsetWithoutSeconds
+    }
+    return null
+}
+
 private fun formatIsoLocalTime(time: LocalTime): String = buildString {
     append(time.hour.toString().padStart(2, '0'))
     append(':')
@@ -149,4 +244,74 @@ private fun formatIsoLocalTime(time: LocalTime): String = buildString {
         append('.')
         append(time.nano.toString().padStart(9, '0').trimEnd('0'))
     }
+}
+
+private class ParsedTemporalAccessor(
+    private val date: LocalDate? = null,
+    private val time: LocalTime? = null,
+    private val offset: ZoneOffset? = null,
+    private val zone: ZoneId? = null,
+) : TemporalAccessor {
+    override fun isSupported(field: TemporalField): Boolean = when (field) {
+        ChronoField.INSTANT_SECONDS -> date != null && time != null && (offset != null || zone != null)
+        ChronoField.OFFSET_SECONDS -> offset != null
+        is ChronoField if field.isDateBased -> date?.isSupported(field) == true
+        is ChronoField if field.isTimeBased -> time?.isSupported(field) == true
+        is ChronoField -> false
+        else -> field.isSupportedBy(this)
+    }
+
+    override fun range(field: TemporalField): ValueRange = when (field) {
+        ChronoField.INSTANT_SECONDS,
+        ChronoField.OFFSET_SECONDS,
+        -> field.range
+        is ChronoField if field.isDateBased -> date?.range(field) ?: unsupported(field)
+        is ChronoField if field.isTimeBased -> time?.range(field) ?: unsupported(field)
+        is ChronoField -> unsupported(field)
+        else -> field.rangeRefinedBy(this)
+    }
+
+    override fun getLong(field: TemporalField): Long = when (field) {
+        ChronoField.INSTANT_SECONDS -> {
+            val dateTime = LocalDateTime.of(date ?: unsupported(field), time ?: unsupported(field))
+            val resolvedOffset = offset ?: zone?.rules?.getOffset(dateTime) ?: unsupported(field)
+            dateTime.toEpochSecond(resolvedOffset)
+        }
+        ChronoField.OFFSET_SECONDS -> offset?.totalSeconds?.toLong() ?: unsupported(field)
+        is ChronoField if field.isDateBased -> date?.getLong(field) ?: unsupported(field)
+        is ChronoField if field.isTimeBased -> time?.getLong(field) ?: unsupported(field)
+        is ChronoField -> unsupported(field)
+        else -> field.getFrom(this)
+    }
+
+    override fun <R> query(query: TemporalQuery<R>): R {
+        val result: Any? = when (query) {
+            TemporalQueries.chronology() -> if (date == null) null else IsoChronology
+            TemporalQueries.localDate() -> date
+            TemporalQueries.localTime() -> time
+            TemporalQueries.offset() -> offset
+            TemporalQueries.zoneId() -> zone
+            TemporalQueries.precision() -> null
+            else -> return super<TemporalAccessor>.query(query)
+        }
+        @Suppress("UNCHECKED_CAST")
+        return result as R
+    }
+
+    override fun toString(): String = buildString {
+        date?.let(::append)
+        time?.let {
+            if (date != null) append('T')
+            append(it)
+        }
+        offset?.let(::append)
+        zone?.let {
+            append('[')
+            append(it)
+            append(']')
+        }
+    }
+
+    private fun unsupported(field: TemporalField): Nothing =
+        throw UnsupportedTemporalTypeException("Unsupported field: $field")
 }

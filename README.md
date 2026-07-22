@@ -39,9 +39,10 @@ Implemented foundations:
   conversion, value semantics, and Java-compatible text (locale factories remain)
 - `DateTimeFormatter` core formatting, appendable output, parsing and temporal
   queries, with Java-compatible `ISO_LOCAL_DATE`, `ISO_LOCAL_TIME`,
-  `ISO_LOCAL_DATE_TIME`, `ISO_INSTANT`, `ISO_OFFSET_TIME`,
-  `ISO_OFFSET_DATE_TIME`, and `ISO_ZONED_DATE_TIME` constants and formatter
-  overloads on their corresponding value types
+  `ISO_LOCAL_DATE_TIME`, `ISO_INSTANT`, `ISO_OFFSET_DATE`, `ISO_DATE`,
+  `ISO_OFFSET_TIME`, `ISO_OFFSET_DATE_TIME`, and `ISO_ZONED_DATE_TIME`
+  constants, parsed date/offset query retention, and formatter overloads on
+  their corresponding value types
 - `DayOfWeek`
 - `Month`
 - `Era` and `IsoEra`
