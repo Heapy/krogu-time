@@ -81,6 +81,28 @@ public class LocalDate private constructor(
         else -> super<ChronoLocalDate>.range(field)
     }
 
+    override fun get(field: TemporalField): Int = when (field) {
+        ChronoField.DAY_OF_WEEK -> dayOfWeek.value
+        ChronoField.ALIGNED_DAY_OF_WEEK_IN_MONTH -> (dayOfMonth - 1) % 7 + 1
+        ChronoField.ALIGNED_DAY_OF_WEEK_IN_YEAR -> (dayOfYear - 1) % 7 + 1
+        ChronoField.DAY_OF_MONTH -> dayOfMonth
+        ChronoField.DAY_OF_YEAR -> dayOfYear
+        ChronoField.EPOCH_DAY -> throw UnsupportedTemporalTypeException(
+            "Invalid field 'EpochDay' for get() method, use getLong() instead",
+        )
+        ChronoField.ALIGNED_WEEK_OF_MONTH -> (dayOfMonth - 1) / 7 + 1
+        ChronoField.ALIGNED_WEEK_OF_YEAR -> (dayOfYear - 1) / 7 + 1
+        ChronoField.MONTH_OF_YEAR -> monthValue
+        ChronoField.PROLEPTIC_MONTH -> throw UnsupportedTemporalTypeException(
+            "Invalid field 'ProlepticMonth' for get() method, use getLong() instead",
+        )
+        ChronoField.YEAR_OF_ERA -> if (year >= 1) year else 1 - year
+        ChronoField.YEAR -> year
+        ChronoField.ERA -> if (year >= 1) 1 else 0
+        is ChronoField -> throw UnsupportedTemporalTypeException("Unsupported field: $field")
+        else -> super<ChronoLocalDate>.get(field)
+    }
+
     override fun getLong(field: TemporalField): Long = when (field) {
         ChronoField.DAY_OF_WEEK -> dayOfWeek.value.toLong()
         ChronoField.ALIGNED_DAY_OF_WEEK_IN_MONTH -> ((dayOfMonth - 1) % 7 + 1).toLong()

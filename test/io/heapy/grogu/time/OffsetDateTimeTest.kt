@@ -78,11 +78,19 @@ class OffsetDateTimeTest {
         assertEquals(value.toEpochSecond(), value.getLong(ChronoField.INSTANT_SECONDS))
         assertEquals(7_200L, value.getLong(ChronoField.OFFSET_SECONDS))
         assertEquals(2024L, value.getLong(ChronoField.YEAR))
+        assertEquals(7_200, value.get(ChronoField.OFFSET_SECONDS))
+        assertEquals(2024, value.get(ChronoField.YEAR))
         assertSame(value.offset, value.query(TemporalQueries.offset()))
         ChronoUnit.entries.forEach { unit ->
             assertEquals(unit !== ChronoUnit.FOREVER, value.isSupported(unit), unit.toString())
         }
-        assertFailsWith<UnsupportedTemporalTypeException> { value.get(ChronoField.INSTANT_SECONDS) }
+        val exception = assertFailsWith<UnsupportedTemporalTypeException> {
+            value.get(ChronoField.INSTANT_SECONDS)
+        }
+        assertEquals(
+            "Invalid field 'InstantSeconds' for get() method, use getLong() instead",
+            exception.message,
+        )
     }
 
     @Test

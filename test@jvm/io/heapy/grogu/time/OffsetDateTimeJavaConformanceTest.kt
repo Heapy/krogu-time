@@ -116,6 +116,38 @@ class OffsetDateTimeJavaConformanceTest {
         }
     }
 
+    @Test
+    fun intFieldAccessMatchesJavaValuesAndMessages() {
+        val value = OffsetDateTime.of(
+            2024,
+            2,
+            29,
+            13,
+            14,
+            15,
+            123_456_789,
+            ZoneOffset.ofHoursMinutes(5, 30),
+        )
+        val javaValue = value.toJava()
+
+        ChronoField.entries.forEach { field ->
+            val javaField = JavaChronoField.valueOf(field.name)
+            val javaResult = runCatching { javaValue.get(javaField) }
+            val kotlinResult = runCatching { value.get(field) }
+            assertEquals(javaResult.getOrNull(), kotlinResult.getOrNull(), field.toString())
+            assertEquals(
+                javaResult.exceptionOrNull()?.javaClass?.simpleName,
+                kotlinResult.exceptionOrNull()?.javaClass?.simpleName,
+                field.toString(),
+            )
+            assertEquals(
+                javaResult.exceptionOrNull()?.message,
+                kotlinResult.exceptionOrNull()?.message,
+                field.toString(),
+            )
+        }
+    }
+
     private fun values(): List<OffsetDateTime> = listOf(
         OffsetDateTime.MIN,
         OffsetDateTime.of(1969, 12, 31, 23, 59, 59, 999_999_999, ZoneOffset.UTC),

@@ -4,8 +4,10 @@ import io.heapy.grogu.time.Instant
 import io.heapy.grogu.time.LocalDateTime
 import io.heapy.grogu.time.ZoneOffset
 import io.heapy.grogu.time.ZonedDateTime
+import io.heapy.grogu.time.temporal.ChronoField
 import io.heapy.grogu.time.temporal.ChronoUnit
 import java.time.ZoneOffset as JavaZoneOffset
+import java.time.temporal.ChronoField as JavaChronoField
 import java.time.temporal.ChronoUnit as JavaChronoUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -50,6 +52,23 @@ class ChronoZonedDateTimeJavaConformanceTest {
                 .compare(javaZoned, javaSameInstant),
             ChronoZonedDateTime.timeLineOrder().compare(zoned, sameInstant),
         )
+
+        ChronoField.entries.forEach { field ->
+            val javaField = JavaChronoField.valueOf(field.name)
+            val javaResult = runCatching { javaZoned.get(javaField) }
+            val kotlinResult = runCatching { zoned.get(field) }
+            assertEquals(javaResult.getOrNull(), kotlinResult.getOrNull(), field.toString())
+            assertEquals(
+                javaResult.exceptionOrNull()?.javaClass?.simpleName,
+                kotlinResult.exceptionOrNull()?.javaClass?.simpleName,
+                field.toString(),
+            )
+            assertEquals(
+                javaResult.exceptionOrNull()?.message,
+                kotlinResult.exceptionOrNull()?.message,
+                field.toString(),
+            )
+        }
     }
 
     @Test

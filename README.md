@@ -160,9 +160,10 @@ Implemented foundations:
   conversion, date production and ISO-guarded adjustment, ordering, strict ISO
   parsing, ISO text output, and system-default/injected-clock/explicit-zone
   current-value factories and formatter-based parsing/formatting
-- `LocalDate` core value, full-range epoch and instant/zone conversion, temporal fields,
-  replacement, checked calendar arithmetic, complete-unit differences, and
-  timeline and calendar-period comparison, with lazy exclusive date sequences
+- `LocalDate` core value, full-range epoch and instant/zone conversion,
+  Java-compatible int/long temporal fields, replacement, checked calendar
+  arithmetic, complete-unit differences, and timeline and calendar-period
+  comparison, with lazy exclusive date sequences
   using day or calendar-period steps; local time composition, local-time/offset
   epoch-second conversion, earliest-valid zoned start-of-day composition,
   strict ISO parsing, and ISO text output, with system-default/injected-clock/
@@ -170,25 +171,26 @@ Implemented foundations:
 - `Period` factories, parsing, value behavior, chronology-validated temporal
   integration, checked arithmetic, normalization, and concrete/generic `between`
 - `LocalTime` core value, validated component/day and instant/zone factories,
-  temporal fields, replacement, truncation, wraparound arithmetic, complete-unit
-  differences, ordering, strict ISO parsing, ISO text output, offset/date
-  composition, local-date/offset epoch-second conversion, and system-default/
+  Java-compatible int/long temporal fields, replacement, truncation, wraparound
+  arithmetic, complete-unit differences, ordering, strict ISO parsing, ISO text
+  output, offset/date composition, local-date/offset epoch-second conversion,
+  and system-default/
   injected-clock/explicit-zone current-value factories and formatter overloads
-- `LocalDateTime` immutable composition, factories, local field access,
-  epoch/fixed-offset and instant/zone conversion, replacement, truncation,
-  checked date/time arithmetic, complete-unit differences, boundaries,
-  ordering, strict ISO parsing, ISO text output, and system-default,
-  injected-clock, and explicit-zone current-value factories and formatter
-  overloads
+- `LocalDateTime` immutable composition, factories, Java-compatible int/long
+  local field access, epoch/fixed-offset and instant/zone conversion,
+  replacement, truncation, checked date/time arithmetic, complete-unit
+  differences, boundaries, ordering, strict ISO parsing, ISO text output, and
+  system-default, injected-clock, and explicit-zone current-value factories and
+  formatter overloads
 - `Duration` with the complete Java 21 public API surface, including parsing,
   temporal integration, checked arithmetic, conversions, truncation, and
   `between`
 - `Instant` value and boundary constants, normalized epoch factories,
-  temporal fields, replacement, truncation, checked precise-unit arithmetic,
-  complete-unit and duration differences, epoch-millisecond conversion,
-  adjustment, ordering, hashing, strict ISO parsing, and ISO text output,
-  including fixed-offset/region-zone composition and system/injected-clock
-  current values
+  Java-compatible int/long temporal fields, replacement, truncation, checked
+  precise-unit arithmetic, complete-unit and duration differences,
+  epoch-millisecond conversion, adjustment, ordering, hashing, strict ISO
+  parsing, and ISO text output, including fixed-offset/region-zone composition
+  and system/injected-clock current values
 - `ZoneOffset` factories, validation, normalized ID parsing and formatting,
   quarter-hour canonicalization, `ZoneId` integration, offset-field/query
   integration, adjustment, and Java-compatible ordering
@@ -217,17 +219,19 @@ Implemented foundations:
   strict ISO parsing, and ISO text output, including system-default,
   injected-clock, and explicit-zone current values and formatter overloads
 - `OffsetDateTime` immutable composition, factories, fixed-offset/instant
-  conversion, same-instant/similar-local region-zone composition, all standard
-  fields and units, replacement, truncation, checked local arithmetic,
-  complete-unit differences across offsets, timeline and structural ordering,
-  strict ISO parsing, ISO text output, and system-default/injected-clock/
-  explicit-zone current values and formatter overloads
+  conversion, same-instant/similar-local region-zone composition,
+  Java-compatible standard int/long fields and units, replacement, truncation,
+  checked local arithmetic, complete-unit differences across offsets, timeline
+  and structural ordering, strict ISO parsing, ISO text output, and
+  system-default/injected-clock/explicit-zone current values and formatter
+  overloads
 - `ZonedDateTime` local, strict, and instant factories; gap shifting and
   overlap preference/switching; date-based versus elapsed-time arithmetic;
-  temporal fields, replacement, truncation, complete-unit differences, zone
-  conversion, instant/offset conversion, timeline and structural ordering,
-  queries, strict ISO parsing, Java-compatible text output, and system-default/
-  injected-clock/explicit-zone current values and formatter overloads
+  Java-compatible int/long temporal fields, replacement, truncation,
+  complete-unit differences, zone conversion, instant/offset conversion,
+  timeline and structural ordering, queries, strict ISO parsing,
+  Java-compatible text output, and system-default/injected-clock/explicit-zone
+  current values and formatter overloads
 - `Clock` system clocks for the default and explicit zones, fixed and offset
   clocks, validated nanosecond-to-minute tick clocks, millisecond access, zone
   replacement, and Java-compatible value/text semantics

@@ -39,6 +39,14 @@ public class Instant private constructor(
     override fun isSupported(unit: TemporalUnit): Boolean =
         if (unit is ChronoUnit) unit <= ChronoUnit.DAYS else unit.isSupportedBy(this)
 
+    override fun get(field: TemporalField): Int = when (field) {
+        ChronoField.NANO_OF_SECOND -> nano
+        ChronoField.MICRO_OF_SECOND -> nano / NANOS_PER_MICRO
+        ChronoField.MILLI_OF_SECOND -> nano / NANOS_PER_MILLI
+        is ChronoField -> throw UnsupportedTemporalTypeException("Unsupported field: $field")
+        else -> range(field).checkValidIntValue(field.getFrom(this), field)
+    }
+
     override fun getLong(field: TemporalField): Long = when (field) {
         ChronoField.NANO_OF_SECOND -> nano.toLong()
         ChronoField.MICRO_OF_SECOND -> (nano / NANOS_PER_MICRO).toLong()

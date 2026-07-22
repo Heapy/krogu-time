@@ -43,6 +43,15 @@ class ChronoZonedDateTimeTest {
         assertSame(offset, zoned.query(TemporalQueries.offset()))
         assertSame(offset, zoned.query(TemporalQueries.zone()))
         assertEquals(ChronoUnit.NANOS, zoned.query(TemporalQueries.precision()))
+        assertEquals(7_200, zoned.get(ChronoField.OFFSET_SECONDS))
+        assertEquals(2024, zoned.get(ChronoField.YEAR))
+        val exception = assertFailsWith<UnsupportedTemporalTypeException> {
+            zoned.get(ChronoField.INSTANT_SECONDS)
+        }
+        assertEquals(
+            "Invalid field 'InstantSeconds' for get() method, use getLong() instead",
+            exception.message,
+        )
     }
 
     @Test

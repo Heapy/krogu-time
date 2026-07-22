@@ -13,6 +13,7 @@ import io.heapy.grogu.time.temporal.TemporalField
 import io.heapy.grogu.time.temporal.TemporalQueries
 import io.heapy.grogu.time.temporal.TemporalQuery
 import io.heapy.grogu.time.temporal.TemporalUnit
+import io.heapy.grogu.time.temporal.UnsupportedTemporalTypeException
 import io.heapy.grogu.time.temporal.ValueRange
 
 /** A date-time with a fixed offset from UTC. */
@@ -45,6 +46,15 @@ public class OffsetDateTime private constructor(
         -> field.range
         is ChronoField -> dateTime.range(field)
         else -> field.rangeRefinedBy(this)
+    }
+
+    override fun get(field: TemporalField): Int = when (field) {
+        ChronoField.INSTANT_SECONDS -> throw UnsupportedTemporalTypeException(
+            "Invalid field 'InstantSeconds' for get() method, use getLong() instead",
+        )
+        ChronoField.OFFSET_SECONDS -> offset.totalSeconds
+        is ChronoField -> dateTime.get(field)
+        else -> super<Temporal>.get(field)
     }
 
     override fun getLong(field: TemporalField): Long = when (field) {

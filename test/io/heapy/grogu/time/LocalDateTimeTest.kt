@@ -100,6 +100,22 @@ class LocalDateTimeTest {
         assertFailsWith<UnsupportedTemporalTypeException> {
             dateTime.getLong(ChronoField.INSTANT_SECONDS)
         }
+        assertEquals(2024, dateTime.get(ChronoField.YEAR))
+        assertEquals(123_456_789, dateTime.get(ChronoField.NANO_OF_SECOND))
+        val nanoOfDayException = assertFailsWith<UnsupportedTemporalTypeException> {
+            dateTime.get(ChronoField.NANO_OF_DAY)
+        }
+        assertEquals(
+            "Invalid field 'NanoOfDay' for get() method, use getLong() instead",
+            nanoOfDayException.message,
+        )
+        val epochDayException = assertFailsWith<UnsupportedTemporalTypeException> {
+            dateTime.get(ChronoField.EPOCH_DAY)
+        }
+        assertEquals(
+            "Invalid field 'EpochDay' for get() method, use getLong() instead",
+            epochDayException.message,
+        )
     }
 
     @Test

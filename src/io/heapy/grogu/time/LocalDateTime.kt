@@ -71,6 +71,11 @@ public class LocalDateTime private constructor(
         else -> field.rangeRefinedBy(this)
     }
 
+    override fun get(field: TemporalField): Int = when (field) {
+        is ChronoField -> if (field.isTimeBased) time.get(field) else date.get(field)
+        else -> super<ChronoLocalDateTime>.get(field)
+    }
+
     override fun getLong(field: TemporalField): Long = when (field) {
         is ChronoField -> if (field.isTimeBased) time.getLong(field) else date.getLong(field)
         else -> field.getFrom(this)

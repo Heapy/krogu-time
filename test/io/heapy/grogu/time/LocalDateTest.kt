@@ -261,9 +261,20 @@ class LocalDateTest {
         assertFailsWith<UnsupportedTemporalTypeException> {
             date.getLong(ChronoField.HOUR_OF_DAY)
         }
-        assertFailsWith<UnsupportedTemporalTypeException> {
+        val epochDayException = assertFailsWith<UnsupportedTemporalTypeException> {
             date.get(ChronoField.EPOCH_DAY)
         }
+        assertEquals(
+            "Invalid field 'EpochDay' for get() method, use getLong() instead",
+            epochDayException.message,
+        )
+        val prolepticMonthException = assertFailsWith<UnsupportedTemporalTypeException> {
+            date.get(ChronoField.PROLEPTIC_MONTH)
+        }
+        assertEquals(
+            "Invalid field 'ProlepticMonth' for get() method, use getLong() instead",
+            prolepticMonthException.message,
+        )
     }
 
     @Test

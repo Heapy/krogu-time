@@ -28,6 +28,33 @@ public class LocalTime private constructor(
     override fun isSupported(unit: TemporalUnit): Boolean =
         if (unit is ChronoUnit) unit.isTimeBased else unit.isSupportedBy(this)
 
+    override fun get(field: TemporalField): Int = when (field) {
+        ChronoField.NANO_OF_SECOND -> nano
+        ChronoField.NANO_OF_DAY -> throw UnsupportedTemporalTypeException(
+            "Invalid field 'NanoOfDay' for get() method, use getLong() instead",
+        )
+        ChronoField.MICRO_OF_SECOND -> nano / NANOS_PER_MICRO
+        ChronoField.MICRO_OF_DAY -> throw UnsupportedTemporalTypeException(
+            "Invalid field 'MicroOfDay' for get() method, use getLong() instead",
+        )
+        ChronoField.MILLI_OF_SECOND -> nano / NANOS_PER_MILLI
+        ChronoField.MILLI_OF_DAY -> (toNanoOfDay() / NANOS_PER_MILLI).toInt()
+        ChronoField.SECOND_OF_MINUTE -> second
+        ChronoField.SECOND_OF_DAY -> toSecondOfDay()
+        ChronoField.MINUTE_OF_HOUR -> minute
+        ChronoField.MINUTE_OF_DAY -> hour * MINUTES_PER_HOUR + minute
+        ChronoField.HOUR_OF_AMPM -> hour % HOURS_PER_AMPM
+        ChronoField.CLOCK_HOUR_OF_AMPM -> {
+            val hourOfAmPm = hour % HOURS_PER_AMPM
+            if (hourOfAmPm == 0) HOURS_PER_AMPM else hourOfAmPm
+        }
+        ChronoField.HOUR_OF_DAY -> hour
+        ChronoField.CLOCK_HOUR_OF_DAY -> if (hour == 0) HOURS_PER_DAY else hour
+        ChronoField.AMPM_OF_DAY -> hour / HOURS_PER_AMPM
+        is ChronoField -> throw UnsupportedTemporalTypeException("Unsupported field: $field")
+        else -> super<Temporal>.get(field)
+    }
+
     override fun getLong(field: TemporalField): Long = when (field) {
         ChronoField.NANO_OF_SECOND -> nano.toLong()
         ChronoField.NANO_OF_DAY -> toNanoOfDay()

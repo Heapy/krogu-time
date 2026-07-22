@@ -108,9 +108,13 @@ class InstantTest {
             assertEquals(field in values, instant.isSupported(field), field.toString())
             if (field in values) assertEquals(values.getValue(field), instant.getLong(field))
         }
-        assertFailsWith<UnsupportedTemporalTypeException> {
+        assertEquals(123_456_789, instant.get(ChronoField.NANO_OF_SECOND))
+        assertEquals(123_456, instant.get(ChronoField.MICRO_OF_SECOND))
+        assertEquals(123, instant.get(ChronoField.MILLI_OF_SECOND))
+        val exception = assertFailsWith<UnsupportedTemporalTypeException> {
             instant.get(ChronoField.INSTANT_SECONDS)
         }
+        assertEquals("Unsupported field: InstantSeconds", exception.message)
 
         ChronoUnit.entries.forEach { unit ->
             assertEquals(unit <= ChronoUnit.DAYS, instant.isSupported(unit), unit.toString())

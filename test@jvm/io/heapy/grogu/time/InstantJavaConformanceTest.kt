@@ -202,6 +202,29 @@ class InstantJavaConformanceTest {
         }
     }
 
+    @Test
+    fun intFieldAccessMatchesJavaValuesAndMessages() {
+        val instant = Instant.ofEpochSecond(-2, 123_456_789)
+        val javaInstant = instant.toJava()
+
+        ChronoField.entries.forEach { field ->
+            val javaField = JavaChronoField.valueOf(field.name)
+            val javaResult = runCatching { javaInstant.get(javaField) }
+            val kotlinResult = runCatching { instant.get(field) }
+            assertEquals(javaResult.getOrNull(), kotlinResult.getOrNull(), field.toString())
+            assertEquals(
+                javaResult.exceptionOrNull()?.javaClass?.simpleName,
+                kotlinResult.exceptionOrNull()?.javaClass?.simpleName,
+                field.toString(),
+            )
+            assertEquals(
+                javaResult.exceptionOrNull()?.message,
+                kotlinResult.exceptionOrNull()?.message,
+                field.toString(),
+            )
+        }
+    }
+
     private fun instants(): List<Instant> = listOf(
         Instant.MIN,
         Instant.ofEpochSecond(-86_401, 999_999_999),
