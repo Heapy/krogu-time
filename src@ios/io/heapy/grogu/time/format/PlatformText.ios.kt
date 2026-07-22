@@ -10,12 +10,16 @@ internal actual fun localeTextValues(
     style: TextStyle,
 ): List<LocaleTextValue> {
     val formatter = NSDateFormatter()
-    formatter.setLocale(NSLocale(localeIdentifier = languageTag))
+    formatter.setLocale(
+        NSLocale(localeIdentifier = chronologyLocaleIdentifier(languageTag, chronologyId)),
+    )
     return when (field) {
         LocaleTextField.ERA -> when (style.asNormal()) {
-            TextStyle.FULL -> formatter.longEraSymbols().toLocaleTextValues(0)
-            TextStyle.NARROW -> formatter.eraSymbols().toLocaleTextValues(0).narrowed()
-            else -> formatter.eraSymbols().toLocaleTextValues(0)
+            TextStyle.FULL -> formatter.longEraSymbols().toEraTextValues(chronologyId)
+            TextStyle.NARROW -> formatter.eraSymbols()
+                .toEraTextValues(chronologyId)
+                .narrowed()
+            else -> formatter.eraSymbols().toEraTextValues(chronologyId)
         }
         LocaleTextField.MONTH_OF_YEAR -> formatter.monthSymbols(style).toLocaleTextValues(1)
         LocaleTextField.DAY_OF_WEEK -> formatter.weekdaySymbols(style)
@@ -67,6 +71,16 @@ private fun List<*>.toLocaleTextValues(firstValue: Int): List<LocaleTextValue> =
             LocaleTextValue((index + firstValue).toLong(), it)
         }
     }
+
+private fun List<*>.toEraTextValues(chronologyId: String): List<LocaleTextValue> {
+    val firstValue = when (chronologyId) {
+        // Foundation exposes every historic Japanese era; java.time supports the latest five.
+        "Japanese" -> 4 - size
+        "Hijrah-umalqura", "ThaiBuddhist" -> if (size == 1) 1 else 0
+        else -> 0
+    }
+    return toLocaleTextValues(firstValue)
+}
 
 private fun List<LocaleTextValue>.narrowed(): List<LocaleTextValue> =
     map { value -> value.copy(text = value.text.take(1)) }

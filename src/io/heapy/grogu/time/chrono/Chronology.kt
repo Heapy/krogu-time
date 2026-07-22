@@ -169,6 +169,17 @@ public interface Chronology : Comparable<Chronology> {
         public fun from(temporal: TemporalAccessor): Chronology =
             temporal.query(TemporalQueries.chronology()) ?: IsoChronology
 
+        /** Obtains the chronology selected by [locale]'s `ca` Unicode extension. */
+        public fun ofLocale(locale: Locale): Chronology =
+            when (val calendarType = locale.getUnicodeLocaleType("ca")) {
+                null, "iso", "iso8601" -> IsoChronology
+                else -> try {
+                    of(calendarType)
+                } catch (_: DateTimeException) {
+                    throw DateTimeException("Unknown calendar system: $calendarType")
+                }
+            }
+
         /** Obtains an available chronology by its ID or calendar type. */
         public fun of(id: String): Chronology = when (id) {
             IsoChronology.id, IsoChronology.calendarType -> IsoChronology

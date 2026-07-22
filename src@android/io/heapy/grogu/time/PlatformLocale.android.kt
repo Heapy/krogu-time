@@ -16,3 +16,18 @@ internal actual fun localeWeekRules(languageTag: String): LocaleWeekRules {
         minimalDaysInFirstWeek = calendar.minimalDaysInFirstWeek,
     )
 }
+
+internal actual fun localeDecimalSymbols(languageTag: String): LocaleDecimalSymbols {
+    val symbols = java.text.DecimalFormatSymbols.getInstance(
+        java.util.Locale.forLanguageTag(languageTag),
+    )
+    return LocaleDecimalSymbols(
+        zeroDigit = symbols.zeroDigit,
+        negativeSign = symbols.minusSign,
+        decimalSeparator = symbols.decimalSeparator,
+    )
+}
+
+internal actual fun availableFormatLocaleTags(): Set<String> =
+    java.text.DecimalFormatSymbols.getAvailableLocales()
+        .mapTo(mutableSetOf(), java.util.Locale::toLanguageTag)

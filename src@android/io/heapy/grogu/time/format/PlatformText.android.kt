@@ -10,12 +10,53 @@ internal actual fun localeTextValues(
     field: LocaleTextField,
     style: TextStyle,
 ): List<LocaleTextValue> {
-    val locale = Locale.forLanguageTag(languageTag)
+    if (field == LocaleTextField.ERA) {
+        return localeEraTextValuesFromJavaTime(languageTag, chronologyId, style)
+    }
+    val locale = chronologyLocale(languageTag, chronologyId)
     return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
         localeTextValuesFromIcu(locale, field, style)
     } else {
         localeTextValuesFromJava(locale, field, style)
     }
+}
+
+private fun localeEraTextValuesFromJavaTime(
+    languageTag: String,
+    chronologyId: String,
+    style: TextStyle,
+): List<LocaleTextValue> {
+    val chronology = java.time.chrono.Chronology.of(chronologyId)
+    val field = java.time.temporal.ChronoField.ERA
+    val formatter = java.time.format.DateTimeFormatterBuilder()
+        .appendText(field, java.time.format.TextStyle.valueOf(style.name))
+        .toFormatter(Locale.forLanguageTag(languageTag))
+    return chronology.eras().map { era ->
+        val value = era.value.toLong()
+        LocaleTextValue(
+            value,
+            formatter.format(AndroidEraTemporal(value, chronology)),
+        )
+    }
+}
+
+private class AndroidEraTemporal(
+    private val value: Long,
+    private val chronology: java.time.chrono.Chronology,
+) : java.time.temporal.TemporalAccessor {
+    override fun isSupported(field: java.time.temporal.TemporalField): Boolean =
+        field == java.time.temporal.ChronoField.ERA
+
+    override fun getLong(field: java.time.temporal.TemporalField): Long =
+        if (isSupported(field)) value else throw java.time.DateTimeException("Unsupported field: $field")
+
+    @Suppress("UNCHECKED_CAST")
+    override fun <R : Any?> query(query: java.time.temporal.TemporalQuery<R>): R? =
+        if (query === java.time.temporal.TemporalQueries.chronology()) {
+            chronology as R
+        } else {
+            super.query(query)
+        }
 }
 
 @android.annotation.TargetApi(Build.VERSION_CODES.N)
@@ -94,3 +135,21 @@ private fun List<LocaleTextValue>.forStyle(style: TextStyle): List<LocaleTextVal
     } else {
         this
     }
+
+private fun chronologyLocale(languageTag: String, chronologyId: String): Locale {
+    val locale = Locale.forLanguageTag(languageTag)
+    val calendarType = when (chronologyId) {
+        "ISO" -> null
+        "Japanese" -> "japanese"
+        "Hijrah-umalqura" -> "islamic-umalqura"
+        "Minguo" -> "roc"
+        "ThaiBuddhist" -> "buddhist"
+        else -> null
+    }
+    return calendarType?.let { type ->
+        Locale.Builder()
+            .setLocale(locale)
+            .setUnicodeLocaleKeyword("ca", type)
+            .build()
+    } ?: locale
+}

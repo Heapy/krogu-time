@@ -10,11 +10,15 @@ internal actual fun localeTextValues(
     style: TextStyle,
 ): List<LocaleTextValue> {
     val javaField = field.toJavaField()
+    val chronology = java.time.chrono.Chronology.of(chronologyId)
     val formatter = java.time.format.DateTimeFormatterBuilder()
         .appendText(javaField, java.time.format.TextStyle.valueOf(style.name))
         .toFormatter(java.util.Locale.forLanguageTag(languageTag))
-    return field.values().map { value ->
-        LocaleTextValue(value, formatter.format(SingleFieldTemporal(javaField, value)))
+    return field.values(chronology).map { value ->
+        LocaleTextValue(
+            value,
+            formatter.format(SingleFieldTemporal(javaField, value, chronology)),
+        )
     }
 }
 
@@ -26,10 +30,9 @@ private fun LocaleTextField.toJavaField(): TemporalField = when (this) {
     LocaleTextField.QUARTER_OF_YEAR -> java.time.temporal.IsoFields.QUARTER_OF_YEAR
 }
 
-private fun LocaleTextField.values(): LongRange = when (this) {
-    LocaleTextField.ERA,
-    LocaleTextField.AMPM_OF_DAY,
-    -> 0L..1L
+private fun LocaleTextField.values(chronology: java.time.chrono.Chronology): Iterable<Long> = when (this) {
+    LocaleTextField.ERA -> chronology.eras().map { it.value.toLong() }
+    LocaleTextField.AMPM_OF_DAY -> 0L..1L
     LocaleTextField.MONTH_OF_YEAR -> 1L..12L
     LocaleTextField.DAY_OF_WEEK -> 1L..7L
     LocaleTextField.QUARTER_OF_YEAR -> 1L..4L
@@ -38,9 +41,18 @@ private fun LocaleTextField.values(): LongRange = when (this) {
 private class SingleFieldTemporal(
     private val field: TemporalField,
     private val value: Long,
+    private val chronology: java.time.chrono.Chronology,
 ) : TemporalAccessor {
     override fun isSupported(field: TemporalField): Boolean = field == this.field
 
     override fun getLong(field: TemporalField): Long =
         if (field == this.field) value else throw java.time.DateTimeException("Unsupported field: $field")
+
+    @Suppress("UNCHECKED_CAST")
+    override fun <R : Any?> query(query: java.time.temporal.TemporalQuery<R>): R? =
+        if (query === java.time.temporal.TemporalQueries.chronology()) {
+            chronology as R
+        } else {
+            super.query(query)
+        }
 }

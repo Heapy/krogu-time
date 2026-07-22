@@ -41,7 +41,7 @@ private fun FormatStyle.toNSDateFormatterStyle(): ULong = when (this) {
     FormatStyle.SHORT -> NSDateFormatterShortStyle
 }
 
-private fun chronologyLocaleIdentifier(languageTag: String, chronologyId: String): String {
+internal fun chronologyLocaleIdentifier(languageTag: String, chronologyId: String): String {
     val calendarType = when (chronologyId) {
         "ISO" -> null
         "Japanese" -> "japanese"

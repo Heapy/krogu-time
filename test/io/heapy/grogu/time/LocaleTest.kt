@@ -2,7 +2,9 @@ package io.heapy.grogu.time
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
+import kotlin.test.assertNull
 
 class LocaleTest {
     @Test
@@ -39,5 +41,23 @@ class LocaleTest {
         val defaultLocale = Locale.getDefault()
 
         assertEquals(defaultLocale, Locale.forLanguageTag(defaultLocale.toLanguageTag()))
+    }
+
+    @Test
+    fun exposesUnicodeLocaleKeywordValues() {
+        val locale = Locale.forLanguageTag(
+            "en-US-u-ca-japanese-nu-arab-tz-usnyc",
+        )
+
+        assertEquals("japanese", locale.getUnicodeLocaleType("ca"))
+        assertEquals("arab", locale.getUnicodeLocaleType("NU"))
+        assertEquals("usnyc", locale.getUnicodeLocaleType("tz"))
+        assertNull(locale.getUnicodeLocaleType("rg"))
+        assertNull(Locale.forLanguageTag("en-x-u-ca-japanese").getUnicodeLocaleType("ca"))
+        listOf("c", "calendar", "c!", "\u00E5a").forEach { key ->
+            assertFailsWith<IllegalArgumentException>(key) {
+                locale.getUnicodeLocaleType(key)
+            }
+        }
     }
 }

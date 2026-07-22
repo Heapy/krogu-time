@@ -12,6 +12,7 @@ import io.heapy.grogu.time.Period
 import io.heapy.grogu.time.ZoneId
 import io.heapy.grogu.time.ZoneOffset
 import io.heapy.grogu.time.ZonedDateTime
+import io.heapy.grogu.time.localeTimeZoneId
 import io.heapy.grogu.time.chrono.ChronoLocalDate
 import io.heapy.grogu.time.chrono.Chronology
 import io.heapy.grogu.time.chrono.IsoChronology
@@ -228,6 +229,38 @@ public class DateTimeFormatter private constructor(
                 zone = zone,
             )
         }
+
+    /** Applies locale, calendar, numbering-system, region, and timezone overrides. */
+    public fun localizedBy(locale: Locale): DateTimeFormatter {
+        val localizedChronology = Chronology.ofLocale(locale)
+        val localizedDecimalStyle = DecimalStyle.of(locale)
+        val localizedZone = localeTimeZoneId(locale.toLanguageTag())
+            ?.let(ZoneId::of)
+            ?: zone
+        if (
+            locale == this.locale &&
+            localizedChronology == chronology &&
+            localizedDecimalStyle == decimalStyle &&
+            localizedZone == zone
+        ) {
+            return this
+        }
+        return DateTimeFormatter(
+            printer = printer,
+            parser = parser,
+            description = description,
+            decimalStyleScope = decimalStyleScope,
+            resolverParser = resolverParser,
+            patternTokens = patternTokens,
+            builderTokens = builderTokens,
+            locale = locale,
+            decimalStyle = localizedDecimalStyle,
+            resolverStyle = resolverStyle,
+            resolverFields = resolverFields,
+            chronology = localizedChronology,
+            zone = localizedZone,
+        )
+    }
 
     /** Parses [text] and applies [query] to the result. */
     public fun <T> parse(text: CharSequence, query: TemporalQuery<T>): T =

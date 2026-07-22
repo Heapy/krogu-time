@@ -1,5 +1,6 @@
 package io.heapy.grogu.time.format
 
+import io.heapy.grogu.time.Locale
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
@@ -45,5 +46,19 @@ class DecimalStyleTest {
         assertEquals(localized, same)
         assertEquals(localized.hashCode(), same.hashCode())
         assertNotEquals(standard, localized)
+    }
+
+    @Test
+    fun obtainsSymbolsFromLocalesAndNumberingExtensions() {
+        assertEquals(DecimalStyle.of(Locale.getDefault()), DecimalStyle.ofDefaultLocale())
+        assertEquals(DecimalStyle.STANDARD, DecimalStyle.of(Locale.US))
+
+        val arabic = DecimalStyle.of(Locale.forLanguageTag("en-US-u-nu-arab"))
+        assertEquals('\u0660', arabic.zeroDigit)
+        assertEquals('+', arabic.positiveSign)
+        assertEquals('-', arabic.negativeSign)
+        assertEquals('\u066B', arabic.decimalSeparator)
+        assertEquals(DecimalStyle.STANDARD, DecimalStyle.of(Locale.forLanguageTag("ar-SA-u-nu-latn")))
+        assertEquals(true, Locale.US in DecimalStyle.getAvailableLocales())
     }
 }

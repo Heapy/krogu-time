@@ -34,17 +34,19 @@ Implemented foundations:
 - `DateTimeException`
 - `DateTimeParseException`
 - KMP `Locale` values backed by canonical BCP 47 language tags, including
-  platform FORMAT-locale discovery on JVM, Android, and iOS
+  Unicode locale-key lookup and platform FORMAT-locale discovery on JVM,
+  Android, and iOS
 - `ResolverStyle`, `FormatStyle`, `SignStyle`, and `TextStyle` formatter
   configuration enums
 - `DecimalStyle` standard symbols, immutable symbol replacement, digit
-  conversion, value semantics, and Java-compatible text, with immutable
+  conversion, value semantics, Java-compatible text, available-locale lookup,
+  and default/explicit locale factories honoring `nu` and `rg`, with immutable
   `DateTimeFormatter` overrides for localized numeric printing and parsing
-  (locale factories remain)
 - `DateTimeFormatter` core formatting, appendable output, parsing, temporal
   queries, ordered `parseBest` conversion, and query-failure wrapping, with
   default and explicit locale factories plus immutable locale, resolver-style,
-  resolver-field, chronology, and zone overrides,
+  resolver-field, chronology, and zone overrides, plus `localizedBy` calendar,
+  numbering-system, region, and CLDR timezone-extension overrides,
   including pre-resolution field filtering across calendar, ordinal, and ISO
   week dates, chronology-aware date conversion, instant conversion, parsed
   chronology, and parsed default-zone behavior, and strict/smart/lenient ISO,
@@ -56,6 +58,8 @@ Implemented foundations:
   locale-backed era `G`, format/standalone month `M`/`L`, weekday `E`, AM/PM
   `a`, and format/standalone quarter `Q`/`q` text in full, short, and narrow
   styles, with locale-sensitive parsing and immutable `withLocale` behavior;
+  chronology-aware localized era and month text across ISO, Japanese, Hijrah,
+  Minguo, and Thai Buddhist calendars;
   locale-defined week-based year `Y`, week `w`/`W`, and numeric or textual
   day-of-week `e`/`c` patterns, including reduced years, adjacent parsing, and
   strict/smart/lenient date resolution;
@@ -105,8 +109,8 @@ Implemented foundations:
 - `Chronology` identity, lookup, ordering, era/leap/range contracts, plus the
   `IsoChronology`, `JapaneseChronology`, `HijrahChronology`,
   `MinguoChronology`, and `ThaiBuddhistChronology` singletons with generic
-  date/date-time factories, localized display names, clock injection, period
-  creation, and epoch-second conversion
+  date/date-time factories, locale calendar lookup, localized display names,
+  clock injection, period creation, and epoch-second conversion
 - `JapaneseDate`, `HijrahDate`, `MinguoDate`, and `ThaiBuddhistDate` factories,
   fields and refined ranges, calendar arithmetic, periods, generic local/zoned
   date-time composition, and Java-compatible value semantics, including

@@ -1,5 +1,9 @@
 package io.heapy.grogu.time.format
 
+import io.heapy.grogu.time.Locale
+import io.heapy.grogu.time.availableFormatLocaleTags
+import io.heapy.grogu.time.localeDecimalSymbols
+
 /** The characters used to print and parse decimal date-time values. */
 public class DecimalStyle private constructor(
     public val zeroDigit: Char,
@@ -67,5 +71,31 @@ public class DecimalStyle private constructor(
     public companion object {
         /** The standard ASCII decimal symbols used by ISO formatters. */
         public val STANDARD: DecimalStyle = DecimalStyle('0', '+', '-', '.')
+
+        /** Returns the locales for which platform decimal symbols are available. */
+        public fun getAvailableLocales(): Set<Locale> =
+            availableFormatLocaleTags().mapTo(mutableSetOf(), Locale::forLanguageTag)
+
+        /** Returns the decimal symbols for the default formatting locale. */
+        public fun ofDefaultLocale(): DecimalStyle = of(Locale.getDefault())
+
+        /** Returns the decimal symbols for [locale], including its `nu` and `rg` extensions. */
+        public fun of(locale: Locale): DecimalStyle {
+            val symbols = localeDecimalSymbols(locale.toLanguageTag())
+            return if (
+                symbols.zeroDigit == '0' &&
+                symbols.negativeSign == '-' &&
+                symbols.decimalSeparator == '.'
+            ) {
+                STANDARD
+            } else {
+                DecimalStyle(
+                    zeroDigit = symbols.zeroDigit,
+                    positiveSign = '+',
+                    negativeSign = symbols.negativeSign,
+                    decimalSeparator = symbols.decimalSeparator,
+                )
+            }
+        }
     }
 }

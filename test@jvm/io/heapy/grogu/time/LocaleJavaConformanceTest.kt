@@ -31,4 +31,30 @@ class LocaleJavaConformanceTest {
             Locale.getDefault().toLanguageTag(),
         )
     }
+
+    @Test
+    fun unicodeLocaleTypesAndKeyValidationMatchJava() {
+        val tag = "en-US-u-attr-ca-japanese-nu-arab-tz-usnyc"
+        val javaLocale = JavaLocale.forLanguageTag(tag)
+        val locale = Locale.forLanguageTag(tag)
+
+        listOf("ca", "NU", "tz", "rg", "zz").forEach { key ->
+            assertEquals(
+                runCatching { javaLocale.getUnicodeLocaleType(key) },
+                runCatching { locale.getUnicodeLocaleType(key) },
+                key,
+            )
+        }
+        assertEquals(
+            JavaLocale.forLanguageTag("en-x-u-ca-japanese").getUnicodeLocaleType("ca"),
+            Locale.forLanguageTag("en-x-u-ca-japanese").getUnicodeLocaleType("ca"),
+        )
+        listOf("c", "calendar", "c!", "\u00E5a").forEach { key ->
+            assertEquals(
+                runCatching { javaLocale.getUnicodeLocaleType(key) }.isSuccess,
+                runCatching { locale.getUnicodeLocaleType(key) }.isSuccess,
+                key,
+            )
+        }
+    }
 }
