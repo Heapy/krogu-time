@@ -108,13 +108,17 @@ Implemented foundations:
   conversion, instant/offset conversion, timeline and structural ordering,
   queries, strict ISO parsing, and Java-compatible text output (clock factories
   and formatter overloads remain)
+- `Clock` system clocks for explicit zones, fixed and offset clocks, validated
+  nanosecond-to-minute tick clocks, millisecond access, zone replacement, and
+  Java-compatible value/text semantics (system-default-zone lookup remains)
 - temporal interfaces and exceptions, plus the standard offset query
 - `TemporalAdjusters` complete date-adjuster utility surface
 - `ValueRange`
 - `ChronoUnit`
 - `ChronoField`
 
-Remaining work includes the other standard temporal queries, clocks, chronology
-integration, a bundled region time-zone database, formatters and parsers beyond
-the implemented ISO defaults and amount parsers, alternate chronologies, and
-complete cross-type conformance coverage.
+Remaining work includes the other standard temporal queries, clock-backed
+`now` factories and system-default-zone lookup, chronology integration, a
+bundled region time-zone database, formatters and parsers beyond the implemented
+ISO defaults and amount parsers, alternate chronologies, and complete cross-type
+conformance coverage.
