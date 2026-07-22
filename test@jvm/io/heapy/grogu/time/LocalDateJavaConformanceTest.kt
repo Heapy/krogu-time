@@ -1,6 +1,11 @@
 package io.heapy.grogu.time
 
 import java.time.LocalDate as JavaLocalDate
+import java.time.Instant as JavaInstant
+import java.time.LocalTime as JavaLocalTime
+import java.time.Period as JavaPeriod
+import java.time.ZoneId as JavaZoneId
+import java.time.ZoneOffset as JavaZoneOffset
 import java.time.format.DateTimeParseException as JavaDateTimeParseException
 import java.time.temporal.ChronoField as JavaChronoField
 import java.time.temporal.ChronoUnit as JavaChronoUnit
@@ -228,6 +233,106 @@ class LocalDateJavaConformanceTest {
                 assertEquals(javaFirst.isBefore(javaSecond), first.isBefore(second))
                 assertEquals(javaFirst.isEqual(javaSecond), first.isEqual(second))
             }
+        }
+    }
+
+    @Test
+    fun instantAndEpochSecondConversionsMatchJavaTime() {
+        val instants = listOf(
+            Instant.MIN,
+            Instant.ofEpochSecond(-1),
+            Instant.EPOCH,
+            Instant.parse("2024-02-29T23:30:00Z"),
+            Instant.MAX,
+        )
+        val zones = listOf("Z", "+05:45", "Europe/Paris", "America/New_York")
+
+        instants.forEach { instant ->
+            zones.forEach { zoneId ->
+                assertSameOutcome(
+                    javaOperation = {
+                        JavaLocalDate.ofInstant(
+                            JavaInstant.ofEpochSecond(instant.epochSecond, instant.nano.toLong()),
+                            JavaZoneId.of(zoneId),
+                        ).toString()
+                    },
+                    kotlinOperation = {
+                        LocalDate.ofInstant(instant, ZoneId.of(zoneId)).toString()
+                    },
+                    context = "instant=$instant zone=$zoneId",
+                )
+            }
+        }
+
+        val dates = listOf(LocalDate.MIN, LocalDate.of(-1, 12, 31), LocalDate.EPOCH, LocalDate.MAX)
+        val times = listOf(LocalTime.MIN, LocalTime.NOON, LocalTime.MAX)
+        val offsets = listOf(ZoneOffset.MIN, ZoneOffset.UTC, ZoneOffset.ofHoursMinutes(5, 45), ZoneOffset.MAX)
+        dates.forEach { date ->
+            times.forEach { time ->
+                offsets.forEach { offset ->
+                    assertEquals(
+                        JavaLocalDate.of(date.year, date.monthValue, date.dayOfMonth).toEpochSecond(
+                            JavaLocalTime.of(time.hour, time.minute, time.second, time.nano),
+                            JavaZoneOffset.ofTotalSeconds(offset.totalSeconds),
+                        ),
+                        date.toEpochSecond(time, offset),
+                        "date=$date time=$time offset=$offset",
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
+    fun dateSequencesMatchJavaTime() {
+        val cases = listOf(
+            Triple("2015-01-31", "2015-05-01", Period.ofMonths(1)),
+            Triple("2015-05-31", "2015-01-01", Period.ofMonths(-1)),
+            Triple("2024-01-31", "2024-07-01", Period.of(0, 1, 2)),
+            Triple("2024-07-31", "2024-01-01", Period.of(0, -1, -2)),
+            Triple("2024-01-01", "2024-01-03", Period.of(1, -12, 1)),
+            Triple("+999999998-12-31", "+999999999-12-31", Period.ofYears(1)),
+            Triple("-999999998-01-01", "-999999999-01-01", Period.ofYears(-1)),
+        )
+
+        cases.forEach { (startText, endText, step) ->
+            val javaStep = JavaPeriod.of(step.years, step.months, step.days)
+            assertSameOutcome(
+                javaOperation = {
+                    JavaLocalDate.parse(startText)
+                        .datesUntil(JavaLocalDate.parse(endText), javaStep)
+                        .map(JavaLocalDate::toString)
+                        .toList()
+                },
+                kotlinOperation = {
+                    LocalDate.parse(startText)
+                        .datesUntil(LocalDate.parse(endText), step)
+                        .map(LocalDate::toString)
+                        .toList()
+                },
+                context = "$startText until $endText by $step",
+            )
+        }
+
+        val invalidCases = listOf(
+            Triple("2024-01-01", "2024-01-02", Period.ZERO),
+            Triple("2024-01-01", "2024-01-02", Period.of(0, 1, -1)),
+            Triple("2024-01-01", "2023-12-31", Period.ofDays(1)),
+            Triple("2024-01-01", "2024-01-02", Period.ofDays(-1)),
+        )
+        invalidCases.forEach { (startText, endText, step) ->
+            assertSameOutcome(
+                javaOperation = {
+                    JavaLocalDate.parse(startText).datesUntil(
+                        JavaLocalDate.parse(endText),
+                        JavaPeriod.of(step.years, step.months, step.days),
+                    )
+                },
+                kotlinOperation = {
+                    LocalDate.parse(startText).datesUntil(LocalDate.parse(endText), step)
+                },
+                context = "$startText until $endText by $step",
+            )
         }
     }
 

@@ -142,12 +142,13 @@ Implemented foundations:
   adjustment, ordering, strict ISO parsing, ISO text output, and
   system-default/injected-clock/explicit-zone current-value factories and
   formatter-based parsing/formatting
-- `LocalDate` core value, full-range epoch conversion, temporal fields,
+- `LocalDate` core value, full-range epoch and instant/zone conversion, temporal fields,
   replacement, checked calendar arithmetic, complete-unit differences, and
-  timeline and calendar-period comparison, including local time composition,
-  earliest-valid zoned start-of-day composition, strict ISO parsing, and ISO
-  text output, with system-default/injected-clock/explicit-zone current-value
-  factories and formatter overloads
+  timeline and calendar-period comparison, with lazy exclusive date sequences
+  using day or calendar-period steps; local time composition, local-time/offset
+  epoch-second conversion, earliest-valid zoned start-of-day composition,
+  strict ISO parsing, and ISO text output, with system-default/injected-clock/
+  explicit-zone current-value factories and formatter overloads
 - `Period` factories, parsing, value behavior, chronology-validated temporal
   integration, checked arithmetic, normalization, and concrete/generic `between`
 - `LocalTime` core value, validated factories, day conversions, temporal

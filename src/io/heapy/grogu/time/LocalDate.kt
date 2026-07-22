@@ -315,6 +315,79 @@ public class LocalDate private constructor(
         }
     }
 
+    /**
+     * Returns dates from this date, inclusive, to [endExclusive], exclusive,
+     * one day at a time.
+     */
+    public fun datesUntil(endExclusive: LocalDate): Sequence<LocalDate> {
+        val end = endExclusive.toEpochDay()
+        val start = toEpochDay()
+        if (end < start) {
+            throw IllegalArgumentException("$endExclusive < $this")
+        }
+        return (start..<end).asSequence().map(::ofEpochDay)
+    }
+
+    /**
+     * Returns dates from this date, inclusive, to [endExclusive], exclusive,
+     * advancing by [step].
+     */
+    public fun datesUntil(
+        endExclusive: LocalDate,
+        step: Period,
+    ): Sequence<LocalDate> {
+        if (step.isZero) {
+            throw IllegalArgumentException("step is zero")
+        }
+        val end = endExclusive.toEpochDay()
+        val start = toEpochDay()
+        val until = end - start
+        val months = step.toTotalMonths()
+        val days = step.days.toLong()
+        if (months < 0 && days > 0 || months > 0 && days < 0) {
+            throw IllegalArgumentException("period months and days are of opposite sign")
+        }
+        if (until == 0L) return emptySequence()
+
+        val sign = if (months > 0 || days > 0) 1 else -1
+        if ((sign < 0) xor (until < 0)) {
+            val relation = if (sign < 0) " > " else " < "
+            throw IllegalArgumentException("$endExclusive$relation$this")
+        }
+        if (months == 0L) {
+            val steps = (until - sign) / days
+            return (0L..steps).asSequence().map { n ->
+                ofEpochDay(start + n * days)
+            }
+        }
+
+        var steps = until * 1_600 / (months * 48_699 + days * 1_600) + 1
+        var addMonths = months * steps
+        var addDays = days * steps
+        val maxAddMonths = if (months > 0) {
+            MAX.prolepticMonth - prolepticMonth
+        } else {
+            prolepticMonth - MIN.prolepticMonth
+        }
+        if (
+            addMonths * sign > maxAddMonths ||
+            (plusMonths(addMonths).toEpochDay() + addDays) * sign >= end * sign
+        ) {
+            steps--
+            addMonths -= months
+            addDays -= days
+            if (
+                addMonths * sign > maxAddMonths ||
+                (plusMonths(addMonths).toEpochDay() + addDays) * sign >= end * sign
+            ) {
+                steps--
+            }
+        }
+        return (0L..steps).asSequence().map { n ->
+            plusMonths(months * n).plusDays(days * n)
+        }
+    }
+
     private fun monthsUntil(end: LocalDate): Long {
         val packedThis = prolepticMonth * 32 + dayOfMonth
         val packedEnd = end.prolepticMonth * 32 + end.dayOfMonth
@@ -357,6 +430,10 @@ public class LocalDate private constructor(
         }
         return ZonedDateTime.of(dateTime, zone)
     }
+
+    /** Combines this date with [time] and [offset] as an epoch-second value. */
+    public fun toEpochSecond(time: LocalTime, offset: ZoneOffset): Long =
+        toEpochDay() * SECONDS_PER_DAY + time.toSecondOfDay() - offset.totalSeconds
 
     override fun compareTo(other: ChronoLocalDate): Int {
         if (other !is LocalDate) return super<ChronoLocalDate>.compareTo(other)
@@ -412,6 +489,7 @@ public class LocalDate private constructor(
     public companion object {
         private const val DAYS_PER_CYCLE: Long = 146_097
         private const val DAYS_0000_TO_1970: Long = 719_528
+        private const val SECONDS_PER_DAY: Long = 86_400
 
         public val MIN: LocalDate = LocalDate(Year.MIN_VALUE, 1, 1)
         public val MAX: LocalDate = LocalDate(Year.MAX_VALUE, 12, 31)
@@ -462,6 +540,13 @@ public class LocalDate private constructor(
                 remaining -= length
             }
             error("Validated day-of-year could not be resolved")
+        }
+
+        /** Obtains the local date at [instant] in [zone]. */
+        public fun ofInstant(instant: Instant, zone: ZoneId): LocalDate {
+            val offset = zone.rules.getOffset(instant)
+            val localSecond = instant.epochSecond + offset.totalSeconds
+            return ofEpochDay(floorDiv(localSecond, SECONDS_PER_DAY))
         }
 
         /** Obtains a date from the count of days since 1970-01-01. */

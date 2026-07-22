@@ -88,6 +88,109 @@ class LocalDateTest {
     }
 
     @Test
+    fun convertsBetweenInstantsDatesTimesAndOffsets() {
+        val instant = Instant.parse("2024-02-29T23:30:00Z")
+
+        assertEquals(
+            LocalDate.of(2024, 3, 1),
+            LocalDate.ofInstant(instant, ZoneOffset.ofHours(1)),
+        )
+        assertEquals(
+            LocalDate.of(2024, 2, 29),
+            LocalDate.ofInstant(instant, ZoneOffset.ofHours(-1)),
+        )
+        assertEquals(
+            LocalDate.of(2024, 3, 1),
+            LocalDate.ofInstant(instant, ZoneId.of("Europe/Paris")),
+        )
+        assertEquals(
+            -3_600L,
+            LocalDate.EPOCH.toEpochSecond(LocalTime.MIDNIGHT, ZoneOffset.ofHours(1)),
+        )
+        assertEquals(
+            instant.epochSecond,
+            LocalDate.of(2024, 2, 29).toEpochSecond(
+                LocalTime.of(23, 30),
+                ZoneOffset.UTC,
+            ),
+        )
+    }
+
+    @Test
+    fun producesLazyExclusiveDateSequences() {
+        val start = LocalDate.of(2024, 2, 27)
+        val end = LocalDate.of(2024, 3, 2)
+
+        assertEquals(
+            listOf(
+                LocalDate.of(2024, 2, 27),
+                LocalDate.of(2024, 2, 28),
+                LocalDate.of(2024, 2, 29),
+                LocalDate.of(2024, 3, 1),
+            ),
+            start.datesUntil(end).toList(),
+        )
+        assertEquals(emptyList(), start.datesUntil(start).toList())
+        assertEquals(
+            listOf(LocalDate.MAX.minusDays(1)),
+            LocalDate.MAX.minusDays(1).datesUntil(LocalDate.MAX).toList(),
+        )
+        assertEquals(
+            listOf(LocalDate.EPOCH, LocalDate.EPOCH.plusDays(1)),
+            LocalDate.EPOCH.datesUntil(LocalDate.MAX).take(2).toList(),
+        )
+        assertFailsWith<IllegalArgumentException> {
+            end.datesUntil(start)
+        }
+    }
+
+    @Test
+    fun producesCalendarAwareSteppedDateSequences() {
+        assertEquals(
+            listOf(
+                LocalDate.of(2015, 1, 31),
+                LocalDate.of(2015, 2, 28),
+                LocalDate.of(2015, 3, 31),
+                LocalDate.of(2015, 4, 30),
+            ),
+            LocalDate.of(2015, 1, 31)
+                .datesUntil(LocalDate.of(2015, 5, 1), Period.ofMonths(1))
+                .toList(),
+        )
+        assertEquals(
+            listOf(
+                LocalDate.of(2015, 5, 31),
+                LocalDate.of(2015, 4, 30),
+                LocalDate.of(2015, 3, 31),
+                LocalDate.of(2015, 2, 28),
+                LocalDate.of(2015, 1, 31),
+            ),
+            LocalDate.of(2015, 5, 31)
+                .datesUntil(LocalDate.of(2015, 1, 1), Period.ofMonths(-1))
+                .toList(),
+        )
+        assertEquals(
+            listOf(LocalDate.of(2024, 1, 1), LocalDate.of(2024, 1, 2)),
+            LocalDate.of(2024, 1, 1)
+                .datesUntil(LocalDate.of(2024, 1, 3), Period.of(1, -12, 1))
+                .toList(),
+        )
+
+        assertFailsWith<IllegalArgumentException> {
+            LocalDate.EPOCH.datesUntil(LocalDate.EPOCH, Period.ZERO)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            LocalDate.EPOCH.datesUntil(LocalDate.EPOCH.plusDays(1), Period.of(0, 1, -1))
+        }
+        assertFailsWith<IllegalArgumentException> {
+            LocalDate.EPOCH.datesUntil(LocalDate.EPOCH.minusDays(1), Period.ofDays(1))
+        }
+        assertFailsWith<IllegalArgumentException> {
+            LocalDate.EPOCH.datesUntil(LocalDate.EPOCH.plusDays(1), Period.ofDays(-1))
+        }
+    }
+
+    @Test
     fun exposesCalendarProperties() {
         val leapDay = LocalDate.of(2024, 2, 29)
         assertEquals(2024, leapDay.year)
