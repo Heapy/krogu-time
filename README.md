@@ -37,8 +37,9 @@ Implemented foundations:
   configuration enums
 - `DecimalStyle` standard symbols, immutable symbol replacement, digit
   conversion, value semantics, and Java-compatible text (locale factories remain)
-- `DateTimeFormatter` core formatting, appendable output, parsing and temporal
-  queries, with Java-compatible `ISO_LOCAL_DATE`, `ISO_LOCAL_TIME`,
+- `DateTimeFormatter` core formatting, appendable output, parsing, temporal
+  queries, ordered `parseBest` conversion, and query-failure wrapping, with
+  Java-compatible `ISO_LOCAL_DATE`, `ISO_LOCAL_TIME`,
   `ISO_LOCAL_DATE_TIME`, `ISO_INSTANT`, `ISO_OFFSET_DATE`, `ISO_DATE`,
   `ISO_TIME`, `ISO_DATE_TIME`, `ISO_OFFSET_TIME`, `ISO_OFFSET_DATE_TIME`, and
   `ISO_ZONED_DATE_TIME` constants, plus `ISO_ORDINAL_DATE`, `ISO_WEEK_DATE`,

@@ -39,7 +39,56 @@ public class DateTimeFormatter private constructor(
 
     /** Parses [text] and applies [query] to the result. */
     public fun <T> parse(text: CharSequence, query: TemporalQuery<T>): T =
-        query.queryFrom(parse(text))
+        try {
+            query.queryFrom(parse(text))
+        } catch (exception: DateTimeParseException) {
+            throw exception
+        } catch (exception: RuntimeException) {
+            throw createParseError(text, exception)
+        }
+
+    /**
+     * Parses [text], returning the result of the first query that can convert
+     * the parsed temporal object.
+     */
+    public fun parseBest(
+        text: CharSequence,
+        vararg queries: TemporalQuery<*>,
+    ): TemporalAccessor {
+        require(queries.size >= 2) { "At least two queries must be specified" }
+
+        try {
+            val resolved = parse(text)
+            queries.forEach { query ->
+                try {
+                    return query.queryFrom(resolved) as TemporalAccessor
+                } catch (_: RuntimeException) {
+                    // Try the next query in priority order.
+                }
+            }
+            throw DateTimeException(
+                "Unable to convert parsed text using any of the specified queries",
+            )
+        } catch (exception: DateTimeParseException) {
+            throw exception
+        } catch (exception: RuntimeException) {
+            throw createParseError(text, exception)
+        }
+    }
+
+    private fun createParseError(
+        text: CharSequence,
+        cause: RuntimeException,
+    ): DateTimeParseException {
+        val input = text.toString()
+        val displayText = if (input.length > 64) "${input.take(64)}..." else input
+        return DateTimeParseException(
+            "Text '$displayText' could not be parsed: ${cause.message}",
+            input,
+            0,
+            cause,
+        )
+    }
 
     override fun toString(): String = description
 
