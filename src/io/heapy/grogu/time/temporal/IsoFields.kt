@@ -1,11 +1,14 @@
 package io.heapy.grogu.time.temporal
 
 import io.heapy.grogu.time.DayOfWeek
+import io.heapy.grogu.time.DateTimeException
 import io.heapy.grogu.time.Duration
 import io.heapy.grogu.time.LocalDate
 import io.heapy.grogu.time.chrono.Chronology
 import io.heapy.grogu.time.chrono.IsoChronology
+import io.heapy.grogu.time.format.ResolverStyle
 import io.heapy.grogu.time.internal.addExact
+import io.heapy.grogu.time.internal.multiplyExact
 import io.heapy.grogu.time.internal.subtractExact
 
 /** Fields and units specific to the ISO-8601 calendar system. */
@@ -157,6 +160,112 @@ public object IsoFields {
                     val days = dayOfWeek - weekOne.dayOfWeek.value + (week - 1) * 7
                     temporal.with(weekOne.plusDays(days.toLong())) as R
                 }
+            }
+        }
+
+        override fun resolve(
+            fieldValues: MutableMap<TemporalField, Long>,
+            partialTemporal: TemporalAccessor,
+            resolverStyle: ResolverStyle,
+        ): TemporalAccessor? = when (this) {
+            DAY_OF_QUARTER -> resolveDayOfQuarter(fieldValues, partialTemporal, resolverStyle)
+            WEEK_OF_WEEK_BASED_YEAR -> resolveWeekOfWeekBasedYear(
+                fieldValues,
+                partialTemporal,
+                resolverStyle,
+            )
+            QUARTER_OF_YEAR,
+            WEEK_BASED_YEAR,
+            -> null
+        }
+
+        private fun resolveDayOfQuarter(
+            fieldValues: MutableMap<TemporalField, Long>,
+            partialTemporal: TemporalAccessor,
+            resolverStyle: ResolverStyle,
+        ): LocalDate? {
+            val yearValue = fieldValues[ChronoField.YEAR] ?: return null
+            val quarterValue = fieldValues[QUARTER_OF_YEAR] ?: return null
+            var dayOfQuarter = fieldValues[DAY_OF_QUARTER] ?: return null
+            ensureIso(partialTemporal)
+            val year = ChronoField.YEAR.checkValidIntValue(yearValue)
+            val date = if (resolverStyle == ResolverStyle.LENIENT) {
+                dayOfQuarter = subtractExact(dayOfQuarter, 1L)
+                LocalDate.of(year, 1, 1).plusMonths(
+                    multiplyExact(subtractExact(quarterValue, 1L), 3L),
+                )
+            } else {
+                val quarter = QUARTER_OF_YEAR.range.checkValidIntValue(
+                    quarterValue,
+                    QUARTER_OF_YEAR,
+                )
+                val firstDay = LocalDate.of(year, (quarter - 1) * 3 + 1, 1)
+                if (dayOfQuarter < 1L || dayOfQuarter > 90L) {
+                    if (resolverStyle == ResolverStyle.STRICT) {
+                        DAY_OF_QUARTER.rangeRefinedBy(firstDay)
+                            .checkValidValue(dayOfQuarter, DAY_OF_QUARTER)
+                    } else {
+                        DAY_OF_QUARTER.range.checkValidValue(dayOfQuarter, DAY_OF_QUARTER)
+                    }
+                }
+                dayOfQuarter--
+                firstDay
+            }
+            fieldValues.remove(DAY_OF_QUARTER)
+            fieldValues.remove(ChronoField.YEAR)
+            fieldValues.remove(QUARTER_OF_YEAR)
+            return date.plusDays(dayOfQuarter)
+        }
+
+        private fun resolveWeekOfWeekBasedYear(
+            fieldValues: MutableMap<TemporalField, Long>,
+            partialTemporal: TemporalAccessor,
+            resolverStyle: ResolverStyle,
+        ): LocalDate? {
+            val weekBasedYearValue = fieldValues[WEEK_BASED_YEAR] ?: return null
+            val dayOfWeekValue = fieldValues[ChronoField.DAY_OF_WEEK] ?: return null
+            val weekValue = fieldValues[WEEK_OF_WEEK_BASED_YEAR] ?: return null
+            ensureIso(partialTemporal)
+            val weekBasedYear = WEEK_BASED_YEAR.range.checkValidIntValue(
+                weekBasedYearValue,
+                WEEK_BASED_YEAR,
+            )
+            var date = LocalDate.of(weekBasedYear, 1, 4)
+            date = if (resolverStyle == ResolverStyle.LENIENT) {
+                var dayOfWeek = dayOfWeekValue
+                if (dayOfWeek > 7L) {
+                    date = date.plusWeeks((dayOfWeek - 1L) / 7L)
+                    dayOfWeek = (dayOfWeek - 1L) % 7L + 1L
+                } else if (dayOfWeek < 1L) {
+                    date = date.plusWeeks(subtractExact(dayOfWeek, 7L) / 7L)
+                    dayOfWeek = (dayOfWeek + 6L) % 7L + 1L
+                }
+                date.plusWeeks(subtractExact(weekValue, 1L))
+                    .with(ChronoField.DAY_OF_WEEK, dayOfWeek)
+            } else {
+                val dayOfWeek = ChronoField.DAY_OF_WEEK.checkValidIntValue(dayOfWeekValue)
+                if (weekValue < 1L || weekValue > 52L) {
+                    if (resolverStyle == ResolverStyle.STRICT) {
+                        weekRange(date).checkValidValue(weekValue, WEEK_OF_WEEK_BASED_YEAR)
+                    } else {
+                        WEEK_OF_WEEK_BASED_YEAR.range.checkValidValue(
+                            weekValue,
+                            WEEK_OF_WEEK_BASED_YEAR,
+                        )
+                    }
+                }
+                date.plusWeeks(weekValue - 1L)
+                    .with(ChronoField.DAY_OF_WEEK, dayOfWeek.toLong())
+            }
+            fieldValues.remove(WEEK_OF_WEEK_BASED_YEAR)
+            fieldValues.remove(WEEK_BASED_YEAR)
+            fieldValues.remove(ChronoField.DAY_OF_WEEK)
+            return date
+        }
+
+        private fun ensureIso(partialTemporal: TemporalAccessor) {
+            if (Chronology.from(partialTemporal) != IsoChronology) {
+                throw DateTimeException("Resolve requires IsoChronology")
             }
         }
 

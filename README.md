@@ -48,8 +48,9 @@ Implemented foundations:
   non-ISO calendar, and RFC 1123 resolution (including excess-day handling); numeric
   `ofPattern` date/time fields, including ordinal day `D`, aligned week `F`,
   clock-hour `k`/`K`/`h`, milli/nano-of-day `A`/`N`, raw nano `n`, exact
-  fractions, reduced years, adjacent fields, quoted literals, ISO/RFC-style
-  offsets, and region zone IDs; Java-compatible aggregate and partial time-field
+  fractions, modified-Julian day `g`, numeric quarter `Q`/`q`, reduced years,
+  adjacent fields, quoted literals, ISO/RFC-style offsets, and region zone IDs;
+  Java-compatible aggregate and partial time-field
   normalization for nano/micro/milli, second/minute-of-day, and AM/PM clocks;
   `DateTimeFormatterBuilder` pattern/literal and generic numeric-value
   composition, sign/width controls, integer- and chronology-base-date reduced
@@ -186,13 +187,16 @@ Implemented foundations:
 - `InstantSource` system, fixed, offset, and tick sources, default millisecond
   conversion, arbitrary-source zone-to-clock bridging, and Java-compatible
   reuse of clock implementations
-- temporal interfaces and exceptions, plus all standard chronology, zone,
-  offset, local-date, local-time, and precision queries
+- temporal interfaces and exceptions, including `TemporalField` parsed-field
+  resolution, plus all standard chronology, zone, offset, local-date,
+  local-time, and precision queries
 - `TemporalAdjusters` complete date-adjuster utility surface
 - `JulianFields` Julian day, modified Julian day, and Rata Die fields with
-  full-range epoch conversion and adjustment
+  full-range epoch conversion, adjustment, and chronology-aware parsed-field
+  resolution
 - `IsoFields` quarter-of-year and ISO week-based-year fields and units, with
-  leap-year ranges, field adjustment, and calendar arithmetic
+  leap-year ranges, field adjustment, calendar arithmetic, and strict/smart/
+  lenient quarter and week-date resolution
 - `WeekFields` canonical explicit week definitions for every first-day and
   minimal-days combination, with all five localized computed fields
 - `ValueRange`

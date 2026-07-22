@@ -1,6 +1,9 @@
 package io.heapy.grogu.time.temporal
 
 import io.heapy.grogu.time.DateTimeException
+import io.heapy.grogu.time.chrono.Chronology
+import io.heapy.grogu.time.format.ResolverStyle
+import io.heapy.grogu.time.internal.subtractExact
 
 /** Date fields that express an epoch day using common continuous day-number systems. */
 public object JulianFields {
@@ -58,6 +61,18 @@ public object JulianFields {
             }
             @Suppress("UNCHECKED_CAST")
             return temporal.with(ChronoField.EPOCH_DAY, newValue - offset) as R
+        }
+
+        override fun resolve(
+            fieldValues: MutableMap<TemporalField, Long>,
+            partialTemporal: TemporalAccessor,
+            resolverStyle: ResolverStyle,
+        ): TemporalAccessor {
+            val value = requireNotNull(fieldValues.remove(this))
+            if (resolverStyle != ResolverStyle.LENIENT) {
+                range.checkValidValue(value, this)
+            }
+            return Chronology.from(partialTemporal).dateEpochDay(subtractExact(value, offset))
         }
 
         override fun toString(): String = displayName

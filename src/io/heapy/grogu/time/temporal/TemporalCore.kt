@@ -1,6 +1,7 @@
 package io.heapy.grogu.time.temporal
 
 import io.heapy.grogu.time.Duration
+import io.heapy.grogu.time.format.ResolverStyle
 
 /** A strategy for querying information from a [TemporalAccessor]. */
 public fun interface TemporalQuery<R> {
@@ -91,6 +92,16 @@ public interface TemporalField {
     public fun getFrom(temporal: TemporalAccessor): Long
 
     public fun <R : Temporal> adjustInto(temporal: R, newValue: Long): R
+
+    /**
+     * Resolves this field with the other parsed [fieldValues], removing fields
+     * that were consumed when a date or time is produced.
+     */
+    public fun resolve(
+        fieldValues: MutableMap<TemporalField, Long>,
+        partialTemporal: TemporalAccessor,
+        resolverStyle: ResolverStyle,
+    ): TemporalAccessor? = null
 }
 
 /** A strategy that adjusts a temporal object. */

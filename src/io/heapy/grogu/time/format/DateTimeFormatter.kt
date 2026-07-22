@@ -21,6 +21,7 @@ import io.heapy.grogu.time.internal.multiplyExact
 import io.heapy.grogu.time.temporal.ChronoField
 import io.heapy.grogu.time.temporal.ChronoUnit
 import io.heapy.grogu.time.temporal.IsoFields
+import io.heapy.grogu.time.temporal.JulianFields
 import io.heapy.grogu.time.temporal.TemporalAccessor
 import io.heapy.grogu.time.temporal.TemporalField
 import io.heapy.grogu.time.temporal.TemporalQueries
@@ -1162,7 +1163,10 @@ private fun Char.isAsciiLetter(): Boolean = this in 'A'..'Z' || this in 'a'..'z'
 
 private fun validatePatternField(symbol: Char, count: Int) {
     when (symbol) {
-        'u', 'y' -> require(count <= 19) { "The count of pattern letters must not exceed 19: $symbol" }
+        'u', 'y', 'g' -> require(count <= 19) {
+            "The count of pattern letters must not exceed 19: $symbol"
+        }
+        'Q', 'q' -> require(count <= 2) { "Too many pattern letters: $symbol" }
         'M', 'd', 'H', 'k', 'K', 'h', 'm', 's' -> require(count <= 2) {
             "Too many pattern letters: $symbol"
         }
@@ -1197,6 +1201,8 @@ private fun createPatternFieldToken(
         else -> fixedPatternValue(ChronoField.DAY_OF_YEAR, 3)
     }
     'F' -> variablePatternValue(ChronoField.ALIGNED_WEEK_OF_MONTH)
+    'Q', 'q' -> timePatternValue(IsoFields.QUARTER_OF_YEAR, count)
+    'g' -> PatternToken.Value(JulianFields.MODIFIED_JULIAN_DAY, count, 19, SignStyle.NORMAL)
     'k' -> timePatternValue(ChronoField.CLOCK_HOUR_OF_DAY, count)
     'K' -> timePatternValue(ChronoField.HOUR_OF_AMPM, count)
     'h' -> timePatternValue(ChronoField.CLOCK_HOUR_OF_AMPM, count)
@@ -2501,29 +2507,13 @@ private fun resolvePatternValues(
     } else {
         null
     }
-    val weekBasedYear = fieldValues[IsoFields.WEEK_BASED_YEAR]
-    val weekOfYear = fieldValues[IsoFields.WEEK_OF_WEEK_BASED_YEAR]
     val dayOfWeek = fieldValues[ChronoField.DAY_OF_WEEK]
-    val weekDate = if (
-        chronology == IsoChronology &&
-        weekBasedYear != null &&
-        weekOfYear != null &&
-        dayOfWeek != null
-    ) {
-        try {
-            resolveIsoWeekDate(
-                weekBasedYear = weekBasedYear.toPatternInt('Y', text),
-                week = weekOfYear.toPatternInt('w', text),
-                dayOfWeek = dayOfWeek.toPatternInt('e', text),
-                resolverStyle = resolverStyle,
-            )
-        } catch (exception: RuntimeException) {
-            throw DateTimeParseException("Text cannot be parsed to a date", text, 0, exception)
-        }
-    } else {
-        null
+    val customDates = try {
+        resolveCustomDateFields(fieldValues, chronology, resolverStyle)
+    } catch (exception: RuntimeException) {
+        throw DateTimeParseException("Text cannot be parsed to a date", text, 0, exception)
     }
-    val resolvedDates = listOfNotNull(calendarDate, ordinalDate, weekDate)
+    val resolvedDates = listOfNotNull(calendarDate, ordinalDate) + customDates
     val date = resolvedDates.firstOrNull()
     if (
         date != null &&
@@ -2580,6 +2570,40 @@ private fun resolvePatternValues(
         leapSecond = leapSecond,
     )
 }
+
+private fun resolveCustomDateFields(
+    fieldValues: MutableMap<TemporalField, Long>,
+    chronology: Chronology,
+    resolverStyle: ResolverStyle,
+): List<ChronoLocalDate> {
+    val partialTemporal = ParsedTemporalAccessor(
+        chronology = chronology,
+        fields = fieldValues,
+    )
+    val resolvedDates = mutableListOf<ChronoLocalDate>()
+    repeat(MAX_FIELD_RESOLVE_PASSES) {
+        var changed = false
+        for (field in fieldValues.keys.toList()) {
+            val previousValues = fieldValues.toMap()
+            val resolved = field.resolve(fieldValues, partialTemporal, resolverStyle)
+            resolved?.let { temporal ->
+                resolvedDates += if (temporal is ChronoLocalDate) {
+                    temporal
+                } else {
+                    chronology.date(temporal)
+                }
+            }
+            if (resolved != null || fieldValues != previousValues) {
+                changed = true
+                break
+            }
+        }
+        if (!changed) return resolvedDates
+    }
+    throw DateTimeException("One of the parsed fields has an incorrectly implemented resolve method")
+}
+
+private const val MAX_FIELD_RESOLVE_PASSES: Int = 50
 
 private fun resolveTimeFields(
     fieldValues: MutableMap<TemporalField, Long>,
@@ -3571,7 +3595,20 @@ private fun parseIsoWeekDate(
     val week = parseFixedDigits(mainText, marker + 2, 2, input, "ISO week date")
     val dayOfWeek = parseFixedDigits(mainText, marker + 5, 1, input, "ISO week date")
     val date = try {
-        resolveIsoWeekDate(weekBasedYear, week, dayOfWeek, resolverStyle)
+        val fieldValues = mutableMapOf<TemporalField, Long>(
+            IsoFields.WEEK_BASED_YEAR to weekBasedYear.toLong(),
+            IsoFields.WEEK_OF_WEEK_BASED_YEAR to week.toLong(),
+            ChronoField.DAY_OF_WEEK to dayOfWeek.toLong(),
+        )
+        LocalDate.from(
+            requireNotNull(
+                IsoFields.WEEK_OF_WEEK_BASED_YEAR.resolve(
+                    fieldValues,
+                    LocalDate.EPOCH,
+                    resolverStyle,
+                ),
+            ),
+        )
     } catch (exception: RuntimeException) {
         throw DateTimeParseException(
             "Text cannot be parsed to an ISO week date",
@@ -3856,42 +3893,6 @@ private fun resolveOrdinalDateInChronology(
     chronology.dateYearDay(year, 1).plus(dayOfYear.toLong() - 1, ChronoUnit.DAYS)
 } else {
     chronology.dateYearDay(year, dayOfYear)
-}
-
-private fun resolveIsoWeekDate(
-    weekBasedYear: Int,
-    week: Int,
-    dayOfWeek: Int,
-    resolverStyle: ResolverStyle,
-): LocalDate {
-    var base = LocalDate.of(weekBasedYear, 1, 4)
-    var normalizedDay = dayOfWeek
-    if (resolverStyle == ResolverStyle.LENIENT) {
-        if (normalizedDay > 7) {
-            base = base.plusWeeks(((normalizedDay - 1) / 7).toLong())
-            normalizedDay = (normalizedDay - 1) % 7 + 1
-        } else if (normalizedDay < 1) {
-            base = base.plusWeeks(((normalizedDay - 7) / 7).toLong())
-            normalizedDay = (normalizedDay + 6) % 7 + 1
-        }
-    } else {
-        if (normalizedDay !in 1..7 || week !in 1..53) {
-            throw DateTimeException("Invalid ISO week date")
-        }
-    }
-    return base.plusWeeks((week - 1).toLong())
-        .plusDays((normalizedDay - base.dayOfWeek.value).toLong())
-        .also { date ->
-            if (
-                resolverStyle == ResolverStyle.STRICT &&
-                (
-                    date.get(IsoFields.WEEK_BASED_YEAR) != weekBasedYear ||
-                        date.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR) != week
-                )
-            ) {
-                throw DateTimeException("Invalid ISO week date")
-            }
-        }
 }
 
 private class ParsedTemporalAccessor(
