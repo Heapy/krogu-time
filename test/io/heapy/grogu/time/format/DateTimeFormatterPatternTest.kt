@@ -8,6 +8,7 @@ import io.heapy.grogu.time.Year
 import io.heapy.grogu.time.ZoneId
 import io.heapy.grogu.time.ZoneOffset
 import io.heapy.grogu.time.ZonedDateTime
+import io.heapy.grogu.time.temporal.ChronoField
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -84,6 +85,16 @@ class DateTimeFormatterPatternTest {
             LocalDate.of(2024, 2, 29),
             DateTimeFormatter.ofPattern("yyyMMdd").parse("20240229", LocalDate::from),
         )
+    }
+
+    @Test
+    fun parsingSecondPopulatesFractionFields() {
+        val parsed = DateTimeFormatter.ofPattern("s").parse("59")
+
+        assertEquals(59, parsed.getLong(ChronoField.SECOND_OF_MINUTE))
+        assertEquals(0, parsed.getLong(ChronoField.NANO_OF_SECOND))
+        assertEquals(0, parsed.getLong(ChronoField.MICRO_OF_SECOND))
+        assertEquals(0, parsed.getLong(ChronoField.MILLI_OF_SECOND))
     }
 
     @Test

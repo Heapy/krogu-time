@@ -3631,6 +3631,13 @@ private fun resolveTimeFields(
             )
         }
     }
+
+    if (ChronoField.SECOND_OF_MINUTE in fieldValues) {
+        val resolvedNano = fieldValues[ChronoField.NANO_OF_SECOND] ?: 0
+        fieldValues[ChronoField.NANO_OF_SECOND] = resolvedNano
+        fieldValues[ChronoField.MICRO_OF_SECOND] = resolvedNano / NANOS_PER_MICRO
+        fieldValues[ChronoField.MILLI_OF_SECOND] = resolvedNano / NANOS_PER_MILLI
+    }
 }
 
 private fun MutableMap<TemporalField, Long>.updateTimeField(

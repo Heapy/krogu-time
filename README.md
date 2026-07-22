@@ -79,7 +79,8 @@ Implemented foundations:
   daylight-aware formatting, localized parsing, and preferred-zone
   disambiguation;
   Java-compatible aggregate and partial time-field
-  normalization for nano/micro/milli, second/minute-of-day, and AM/PM clocks;
+  normalization for nano/micro/milli (including zero fractional fields for
+  second-only parses), second/minute-of-day, and AM/PM clocks;
   `DateTimeFormatterBuilder` pattern/literal and generic numeric-value
   composition, sign/width controls, integer- and chronology-base-date reduced
   value windows, fixed-range fractions, immutable custom field-text maps and

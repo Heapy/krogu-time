@@ -7,6 +7,13 @@ import io.heapy.grogu.time.Year
 import io.heapy.grogu.time.ZoneId
 import io.heapy.grogu.time.ZoneOffset
 import io.heapy.grogu.time.ZonedDateTime
+import io.heapy.grogu.time.temporal.ChronoField
+import io.heapy.grogu.time.temporal.IsoFields
+import io.heapy.grogu.time.temporal.JulianFields
+import io.heapy.grogu.time.temporal.TemporalAccessor
+import io.heapy.grogu.time.temporal.TemporalField
+import io.heapy.grogu.time.temporal.TemporalQueries
+import io.heapy.grogu.time.temporal.WeekFields
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -124,6 +131,34 @@ class DateTimeFormatterPatternJavaConformanceTest {
         }
     }
 
+    @Test
+    fun everyFormattedPatternLetterWidthParsesLikeJavaTime() {
+        val fields = comparableFields()
+        val mismatches = everyPatternAndWidth().mapNotNull { pattern ->
+            val javaFormatter = runCatching {
+                java.time.format.DateTimeFormatter.ofPattern(pattern, java.util.Locale.US)
+            }.getOrNull() ?: return@mapNotNull null
+            val kotlinFormatter = runCatching {
+                DateTimeFormatter.ofPattern(pattern, Locale.US)
+            }.getOrNull() ?: return@mapNotNull null
+            val text = runCatching { javaFormatter.format(JAVA_DATE_TIME) }
+                .getOrNull() ?: return@mapNotNull null
+            val javaResult = runCatching { javaSnapshot(javaFormatter.parse(text), fields) }
+            val kotlinResult = runCatching { kotlinSnapshot(kotlinFormatter.parse(text), fields) }
+            val javaOutcome = javaResult.getOrNull() to
+                javaResult.exceptionOrNull()?.javaClass?.simpleName
+            val kotlinOutcome = kotlinResult.getOrNull() to
+                kotlinResult.exceptionOrNull()?.javaClass?.simpleName
+            if (javaOutcome == kotlinOutcome) {
+                null
+            } else {
+                "$pattern ($text): Java=$javaOutcome, Kotlin=$kotlinOutcome"
+            }
+        }
+
+        assertEquals(emptyList(), mismatches)
+    }
+
     private fun comparePatternOutcome(pattern: String): String? {
         val javaResult = runCatching {
             java.time.format.DateTimeFormatter.ofPattern(pattern).toString()
@@ -148,6 +183,69 @@ class DateTimeFormatterPatternJavaConformanceTest {
         }
         (1..20).forEach { width -> add("p".repeat(width) + "H") }
     }
+
+    private fun comparableFields(): List<Pair<java.time.temporal.TemporalField, TemporalField>> = buildList {
+        ChronoField.entries.forEach { field ->
+            add(java.time.temporal.ChronoField.valueOf(field.name) to field)
+        }
+        add(java.time.temporal.IsoFields.DAY_OF_QUARTER to IsoFields.DAY_OF_QUARTER)
+        add(java.time.temporal.IsoFields.QUARTER_OF_YEAR to IsoFields.QUARTER_OF_YEAR)
+        add(java.time.temporal.IsoFields.WEEK_OF_WEEK_BASED_YEAR to IsoFields.WEEK_OF_WEEK_BASED_YEAR)
+        add(java.time.temporal.IsoFields.WEEK_BASED_YEAR to IsoFields.WEEK_BASED_YEAR)
+        add(java.time.temporal.JulianFields.JULIAN_DAY to JulianFields.JULIAN_DAY)
+        add(java.time.temporal.JulianFields.MODIFIED_JULIAN_DAY to JulianFields.MODIFIED_JULIAN_DAY)
+        add(java.time.temporal.JulianFields.RATA_DIE to JulianFields.RATA_DIE)
+        val javaWeekFields = java.time.temporal.WeekFields.of(java.util.Locale.US)
+        val kotlinWeekFields = WeekFields.of(Locale.US)
+        add(javaWeekFields.dayOfWeek() to kotlinWeekFields.dayOfWeek)
+        add(javaWeekFields.weekOfMonth() to kotlinWeekFields.weekOfMonth)
+        add(javaWeekFields.weekOfYear() to kotlinWeekFields.weekOfYear)
+        add(javaWeekFields.weekOfWeekBasedYear() to kotlinWeekFields.weekOfWeekBasedYear)
+        add(javaWeekFields.weekBasedYear() to kotlinWeekFields.weekBasedYear)
+    }
+
+    private fun javaSnapshot(
+        parsed: java.time.temporal.TemporalAccessor,
+        fields: List<Pair<java.time.temporal.TemporalField, TemporalField>>,
+    ): ParsedSnapshot = ParsedSnapshot(
+        fields = fields.mapNotNull { (javaField, kotlinField) ->
+            if (parsed.isSupported(javaField)) kotlinField.toString() to parsed.getLong(javaField) else null
+        }.toMap(),
+        chronology = parsed.query(java.time.temporal.TemporalQueries.chronology())?.id,
+        localDate = parsed.query(java.time.temporal.TemporalQueries.localDate())?.toString(),
+        localTime = parsed.query(java.time.temporal.TemporalQueries.localTime())?.toString(),
+        zone = parsed.query(java.time.temporal.TemporalQueries.zoneId())?.toString(),
+        offset = parsed.query(java.time.temporal.TemporalQueries.offset())?.toString(),
+        excessDays = parsed.query(java.time.format.DateTimeFormatter.parsedExcessDays()).toString(),
+        leapSecond = parsed.query(java.time.format.DateTimeFormatter.parsedLeapSecond()),
+    )
+
+    private fun kotlinSnapshot(
+        parsed: TemporalAccessor,
+        fields: List<Pair<java.time.temporal.TemporalField, TemporalField>>,
+    ): ParsedSnapshot = ParsedSnapshot(
+        fields = fields.mapNotNull { (_, kotlinField) ->
+            if (parsed.isSupported(kotlinField)) kotlinField.toString() to parsed.getLong(kotlinField) else null
+        }.toMap(),
+        chronology = parsed.query(TemporalQueries.chronology())?.id,
+        localDate = parsed.query(TemporalQueries.localDate())?.toString(),
+        localTime = parsed.query(TemporalQueries.localTime())?.toString(),
+        zone = parsed.query(TemporalQueries.zoneId())?.toString(),
+        offset = parsed.query(TemporalQueries.offset())?.toString(),
+        excessDays = parsed.query(DateTimeFormatter.parsedExcessDays()).toString(),
+        leapSecond = parsed.query(DateTimeFormatter.parsedLeapSecond()),
+    )
+
+    private data class ParsedSnapshot(
+        val fields: Map<String, Long>,
+        val chronology: String?,
+        val localDate: String?,
+        val localTime: String?,
+        val zone: String?,
+        val offset: String?,
+        val excessDays: String,
+        val leapSecond: Boolean,
+    )
 
     private companion object {
         val JAVA_DATE_TIME: java.time.ZonedDateTime = java.time.ZonedDateTime.of(
