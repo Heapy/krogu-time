@@ -654,6 +654,20 @@ internal sealed interface PatternToken {
     ) : PatternToken
 
     data class ZoneId(val queryMode: ZoneQueryMode) : PatternToken
+
+    data class ParseSetting(val setting: ParserSetting) : PatternToken
+
+    data class DefaultValue(
+        val field: TemporalField,
+        val value: Long,
+    ) : PatternToken
+}
+
+internal enum class ParserSetting {
+    CASE_SENSITIVE,
+    CASE_INSENSITIVE,
+    STRICT,
+    LENIENT,
 }
 
 internal sealed interface ReducedValueBase {
@@ -767,6 +781,9 @@ private fun formatPattern(
             is PatternToken.Fraction -> append(formatPatternFraction(token, temporal))
             is PatternToken.Offset -> append(formatBuilderOffset(token, temporal))
             is PatternToken.ZoneId -> append(formatBuilderZoneId(token, temporal))
+            is PatternToken.ParseSetting,
+            is PatternToken.DefaultValue,
+            -> Unit
         }
     }
 }
@@ -985,10 +1002,24 @@ private fun parsePattern(
     var offset: ZoneOffset? = null
     var zone: ZoneId? = null
     var index = 0
+    var caseSensitive = true
+    var strict = true
+    fun storeOffset(parsed: ParsedPatternOffset, errorIndex: Int) {
+        val totalSeconds = parsed.offset.totalSeconds.toLong()
+        val previousValue = values.put(ChronoField.OFFSET_SECONDS, totalSeconds)
+        if (previousValue != null && previousValue != totalSeconds) {
+            throw DateTimeParseException("Conflict found for offset", text, errorIndex)
+        }
+        if (offset != null && offset != parsed.offset) {
+            throw DateTimeParseException("Conflict found for offset", text, errorIndex)
+        }
+        offset = parsed.offset
+        index = parsed.endIndex
+    }
     tokens.forEachIndexed { tokenIndex, token ->
         when (token) {
             is PatternToken.Literal -> {
-                if (!text.startsWith(token.text, index)) {
+                if (!text.matchesAt(index, token.text, caseSensitive)) {
                     throw DateTimeParseException(
                         "Text could not be parsed at index $index",
                         text,
@@ -1000,15 +1031,11 @@ private fun parsePattern(
             is PatternToken.Field -> {
                 when (token.symbol) {
                     'X', 'x', 'Z' -> {
-                        val parsed = parsePatternOffset(token, text, index)
-                        if (offset != null && offset != parsed.offset) {
-                            throw DateTimeParseException("Conflict found for offset", text, index)
-                        }
-                        offset = parsed.offset
-                        index = parsed.endIndex
+                        val parsed = parsePatternOffset(token, text, index, caseSensitive)
+                        storeOffset(parsed, index)
                     }
                     'V' -> {
-                        val parsed = parsePatternZone(text, index)
+                        val parsed = parsePatternZone(text, index, caseSensitive)
                         if (zone != null && zone != parsed.zone) {
                             throw DateTimeParseException("Conflict found for zone", text, index)
                         }
@@ -1016,7 +1043,7 @@ private fun parsePattern(
                         index = parsed.endIndex
                     }
                     else -> {
-                        val parsed = parsePatternField(token, text, index)
+                        val parsed = parsePatternField(token, text, index, strict)
                         val field = token.symbol.toPatternField()
                         val previous = values.put(field, parsed.value)
                         if (previous != null && previous != parsed.value) {
@@ -1031,7 +1058,7 @@ private fun parsePattern(
                 }
             }
             is PatternToken.Value -> {
-                val parsed = parsePatternValue(tokens, tokenIndex, token, text, index)
+                val parsed = parsePatternValue(tokens, tokenIndex, token, text, index, strict)
                 val previous = values.put(token.field, parsed.value)
                 if (previous != null && previous != parsed.value) {
                     throw DateTimeParseException(
@@ -1050,6 +1077,7 @@ private fun parsePattern(
                     text,
                     index,
                     chronology ?: IsoChronology,
+                    strict,
                 )
                 val previous = values.put(token.field, parsed.value)
                 if (previous != null && previous != parsed.value) {
@@ -1062,7 +1090,7 @@ private fun parsePattern(
                 index = parsed.endIndex
             }
             is PatternToken.Fraction -> {
-                val parsed = parsePatternFraction(token, text, index)
+                val parsed = parsePatternFraction(token, text, index, strict)
                 parsed.value?.let { value ->
                     val previous = values.put(token.field, value)
                     if (previous != null && previous != value) {
@@ -1076,20 +1104,25 @@ private fun parsePattern(
                 index = parsed.endIndex
             }
             is PatternToken.Offset -> {
-                val parsed = parseBuilderOffset(token, text, index)
-                if (offset != null && offset != parsed.offset) {
-                    throw DateTimeParseException("Conflict found for offset", text, index)
-                }
-                offset = parsed.offset
-                index = parsed.endIndex
+                val parsed = parseBuilderOffset(token, text, index, caseSensitive, strict)
+                storeOffset(parsed, index)
             }
             is PatternToken.ZoneId -> {
-                val parsed = parsePatternZone(text, index)
+                val parsed = parsePatternZone(text, index, caseSensitive)
                 if (zone != null && zone != parsed.zone) {
                     throw DateTimeParseException("Conflict found for zone", text, index)
                 }
                 zone = parsed.zone
                 index = parsed.endIndex
+            }
+            is PatternToken.ParseSetting -> when (token.setting) {
+                ParserSetting.CASE_SENSITIVE -> caseSensitive = true
+                ParserSetting.CASE_INSENSITIVE -> caseSensitive = false
+                ParserSetting.STRICT -> strict = true
+                ParserSetting.LENIENT -> strict = false
+            }
+            is PatternToken.DefaultValue -> if (token.field !in values) {
+                values[token.field] = token.value
             }
         }
     }
@@ -1108,16 +1141,17 @@ private fun parsePatternOffset(
     token: PatternToken.Field,
     text: String,
     startIndex: Int,
+    caseSensitive: Boolean,
 ): ParsedPatternOffset {
     val firstCharacter = text.getOrNull(startIndex)
-    if (firstCharacter == 'Z' || firstCharacter == 'z') {
+    if (firstCharacter == 'Z' || !caseSensitive && firstCharacter == 'z') {
         if (token.symbol == 'x' || token.symbol == 'Z' && token.count != 5) {
             throw DateTimeParseException("Text could not be parsed at index $startIndex", text, startIndex)
         }
         return ParsedPatternOffset(ZoneOffset.UTC, startIndex + 1)
     }
     if (token.symbol == 'Z' && token.count == 4) {
-        if (!text.startsWith("GMT", startIndex)) {
+        if (!text.matchesAt(startIndex, "GMT", caseSensitive)) {
             throw DateTimeParseException("Text could not be parsed at index $startIndex", text, startIndex)
         }
         val offsetStart = startIndex + 3
@@ -1150,8 +1184,10 @@ private fun parseBuilderOffset(
     token: PatternToken.Offset,
     text: String,
     startIndex: Int,
+    caseSensitive: Boolean,
+    strict: Boolean,
 ): ParsedPatternOffset {
-    if (token.noOffsetText.isNotEmpty() && text.startsWith(token.noOffsetText, startIndex)) {
+    if (token.noOffsetText.isNotEmpty() && text.matchesAt(startIndex, token.noOffsetText, caseSensitive)) {
         return ParsedPatternOffset(ZoneOffset.UTC, startIndex + token.noOffsetText.length)
     }
 
@@ -1162,12 +1198,34 @@ private fun parseBuilderOffset(
     }
 
     val type = validateOffsetPattern(token.pattern)
+    var parseType = type
     val style = type % 11
     val paddedHour = type < 11
-    val colon = style > 0 && style % 2 == 0
+    var colon = style > 0 && style % 2 == 0
+    if (!strict) {
+        if (paddedHour) {
+            if (colon || type == 0 && text.getOrNull(startIndex + 3) == ':') {
+                colon = true
+                parseType = 10
+            } else {
+                parseType = 9
+            }
+        } else {
+            if (colon || type == 11 && (
+                    text.getOrNull(startIndex + 2) == ':' ||
+                        text.getOrNull(startIndex + 3) == ':'
+                    )
+            ) {
+                colon = true
+                parseType = 21
+            } else {
+                parseType = 20
+            }
+        }
+    }
     val state = IntArray(4)
     state[0] = startIndex + 1
-    val valid = when (type) {
+    val valid = when (parseType) {
         0, 11 -> parseOffsetHour(text, paddedHour, state)
         1, 2, 13 -> parseOffsetHour(text, paddedHour, state).also { parsedHour ->
             if (parsedHour) parseOffsetDigits(text, colon, 2, state)
@@ -1302,16 +1360,50 @@ private data class ParsedPatternZone(
 private fun parsePatternZone(
     text: String,
     startIndex: Int,
+    caseSensitive: Boolean,
 ): ParsedPatternZone {
     for (endIndex in text.length downTo startIndex + 1) {
-        try {
-            return ParsedPatternZone(ZoneId.of(text.substring(startIndex, endIndex)), endIndex)
-        } catch (_: RuntimeException) {
-            // Try the next-shorter prefix.
+        parseZoneCandidate(text.substring(startIndex, endIndex), caseSensitive)?.let { zone ->
+            return ParsedPatternZone(zone, endIndex)
         }
     }
     throw DateTimeParseException("Invalid zone", text, startIndex)
 }
+
+private fun parseZoneCandidate(
+    candidate: String,
+    caseSensitive: Boolean,
+): ZoneId? {
+    try {
+        return ZoneId.of(candidate)
+    } catch (_: RuntimeException) {
+        if (caseSensitive) return null
+    }
+
+    val normalized = when {
+        candidate.equals("Z", ignoreCase = true) -> "Z"
+        candidate.startsWith("UTC", ignoreCase = true) -> "UTC" + candidate.drop(3)
+        candidate.startsWith("GMT", ignoreCase = true) -> "GMT" + candidate.drop(3)
+        candidate.startsWith("UT", ignoreCase = true) -> "UT" + candidate.drop(2)
+        else -> ZoneId.getAvailableZoneIds()
+            .firstOrNull { zoneId -> zoneId.equals(candidate, ignoreCase = true) }
+            ?: return null
+    }
+    return try {
+        ZoneId.of(normalized)
+    } catch (_: RuntimeException) {
+        null
+    }
+}
+
+private fun String.matchesAt(
+    startIndex: Int,
+    expected: String,
+    caseSensitive: Boolean,
+): Boolean = startIndex >= 0 && startIndex + expected.length <= length &&
+    expected.indices.all { offset ->
+        this[startIndex + offset].equals(expected[offset], ignoreCase = !caseSensitive)
+    }
 
 private data class ParsedPatternField(
     val value: Long,
@@ -1327,22 +1419,25 @@ private fun parsePatternFraction(
     token: PatternToken.Fraction,
     text: String,
     startIndex: Int,
+    strict: Boolean,
 ): ParsedPatternFraction {
     var index = startIndex
     if (token.decimalPoint) {
         if (text.getOrNull(index) != '.') {
-            if (token.minWidth == 0) return ParsedPatternFraction(null, startIndex)
+            if (!strict || token.minWidth == 0) return ParsedPatternFraction(null, startIndex)
             throw DateTimeParseException("Text could not be parsed at index $startIndex", text, startIndex)
         }
         index++
     }
 
+    val minimumWidth = if (strict) token.minWidth else 0
+    val maximumWidth = if (strict) token.maxWidth else 9
     val digitsStart = index
-    while (index < text.length && text[index] in '0'..'9' && index - digitsStart < token.maxWidth) {
+    while (index < text.length && text[index] in '0'..'9' && index - digitsStart < maximumWidth) {
         index++
     }
     val digitCount = index - digitsStart
-    if (digitCount < token.minWidth) {
+    if (digitCount < minimumWidth) {
         throw DateTimeParseException("Text could not be parsed at index $startIndex", text, startIndex)
     }
     if (digitCount == 0) {
@@ -1363,13 +1458,14 @@ private fun parsePatternValue(
     token: PatternToken.Value,
     text: String,
     startIndex: Int,
+    strict: Boolean,
 ): ParsedPatternField {
     var index = startIndex
     val sign = text.getOrNull(index).takeIf { it == '+' || it == '-' }
     val signAllowed = when (sign) {
-        '+' -> token.signStyle == SignStyle.ALWAYS || token.signStyle == SignStyle.EXCEEDS_PAD
-        '-' -> token.signStyle in listOf(SignStyle.NORMAL, SignStyle.ALWAYS, SignStyle.EXCEEDS_PAD)
-        else -> token.signStyle != SignStyle.ALWAYS
+        '+' -> token.signStyle.acceptsSign(true, strict, token.minWidth == token.maxWidth)
+        '-' -> token.signStyle.acceptsSign(false, strict, token.minWidth == token.maxWidth)
+        else -> token.signStyle != SignStyle.ALWAYS || !strict
     }
     if (!signAllowed) {
         throw DateTimeParseException("Text could not be parsed at index $startIndex", text, startIndex)
@@ -1383,13 +1479,15 @@ private fun parsePatternValue(
         .map { it.adjacentFixedNumericWidth() }
         .takeWhile { it != null }
         .sumOf { it ?: 0 }
-    val maximumDigits = minOf(token.maxWidth, digitRunEnd - digitsStart - reservedWidth)
+    val minimumDigits = if (strict) token.minWidth else 1
+    val configuredMaximum = if (strict) token.maxWidth else 9
+    val maximumDigits = minOf(configuredMaximum, digitRunEnd - digitsStart - reservedWidth)
     while (index < digitRunEnd && index - digitsStart < maximumDigits) {
         index++
     }
     val digitCount = index - digitsStart
-    if (digitCount < token.minWidth ||
-        token.signStyle == SignStyle.EXCEEDS_PAD &&
+    if (digitCount < minimumDigits ||
+        strict && token.signStyle == SignStyle.EXCEEDS_PAD &&
         ((sign == '+' && digitCount <= token.minWidth) || (sign == null && digitCount > token.minWidth))
     ) {
         throw DateTimeParseException("Text could not be parsed at index $startIndex", text, startIndex)
@@ -1399,7 +1497,24 @@ private fun parsePatternValue(
     val numericText = if (sign == '-') "-$unsigned" else unsigned
     val value = numericText.toLongOrNull()
         ?: throw DateTimeParseException("Invalid numeric value", text, startIndex)
+    if (strict && sign == '-' && value == 0L) {
+        throw DateTimeParseException("Text could not be parsed at index $startIndex", text, startIndex)
+    }
     return ParsedPatternField(value, index)
+}
+
+private fun SignStyle.acceptsSign(
+    positive: Boolean,
+    strict: Boolean,
+    fixedWidth: Boolean,
+): Boolean = when (this) {
+    SignStyle.NORMAL -> !positive || !strict
+    SignStyle.ALWAYS,
+    SignStyle.EXCEEDS_PAD,
+    -> true
+    SignStyle.NEVER,
+    SignStyle.NOT_NEGATIVE,
+    -> !strict && !fixedWidth
 }
 
 private fun PatternToken.adjacentFixedNumericWidth(): Int? = when (this) {
@@ -1415,6 +1530,8 @@ private fun PatternToken.adjacentFixedNumericWidth(): Int? = when (this) {
     }
     is PatternToken.Offset,
     is PatternToken.ZoneId,
+    is PatternToken.ParseSetting,
+    is PatternToken.DefaultValue,
     is PatternToken.Literal -> null
 }
 
@@ -1425,6 +1542,7 @@ private fun parsePatternReducedValue(
     text: String,
     startIndex: Int,
     chronology: Chronology,
+    strict: Boolean,
 ): ParsedPatternField {
     var digitRunEnd = startIndex
     while (digitRunEnd < text.length && text[digitRunEnd] in '0'..'9') digitRunEnd++
@@ -1432,8 +1550,10 @@ private fun parsePatternReducedValue(
         .map { it.adjacentFixedNumericWidth() }
         .takeWhile { it != null }
         .sumOf { it ?: 0 }
-    val digitCount = minOf(token.maxWidth, digitRunEnd - startIndex - reservedWidth)
-    if (digitCount < token.minWidth) {
+    val minimumDigits = if (strict) token.minWidth else 1
+    val maximumDigits = if (strict) token.maxWidth else 9
+    val digitCount = minOf(maximumDigits, digitRunEnd - startIndex - reservedWidth)
+    if (digitCount < minimumDigits) {
         throw DateTimeParseException("Text could not be parsed at index $startIndex", text, startIndex)
     }
 
@@ -1461,6 +1581,7 @@ private fun parsePatternField(
     token: PatternToken.Field,
     text: String,
     startIndex: Int,
+    strict: Boolean,
 ): ParsedPatternField {
     var index = startIndex
     var negative = false
@@ -1472,9 +1593,10 @@ private fun parsePatternField(
 
     val fixedWidth = token.symbol == 'S' ||
         token.count > 1 && !(token.symbol == 'u' && token.count >= 3 && index > startIndex)
-    val minimumDigits = if (fixedWidth) token.count else 1
+    val minimumDigits = if (strict && fixedWidth) token.count else 1
     val maximumDigits = when {
-        fixedWidth -> token.count
+        strict && fixedWidth -> token.count
+        !strict -> 9
         token.symbol in listOf('u', 'y') -> 19
         else -> 2
     }
@@ -1502,6 +1624,21 @@ private fun resolvePatternValues(
     offset: ZoneOffset?,
     zone: ZoneId?,
 ): TemporalAccessor {
+    val resolvedOffset = offset ?: values[ChronoField.OFFSET_SECONDS]?.let { totalSeconds ->
+        try {
+            ZoneOffset.ofTotalSeconds(ChronoField.OFFSET_SECONDS.checkValidIntValue(totalSeconds))
+        } catch (exception: RuntimeException) {
+            throw DateTimeParseException("Invalid value for OffsetSeconds: $totalSeconds", text, 0, exception)
+        }
+    }
+    val instant = values[ChronoField.INSTANT_SECONDS]?.let { epochSecond ->
+        try {
+            val nano = values[ChronoField.NANO_OF_SECOND]?.let(ChronoField.NANO_OF_SECOND::checkValidIntValue) ?: 0
+            Instant.ofEpochSecond(epochSecond, nano.toLong())
+        } catch (exception: RuntimeException) {
+            throw DateTimeParseException("Invalid instant fields", text, 0, exception)
+        }
+    }
     val year = values[ChronoField.YEAR] ?: values[ChronoField.YEAR_OF_ERA]
     val month = values[ChronoField.MONTH_OF_YEAR]
     val day = values[ChronoField.DAY_OF_MONTH]
@@ -1543,8 +1680,9 @@ private fun resolvePatternValues(
     return ParsedTemporalAccessor(
         date = resolvedDate,
         time = resolvedTime?.time,
-        offset = offset,
+        offset = resolvedOffset,
         zone = zone,
+        instant = instant,
         fields = values,
         excessDays = if (date == null) resolvedTime?.excessDays ?: Period.ZERO else Period.ZERO,
     )
@@ -1655,6 +1793,19 @@ private fun describePattern(tokens: List<PatternToken>): String = buildString {
                     ZoneQueryMode.ZONE_OR_OFFSET -> "ZoneOrOffsetId()"
                 },
             )
+            is PatternToken.ParseSetting -> append(
+                when (token.setting) {
+                    ParserSetting.CASE_SENSITIVE -> "ParseCaseSensitive(true)"
+                    ParserSetting.CASE_INSENSITIVE -> "ParseCaseSensitive(false)"
+                    ParserSetting.STRICT -> "ParseStrict(true)"
+                    ParserSetting.LENIENT -> "ParseStrict(false)"
+                },
+            )
+            is PatternToken.DefaultValue -> append("DefaultValue(")
+                .append(token.field)
+                .append(',')
+                .append(token.value)
+                .append(')')
         }
     }
 }

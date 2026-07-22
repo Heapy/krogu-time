@@ -13,6 +13,34 @@ import io.heapy.grogu.time.temporal.TemporalField
 public class DateTimeFormatterBuilder {
     private val tokens: MutableList<PatternToken> = mutableListOf()
 
+    /** Makes parsing case-sensitive for subsequently appended elements. */
+    public fun parseCaseSensitive(): DateTimeFormatterBuilder = apply {
+        tokens += PatternToken.ParseSetting(ParserSetting.CASE_SENSITIVE)
+    }
+
+    /** Makes parsing case-insensitive for subsequently appended elements. */
+    public fun parseCaseInsensitive(): DateTimeFormatterBuilder = apply {
+        tokens += PatternToken.ParseSetting(ParserSetting.CASE_INSENSITIVE)
+    }
+
+    /** Makes parsing strict for subsequently appended elements. */
+    public fun parseStrict(): DateTimeFormatterBuilder = apply {
+        tokens += PatternToken.ParseSetting(ParserSetting.STRICT)
+    }
+
+    /** Makes parsing lenient for subsequently appended elements. */
+    public fun parseLenient(): DateTimeFormatterBuilder = apply {
+        tokens += PatternToken.ParseSetting(ParserSetting.LENIENT)
+    }
+
+    /** Supplies [value] for [field] during parsing when it is still absent. */
+    public fun parseDefaulting(
+        field: TemporalField,
+        value: Long,
+    ): DateTimeFormatterBuilder = apply {
+        tokens += PatternToken.DefaultValue(field, value)
+    }
+
     /** Appends the elements described by [pattern]. */
     public fun appendPattern(pattern: String): DateTimeFormatterBuilder = apply {
         tokens += compilePattern(pattern)

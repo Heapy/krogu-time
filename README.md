@@ -51,7 +51,8 @@ Implemented foundations:
   composition, sign/width controls, integer- and chronology-base-date reduced
   value windows, fixed-range fractions, all custom offset-ID patterns,
   explicit region/zone/offset query modes, adjacent fixed-width parsing,
-  unresolved field retention, and immutable formatter snapshots; plus
+  sequential case/strictness parser controls, parse defaults, unresolved field
+  retention, and immutable formatter snapshots; plus
   Java-compatible `ISO_LOCAL_DATE`, `ISO_LOCAL_TIME`,
   `ISO_LOCAL_DATE_TIME`, `ISO_INSTANT`, `ISO_OFFSET_DATE`, `ISO_DATE`,
   `ISO_TIME`, `ISO_DATE_TIME`, `ISO_OFFSET_TIME`, `ISO_OFFSET_DATE_TIME`, and
