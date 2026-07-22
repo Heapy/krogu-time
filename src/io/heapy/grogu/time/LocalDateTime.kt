@@ -2,6 +2,7 @@ package io.heapy.grogu.time
 
 import io.heapy.grogu.time.chrono.IsoChronology
 import io.heapy.grogu.time.chrono.ChronoLocalDateTime
+import io.heapy.grogu.time.format.DateTimeFormatter
 import io.heapy.grogu.time.format.DateTimeParseException
 import io.heapy.grogu.time.internal.addExact
 import io.heapy.grogu.time.internal.floorDiv
@@ -347,6 +348,9 @@ public class LocalDateTime private constructor(
 
     override fun toString(): String = "${date}T$time"
 
+    /** Formats this date-time using [formatter]. */
+    public fun format(formatter: DateTimeFormatter): String = formatter.format(this)
+
     public companion object {
         private const val HOURS_PER_DAY: Long = 24
         private const val MINUTES_PER_DAY: Long = 1_440
@@ -495,6 +499,10 @@ public class LocalDateTime private constructor(
             }
             return of(date, time)
         }
+
+        /** Parses a date-time from [text] using [formatter]. */
+        public fun parse(text: CharSequence, formatter: DateTimeFormatter): LocalDateTime =
+            from(formatter.parse(text))
 
         private fun translatedFailure(
             input: String,

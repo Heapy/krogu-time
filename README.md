@@ -37,6 +37,10 @@ Implemented foundations:
   configuration enums
 - `DecimalStyle` standard symbols, immutable symbol replacement, digit
   conversion, value semantics, and Java-compatible text (locale factories remain)
+- `DateTimeFormatter` core formatting, appendable output, parsing and temporal
+  queries, with Java-compatible `ISO_LOCAL_DATE`, `ISO_LOCAL_TIME`,
+  `ISO_LOCAL_DATE_TIME`, and `ISO_INSTANT` constants and formatter overloads on
+  their corresponding value types
 - `DayOfWeek`
 - `Month`
 - `Era` and `IsoEra`
@@ -84,19 +88,19 @@ Implemented foundations:
   timeline and calendar-period comparison, including local time composition,
   earliest-valid zoned start-of-day composition, strict ISO parsing, and ISO
   text output, with system-default/injected-clock/explicit-zone current-value
-  factories (formatter overloads remain)
+  factories and formatter overloads
 - `Period` factories, parsing, value behavior, chronology-validated temporal
   integration, checked arithmetic, normalization, and concrete/generic `between`
 - `LocalTime` core value, validated factories, day conversions, temporal
   fields, replacement, truncation, wraparound arithmetic, complete-unit
   differences, ordering, strict ISO parsing, ISO text output, offset/date
   composition, and system-default/injected-clock/explicit-zone current-value
-  factories (formatter overloads remain)
+  factories and formatter overloads
 - `LocalDateTime` immutable composition, factories, local field access,
   epoch/fixed-offset/zone conversion, replacement, truncation, checked date/time
   arithmetic, complete-unit differences, boundaries, ordering, strict ISO
   parsing, ISO text output, and system-default/injected-clock/explicit-zone
-  current-value factories (formatter overloads remain)
+  current-value factories and formatter overloads
 - `Duration` with the complete Java 21 public API surface, including parsing,
   temporal integration, checked arithmetic, conversions, truncation, and
   `between`

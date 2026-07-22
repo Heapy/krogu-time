@@ -1,5 +1,6 @@
 package io.heapy.grogu.time
 
+import io.heapy.grogu.time.format.DateTimeFormatter
 import io.heapy.grogu.time.format.DateTimeParseException
 import io.heapy.grogu.time.internal.floorMod
 import io.heapy.grogu.time.temporal.ChronoField
@@ -319,6 +320,9 @@ public class LocalTime private constructor(
         }
     }
 
+    /** Formats this time using [formatter]. */
+    public fun format(formatter: DateTimeFormatter): String = formatter.format(this)
+
     private fun StringBuilder.appendTwoDigits(value: Int) {
         if (value < 10) append('0')
         append(value)
@@ -437,6 +441,10 @@ public class LocalTime private constructor(
             repeat(9 - digits) { nano *= 10 }
             return createParsed(input, hour, minute, second, nano)
         }
+
+        /** Parses a time from [text] using [formatter]. */
+        public fun parse(text: CharSequence, formatter: DateTimeFormatter): LocalTime =
+            from(formatter.parse(text))
 
         private fun createParsed(
             input: String,

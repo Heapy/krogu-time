@@ -1,5 +1,6 @@
 package io.heapy.grogu.time
 
+import io.heapy.grogu.time.format.DateTimeFormatter
 import io.heapy.grogu.time.format.DateTimeParseException
 import io.heapy.grogu.time.internal.addExact
 import io.heapy.grogu.time.internal.floorDiv
@@ -257,6 +258,9 @@ public class Instant private constructor(
             append('Z')
         }
     }
+
+    /** Formats this instant using [formatter]. */
+    public fun format(formatter: DateTimeFormatter): String = formatter.format(this)
 
     private fun StringBuilder.appendYear(year: Int) {
         when {
@@ -554,6 +558,10 @@ public class Instant private constructor(
                 )
             }
         }
+
+        /** Parses an instant from [text] using [formatter]. */
+        public fun parse(text: CharSequence, formatter: DateTimeFormatter): Instant =
+            from(formatter.parse(text))
 
         private fun toEpochDay(year: Int, month: Int, day: Int): Long {
             val prolepticYear = year.toLong()

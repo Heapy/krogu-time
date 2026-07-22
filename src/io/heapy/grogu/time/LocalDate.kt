@@ -3,6 +3,7 @@ package io.heapy.grogu.time
 import io.heapy.grogu.time.chrono.IsoEra
 import io.heapy.grogu.time.chrono.IsoChronology
 import io.heapy.grogu.time.chrono.ChronoLocalDate
+import io.heapy.grogu.time.format.DateTimeFormatter
 import io.heapy.grogu.time.format.DateTimeParseException
 import io.heapy.grogu.time.internal.addExact
 import io.heapy.grogu.time.internal.floorDiv
@@ -405,6 +406,9 @@ public class LocalDate private constructor(
         }
     }
 
+    /** Formats this date using [formatter]. */
+    public fun format(formatter: DateTimeFormatter): String = formatter.format(this)
+
     public companion object {
         private const val DAYS_PER_CYCLE: Long = 146_097
         private const val DAYS_0000_TO_1970: Long = 719_528
@@ -568,6 +572,10 @@ public class LocalDate private constructor(
                 )
             }
         }
+
+        /** Parses a date from [text] using [formatter]. */
+        public fun parse(text: CharSequence, formatter: DateTimeFormatter): LocalDate =
+            from(formatter.parse(text))
 
         private fun hasTwoDigits(input: String, index: Int): Boolean =
             index + 1 < input.length &&
