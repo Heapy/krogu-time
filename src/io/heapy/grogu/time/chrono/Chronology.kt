@@ -82,6 +82,9 @@ public interface Chronology : Comparable<Chronology> {
     /** Obtains a zoned date-time for [instant] in [zone]. */
     public fun zonedDateTime(instant: Instant, zone: ZoneId): ChronoZonedDateTime<*>
 
+    /** Obtains the current date using the system clock in the default time-zone. */
+    public fun dateNow(): ChronoLocalDate = dateNow(Clock.systemDefaultZone())
+
     /** Obtains the current date using the system clock in [zone]. */
     public fun dateNow(zone: ZoneId): ChronoLocalDate = dateNow(Clock.system(zone))
 

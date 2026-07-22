@@ -58,6 +58,9 @@ public abstract class ZoneId {
             "HST" to "-10:00",
         )
 
+        /** Obtains the system default time-zone. */
+        public fun systemDefault(): ZoneId = of(systemDefaultZoneId(), SHORT_IDS)
+
         /** Obtains a fixed-offset or registered region zone ID. */
         public fun of(zoneId: String): ZoneId {
             if (zoneId.length <= 1 || zoneId[0] == '+' || zoneId[0] == '-') {

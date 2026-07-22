@@ -1,9 +1,11 @@
 package io.heapy.grogu.time
 
+import io.heapy.grogu.time.chrono.IsoChronology
 import io.heapy.grogu.time.zone.ZoneRules
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 
 class ClockNowTest {
     @Test
@@ -47,6 +49,26 @@ class ClockNowTest {
         assertEquals(offset, OffsetTime.now(offset).offset)
         assertEquals(offset, LocalDateTime.now(offset).atOffset(offset).offset)
         assertEquals(offset, LocalDate.now(offset).atStartOfDay().atOffset(offset).offset)
+    }
+
+    @Test
+    fun noArgumentFactoriesUseTheSystemDefaultZone() {
+        val zone = ZoneId.systemDefault()
+        assertEquals(zone, Clock.systemDefaultZone().zone)
+
+        val zonedDateTime = ZonedDateTime.now()
+        assertEquals(zone, zonedDateTime.zone)
+        assertTrue(!zonedDateTime.toInstant().isAfter(Instant.now().plusSeconds(1)))
+
+        assertTrue(LocalDate.now().year in Year.MIN_VALUE..Year.MAX_VALUE)
+        assertTrue(LocalTime.now().nano in 0..999_999_999)
+        assertTrue(LocalDateTime.now().year in Year.MIN_VALUE..Year.MAX_VALUE)
+        assertTrue(OffsetTime.now().offset.totalSeconds in -64_800..64_800)
+        assertTrue(OffsetDateTime.now().year in Year.MIN_VALUE..Year.MAX_VALUE)
+        assertTrue(Year.now().value in Year.MIN_VALUE..Year.MAX_VALUE)
+        assertTrue(YearMonth.now().year in Year.MIN_VALUE..Year.MAX_VALUE)
+        assertTrue(MonthDay.now().dayOfMonth in 1..31)
+        assertTrue(IsoChronology.dateNow().year in Year.MIN_VALUE..Year.MAX_VALUE)
     }
 
     private class TestZoneId(

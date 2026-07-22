@@ -27,6 +27,9 @@ public abstract class Clock protected constructor() : InstantSource {
         /** Obtains the best available system clock in UTC. */
         public fun systemUTC(): Clock = SYSTEM_UTC
 
+        /** Obtains the best available system clock in the default time-zone. */
+        public fun systemDefaultZone(): Clock = system(ZoneId.systemDefault())
+
         /** Obtains the best available system clock in [zone]. */
         public fun system(zone: ZoneId): Clock =
             if (zone === ZoneOffset.UTC) SYSTEM_UTC else SystemClock(zone)

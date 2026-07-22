@@ -235,6 +235,9 @@ public class YearMonth private constructor(
         if (year == newYear && monthValue == newMonth) this else YearMonth(newYear, newMonth)
 
     public companion object {
+        /** Obtains the current year-month using the system clock in the default time-zone. */
+        public fun now(): YearMonth = now(Clock.systemDefaultZone())
+
         /** Obtains the current year-month using the system clock in [zone]. */
         public fun now(zone: ZoneId): YearMonth = now(Clock.system(zone))
 

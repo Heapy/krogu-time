@@ -51,6 +51,9 @@ public object IsoChronology : Chronology {
     /** Converts [temporal] to an ISO date. */
     override fun date(temporal: TemporalAccessor): LocalDate = LocalDate.from(temporal)
 
+    /** Obtains the current ISO date using the system clock in the default time-zone. */
+    override fun dateNow(): LocalDate = dateNow(Clock.systemDefaultZone())
+
     /** Obtains the current ISO date using the system clock in [zone]. */
     override fun dateNow(zone: ZoneId): LocalDate = dateNow(Clock.system(zone))
 

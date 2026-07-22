@@ -413,6 +413,9 @@ public class LocalDate private constructor(
         public val MAX: LocalDate = LocalDate(Year.MAX_VALUE, 12, 31)
         public val EPOCH: LocalDate = LocalDate(1970, 1, 1)
 
+        /** Obtains the current date using the system clock in the default time-zone. */
+        public fun now(): LocalDate = now(Clock.systemDefaultZone())
+
         /** Obtains the current date using the system clock in [zone]. */
         public fun now(zone: ZoneId): LocalDate = now(Clock.system(zone))
 

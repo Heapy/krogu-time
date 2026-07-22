@@ -54,36 +54,35 @@ Implemented foundations:
   and generic date-difference contracts, with `Period` integration
 - `Year` core value, leap-year, temporal-field, year-scale arithmetic, and
   comparison behavior, including default parsing and `atDay` date production
-  plus injected-clock/explicit-zone current-value factories and `MonthDay`
-  validation/date production (system-default current values, formatter
-  overloads remain)
+  plus system-default/injected-clock/explicit-zone current-value factories and
+  `MonthDay` validation/date production (formatter overloads remain)
 - `MonthDay` value, factories, temporal fields, replacement, year validation,
   date production and adjustment, ordering, strict ISO parsing, and ISO text
-  output, including injected-clock/explicit-zone current-value factories
-  (system-default current values and formatter overloads remain)
+  output, including system-default/injected-clock/explicit-zone current-value
+  factories (formatter overloads remain)
 - `YearMonth` value, factories, temporal fields, replacement, checked
   month/year-scale arithmetic, complete-unit differences, date production and
   adjustment, ordering, strict ISO parsing, ISO text output, and
-  injected-clock/explicit-zone current-value factories (system-default current
-  values and formatter overloads remain)
+  system-default/injected-clock/explicit-zone current-value factories
+  (formatter overloads remain)
 - `LocalDate` core value, full-range epoch conversion, temporal fields,
   replacement, checked calendar arithmetic, complete-unit differences, and
   timeline and calendar-period comparison, including local time composition,
   earliest-valid zoned start-of-day composition, strict ISO parsing, and ISO
-  text output, with injected-clock/explicit-zone current-value factories
-  (system-default current values and formatter overloads remain)
+  text output, with system-default/injected-clock/explicit-zone current-value
+  factories (formatter overloads remain)
 - `Period` factories, parsing, value behavior, chronology-validated temporal
   integration, checked arithmetic, normalization, and concrete/generic `between`
 - `LocalTime` core value, validated factories, day conversions, temporal
   fields, replacement, truncation, wraparound arithmetic, complete-unit
   differences, ordering, strict ISO parsing, ISO text output, offset/date
-  composition, and injected-clock/explicit-zone current-value factories
-  (system-default current values and formatter overloads remain)
+  composition, and system-default/injected-clock/explicit-zone current-value
+  factories (formatter overloads remain)
 - `LocalDateTime` immutable composition, factories, local field access,
   epoch/fixed-offset/zone conversion, replacement, truncation, checked date/time
   arithmetic, complete-unit differences, boundaries, ordering, strict ISO
-  parsing, ISO text output, and injected-clock/explicit-zone current-value
-  factories (system-default current values and formatter overloads remain)
+  parsing, ISO text output, and system-default/injected-clock/explicit-zone
+  current-value factories (formatter overloads remain)
 - `Duration` with the complete Java 21 public API surface, including parsing,
   temporal integration, checked arithmetic, conversions, truncation, and
   `between`
@@ -98,8 +97,8 @@ Implemented foundations:
   integration, adjustment, and Java-compatible ordering
 - `ZoneId` fixed-offset and `UTC`/`GMT`/`UT` prefixed identifiers, alias-map
   resolution, provider-backed region IDs, normalization, available-ID access,
-  bundled IANA TZDB 2025a resolution, and zone/zone-offset temporal queries
-  (system defaults and display names remain)
+  bundled IANA TZDB 2025a resolution, system-default lookup, and zone/
+  zone-offset temporal queries (display names remain)
 - `ZoneRules` fixed and variable in-memory rule sets, historic standard/wall
   transitions, recurring future rules, instant and ambiguous local-time
   resolution, daylight-saving calculations, transition navigation, and full
@@ -117,24 +116,23 @@ Implemented foundations:
   offset conversion with same-local and same-instant semantics, replacement,
   truncation, wraparound arithmetic, complete-unit differences, timeline and
   structural ordering, epoch-second conversion, strict ISO parsing, and ISO
-  text output, including injected-clock/explicit-zone current values
-  (system-default current values and formatter overloads remain)
+  text output, including system-default/injected-clock/explicit-zone current
+  values (formatter overloads remain)
 - `OffsetDateTime` immutable composition, factories, fixed-offset/instant
   conversion, same-instant/similar-local region-zone composition, all standard
   fields and units, replacement, truncation, checked local arithmetic,
   complete-unit differences across offsets, timeline and structural ordering,
-  strict ISO parsing, ISO text output, and injected-clock/explicit-zone current
-  values (system-default current values and formatter overloads remain)
+  strict ISO parsing, ISO text output, and system-default/injected-clock/
+  explicit-zone current values (formatter overloads remain)
 - `ZonedDateTime` local, strict, and instant factories; gap shifting and
   overlap preference/switching; date-based versus elapsed-time arithmetic;
   temporal fields, replacement, truncation, complete-unit differences, zone
   conversion, instant/offset conversion, timeline and structural ordering,
-  queries, strict ISO parsing, Java-compatible text output, and injected-clock/
-  explicit-zone current values (system-default current values and formatter
-  overloads remain)
-- `Clock` system clocks for explicit zones, fixed and offset clocks, validated
-  nanosecond-to-minute tick clocks, millisecond access, zone replacement, and
-  Java-compatible value/text semantics (system-default-zone lookup remains)
+  queries, strict ISO parsing, Java-compatible text output, and system-default/
+  injected-clock/explicit-zone current values (formatter overloads remain)
+- `Clock` system clocks for the default and explicit zones, fixed and offset
+  clocks, validated nanosecond-to-minute tick clocks, millisecond access, zone
+  replacement, and Java-compatible value/text semantics
 - `InstantSource` system, fixed, offset, and tick sources, default millisecond
   conversion, arbitrary-source zone-to-clock bridging, and Java-compatible
   reuse of clock implementations
@@ -151,10 +149,9 @@ Implemented foundations:
 - `ChronoUnit`
 - `ChronoField`
 
-Remaining work includes no-argument system-default current-value factories and
-system-default-zone lookup, formatters and parsers beyond the implemented ISO
-defaults and amount parsers, locale-backed week-rule selection and display
-names, alternate chronologies, and complete cross-type conformance coverage.
+Remaining work includes formatters and parsers beyond the implemented ISO
+defaults and amount parsers, locale-backed week-rule selection and display names,
+alternate chronologies, and complete cross-type conformance coverage.
 
 The bundled TZDB source is generated reproducibly from the OpenJDK 21
 `lib/tzdb.dat` file by `tools/generate-tzdb-data.rb`.

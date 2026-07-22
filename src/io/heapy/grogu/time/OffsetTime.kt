@@ -176,6 +176,9 @@ public class OffsetTime private constructor(
         public val MIN: OffsetTime = OffsetTime(LocalTime.MIN, ZoneOffset.MAX)
         public val MAX: OffsetTime = OffsetTime(LocalTime.MAX, ZoneOffset.MIN)
 
+        /** Obtains the current offset time using the system clock in the default time-zone. */
+        public fun now(): OffsetTime = now(Clock.systemDefaultZone())
+
         /** Obtains the current offset time using the system clock in [zone]. */
         public fun now(zone: ZoneId): OffsetTime = now(Clock.system(zone))
 

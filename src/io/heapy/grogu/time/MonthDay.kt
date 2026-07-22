@@ -113,6 +113,9 @@ public class MonthDay private constructor(
     }
 
     public companion object {
+        /** Obtains the current month-day using the system clock in the default time-zone. */
+        public fun now(): MonthDay = now(Clock.systemDefaultZone())
+
         /** Obtains the current month-day using the system clock in [zone]. */
         public fun now(zone: ZoneId): MonthDay = now(Clock.system(zone))
 

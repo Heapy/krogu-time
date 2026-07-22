@@ -363,6 +363,9 @@ public class LocalDateTime private constructor(
         public val MIN: LocalDateTime = LocalDateTime(LocalDate.MIN, LocalTime.MIN)
         public val MAX: LocalDateTime = LocalDateTime(LocalDate.MAX, LocalTime.MAX)
 
+        /** Obtains the current local date-time using the system clock in the default time-zone. */
+        public fun now(): LocalDateTime = now(Clock.systemDefaultZone())
+
         /** Obtains the current local date-time using the system clock in [zone]. */
         public fun now(zone: ZoneId): LocalDateTime = now(Clock.system(zone))
 
