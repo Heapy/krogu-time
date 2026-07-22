@@ -246,6 +246,9 @@ public class LocalTime private constructor(
     /** Combines this time with [date]. */
     public fun atDate(date: LocalDate): LocalDateTime = LocalDateTime.of(date, this)
 
+    /** Combines this time with [offset]. */
+    public fun atOffset(offset: ZoneOffset): OffsetTime = OffsetTime.of(this, offset)
+
     /** Converts this time to the whole second within the day. */
     public fun toSecondOfDay(): Int =
         hour * SECONDS_PER_HOUR + minute * SECONDS_PER_MINUTE + second

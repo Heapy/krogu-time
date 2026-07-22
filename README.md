@@ -73,6 +73,11 @@ Implemented foundations:
 - `ZoneOffset` factories, validation, normalized ID parsing and formatting,
   quarter-hour canonicalization, offset-field/query integration, adjustment,
   and Java-compatible ordering (the `ZoneId` hierarchy and rules remain)
+- `OffsetTime` immutable composition, factories, local and offset fields,
+  offset conversion with same-local and same-instant semantics, replacement,
+  truncation, wraparound arithmetic, complete-unit differences, timeline and
+  structural ordering, epoch-second conversion, strict ISO parsing, and ISO
+  text output (clock/zone factories, formatters, and date composition remain)
 - temporal interfaces and exceptions, plus the standard offset query
 - `TemporalAdjusters` complete date-adjuster utility surface
 - `ValueRange`
