@@ -625,6 +625,13 @@ internal sealed interface PatternToken {
         val maxWidth: Int,
         val signStyle: SignStyle,
     ) : PatternToken
+
+    data class ReducedValue(
+        val field: TemporalField,
+        val minWidth: Int,
+        val maxWidth: Int,
+        val baseValue: Int,
+    ) : PatternToken
 }
 
 internal fun compilePattern(pattern: String): List<PatternToken> {
@@ -711,8 +718,25 @@ private fun formatPattern(
             is PatternToken.Literal -> append(token.text)
             is PatternToken.Field -> append(formatPatternField(token, temporal))
             is PatternToken.Value -> append(formatPatternValue(token, temporal))
+            is PatternToken.ReducedValue -> append(formatPatternReducedValue(token, temporal))
         }
     }
+}
+
+private fun formatPatternReducedValue(
+    token: PatternToken.ReducedValue,
+    temporal: TemporalAccessor,
+): String {
+    val value = temporal.getLong(token.field)
+    val minRange = reducedPowerOfTen(token.minWidth)
+    val maxRange = reducedPowerOfTen(token.maxWidth)
+    val divisor = if (value >= token.baseValue && value < token.baseValue + minRange) {
+        minRange
+    } else {
+        maxRange
+    }
+    val reduced = kotlin.math.abs(value % divisor)
+    return reduced.toString().padStart(token.minWidth, '0')
 }
 
 private fun formatPatternValue(
@@ -887,6 +911,18 @@ private fun parsePattern(
                 }
                 index = parsed.endIndex
             }
+            is PatternToken.ReducedValue -> {
+                val parsed = parsePatternReducedValue(tokens, tokenIndex, token, text, index)
+                val previous = values.put(token.field, parsed.value)
+                if (previous != null && previous != parsed.value) {
+                    throw DateTimeParseException(
+                        "Conflict found for field ${token.field}",
+                        text,
+                        index,
+                    )
+                }
+                index = parsed.endIndex
+            }
         }
     }
     if (index != text.length) {
@@ -1049,7 +1085,39 @@ private fun PatternToken.adjacentFixedNumericWidth(): Int? = when (this) {
     is PatternToken.Field -> count.takeIf {
         symbol == 'S' || symbol in listOf('M', 'd', 'H', 'm', 's') && count > 1
     }
+    is PatternToken.ReducedValue -> minWidth.takeIf { minWidth == maxWidth }
     is PatternToken.Literal -> null
+}
+
+private fun parsePatternReducedValue(
+    tokens: List<PatternToken>,
+    tokenIndex: Int,
+    token: PatternToken.ReducedValue,
+    text: String,
+    startIndex: Int,
+): ParsedPatternField {
+    var digitRunEnd = startIndex
+    while (digitRunEnd < text.length && text[digitRunEnd] in '0'..'9') digitRunEnd++
+    val reservedWidth = tokens.drop(tokenIndex + 1)
+        .map { it.adjacentFixedNumericWidth() }
+        .takeWhile { it != null }
+        .sumOf { it ?: 0 }
+    val digitCount = minOf(token.maxWidth, digitRunEnd - startIndex - reservedWidth)
+    if (digitCount < token.minWidth) {
+        throw DateTimeParseException("Text could not be parsed at index $startIndex", text, startIndex)
+    }
+
+    val endIndex = startIndex + digitCount
+    var value = text.substring(startIndex, endIndex).toLongOrNull()
+        ?: throw DateTimeParseException("Invalid numeric value", text, startIndex)
+    if (digitCount == token.minWidth) {
+        val range = reducedPowerOfTen(token.minWidth)
+        val lastPart = token.baseValue % range
+        val basePart = token.baseValue - lastPart
+        value = if (token.baseValue > 0) basePart + value else basePart - value
+        if (value < token.baseValue) value += range
+    }
+    return ParsedPatternField(value, endIndex)
 }
 
 private fun parsePatternField(
@@ -1214,6 +1282,15 @@ private fun describePattern(tokens: List<PatternToken>): String = buildString {
                 .append(token.maxWidth)
                 .append(',')
                 .append(token.signStyle)
+                .append(')')
+            is PatternToken.ReducedValue -> append("ReducedValue(")
+                .append(token.field)
+                .append(',')
+                .append(token.minWidth)
+                .append(',')
+                .append(token.maxWidth)
+                .append(',')
+                .append(token.baseValue)
                 .append(')')
         }
     }

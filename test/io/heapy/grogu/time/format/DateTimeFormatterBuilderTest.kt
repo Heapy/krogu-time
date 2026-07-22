@@ -83,6 +83,30 @@ class DateTimeFormatterBuilderTest {
     }
 
     @Test
+    fun appendsReducedValuesUsingABaseWindow() {
+        val builder = DateTimeFormatterBuilder()
+        assertSame(
+            builder,
+            builder.appendValueReduced(ChronoField.YEAR, 2, 4, 1980),
+        )
+        builder
+            .appendValue(ChronoField.MONTH_OF_YEAR, 2)
+            .appendValue(ChronoField.DAY_OF_MONTH, 2)
+        val formatter = builder.toFormatter()
+
+        listOf(
+            LocalDate.of(1979, 3, 1) to "19790301",
+            LocalDate.of(1980, 3, 1) to "800301",
+            LocalDate.of(2012, 3, 1) to "120301",
+            LocalDate.of(2079, 3, 1) to "790301",
+            LocalDate.of(2100, 3, 1) to "21000301",
+        ).forEach { (date, text) ->
+            assertEquals(text, formatter.format(date))
+            assertEquals(date, formatter.parse(text, LocalDate::from))
+        }
+    }
+
+    @Test
     fun rejectsInvalidNumericWidths() {
         val builder = DateTimeFormatterBuilder()
 
@@ -94,6 +118,15 @@ class DateTimeFormatterBuilderTest {
         }
         assertFailsWith<IllegalArgumentException> {
             builder.appendValue(ChronoField.YEAR, 1, 20, SignStyle.NORMAL)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            builder.appendValueReduced(ChronoField.YEAR, 0, 2, 1980)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            builder.appendValueReduced(ChronoField.YEAR, 2, 1, 1980)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            builder.appendValueReduced(ChronoField.MONTH_OF_YEAR, 1, 2, 13)
         }
     }
 }

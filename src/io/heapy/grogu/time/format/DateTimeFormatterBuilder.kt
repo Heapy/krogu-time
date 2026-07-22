@@ -1,5 +1,6 @@
 package io.heapy.grogu.time.format
 
+import io.heapy.grogu.time.DateTimeException
 import io.heapy.grogu.time.temporal.TemporalField
 
 /**
@@ -50,6 +51,35 @@ public class DateTimeFormatterBuilder {
         tokens += PatternToken.Value(field, minWidth, maxWidth, signStyle)
     }
 
+    /** Appends a reduced numeric [field] interpreted relative to [baseValue]. */
+    public fun appendValueReduced(
+        field: TemporalField,
+        width: Int,
+        maxWidth: Int,
+        baseValue: Int,
+    ): DateTimeFormatterBuilder = apply {
+        require(width in 1..10) { "The width must be from 1 to 10 inclusive but was $width" }
+        require(maxWidth in 1..10) { "The maxWidth must be from 1 to 10 inclusive but was $maxWidth" }
+        require(maxWidth >= width) {
+            "Maximum width must exceed or equal the minimum width but $maxWidth < $width"
+        }
+        require(field.range.isValidValue(baseValue.toLong())) {
+            "The base value must be within the range of the field"
+        }
+        if (baseValue.toLong() + reducedPowerOfTen(maxWidth) > Int.MAX_VALUE) {
+            throw DateTimeException(
+                "Unable to add printer-parser as the range exceeds the capacity of an int",
+            )
+        }
+        tokens += PatternToken.ReducedValue(field, width, maxWidth, baseValue)
+    }
+
     /** Creates an immutable formatter from the elements appended so far. */
     public fun toFormatter(): DateTimeFormatter = DateTimeFormatter.fromPatternTokens(tokens)
+}
+
+internal fun reducedPowerOfTen(power: Int): Long {
+    var result = 1L
+    repeat(power) { result *= 10 }
+    return result
 }
