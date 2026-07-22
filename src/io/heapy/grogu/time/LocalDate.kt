@@ -484,7 +484,7 @@ public class LocalDate private constructor(
     }
 
     /** Formats this date using [formatter]. */
-    public fun format(formatter: DateTimeFormatter): String = formatter.format(this)
+    override fun format(formatter: DateTimeFormatter): String = formatter.format(this)
 
     public companion object {
         private const val DAYS_PER_CYCLE: Long = 146_097

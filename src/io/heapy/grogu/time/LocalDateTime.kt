@@ -349,7 +349,7 @@ public class LocalDateTime private constructor(
     override fun toString(): String = "${date}T$time"
 
     /** Formats this date-time using [formatter]. */
-    public fun format(formatter: DateTimeFormatter): String = formatter.format(this)
+    override fun format(formatter: DateTimeFormatter): String = formatter.format(this)
 
     public companion object {
         private const val HOURS_PER_DAY: Long = 24

@@ -121,15 +121,16 @@ Implemented foundations:
   Umm al-Qura month table for 1300 through 1600 AH
 - `ChronoLocalDate` chronology, era, leap-year and length contracts, generic
   conversion, covariant date arithmetic, standard queries, epoch-day adjustment,
-  chronology-aware and timeline ordering, with `LocalDate` integration
+  formatter-based output, chronology-aware and timeline ordering, with
+  `LocalDate` integration
 - `ChronoLocalDateTime` chronology/date/time contracts, generic conversion and
   chronology factories, covariant arithmetic, standard queries, epoch/instant
-  conversion, adjustment, chronology-aware and local-timeline ordering, with
-  `LocalDateTime` integration
+  conversion, adjustment, formatter-based output, chronology-aware and
+  local-timeline ordering, with `LocalDateTime` integration
 - `ChronoZonedDateTime` chronology/local/offset/zone contracts, generic
   conversion and chronology factories, covariant arithmetic and zone changes,
-  standard queries, instant conversion, structural and instant-timeline
-  ordering, with `ZonedDateTime` integration
+  standard queries, instant conversion, formatter-based output, structural and
+  instant-timeline ordering, with `ZonedDateTime` integration
 - `ChronoPeriod` chronology, unit, sign, arithmetic, normalization, application,
   and generic date-difference contracts, with `Period` integration
 - `Year` core value, leap-year, temporal-field, year-scale arithmetic, and

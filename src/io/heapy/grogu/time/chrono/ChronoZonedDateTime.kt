@@ -5,6 +5,7 @@ import io.heapy.grogu.time.Instant
 import io.heapy.grogu.time.LocalTime
 import io.heapy.grogu.time.ZoneId
 import io.heapy.grogu.time.ZoneOffset
+import io.heapy.grogu.time.format.DateTimeFormatter
 import io.heapy.grogu.time.temporal.ChronoField
 import io.heapy.grogu.time.temporal.ChronoUnit
 import io.heapy.grogu.time.temporal.Temporal
@@ -103,6 +104,9 @@ public interface ChronoZonedDateTime<out D : ChronoLocalDate> :
         @Suppress("UNCHECKED_CAST")
         return result as R
     }
+
+    /** Formats this zoned date-time using [formatter]. */
+    public fun format(formatter: DateTimeFormatter): String = formatter.format(this)
 
     /** Converts this value to the corresponding instant. */
     public fun toInstant(): Instant =

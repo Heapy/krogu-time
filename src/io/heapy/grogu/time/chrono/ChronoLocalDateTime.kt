@@ -5,6 +5,7 @@ import io.heapy.grogu.time.Instant
 import io.heapy.grogu.time.LocalTime
 import io.heapy.grogu.time.ZoneId
 import io.heapy.grogu.time.ZoneOffset
+import io.heapy.grogu.time.format.DateTimeFormatter
 import io.heapy.grogu.time.temporal.ChronoField
 import io.heapy.grogu.time.temporal.ChronoUnit
 import io.heapy.grogu.time.temporal.Temporal
@@ -70,6 +71,9 @@ public interface ChronoLocalDateTime<out D : ChronoLocalDate> :
     override fun adjustInto(temporal: Temporal): Temporal =
         temporal.with(ChronoField.EPOCH_DAY, date.toEpochDay())
             .with(ChronoField.NANO_OF_DAY, time.toNanoOfDay())
+
+    /** Formats this local date-time using [formatter]. */
+    public fun format(formatter: DateTimeFormatter): String = formatter.format(this)
 
     /** Converts this local date-time to epoch seconds using [offset]. */
     public fun toEpochSecond(offset: ZoneOffset): Long =

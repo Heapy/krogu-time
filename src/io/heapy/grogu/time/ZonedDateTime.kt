@@ -248,7 +248,7 @@ public class ZonedDateTime private constructor(
     }
 
     /** Formats this zoned date-time using [formatter]. */
-    public fun format(formatter: DateTimeFormatter): String = formatter.format(this)
+    override fun format(formatter: DateTimeFormatter): String = formatter.format(this)
 
     private fun resolveLocal(newDateTime: LocalDateTime): ZonedDateTime =
         ofLocal(newDateTime, zone, offset)

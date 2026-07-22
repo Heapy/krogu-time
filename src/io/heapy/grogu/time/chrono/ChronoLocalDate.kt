@@ -2,6 +2,7 @@ package io.heapy.grogu.time.chrono
 
 import io.heapy.grogu.time.DateTimeException
 import io.heapy.grogu.time.LocalTime
+import io.heapy.grogu.time.format.DateTimeFormatter
 import io.heapy.grogu.time.temporal.ChronoField
 import io.heapy.grogu.time.temporal.ChronoUnit
 import io.heapy.grogu.time.temporal.Temporal
@@ -73,6 +74,9 @@ public interface ChronoLocalDate : Temporal, TemporalAdjuster, Comparable<Chrono
 
     /** Calculates the chronology-specific period until [endDateExclusive]. */
     public fun until(endDateExclusive: ChronoLocalDate): ChronoPeriod
+
+    /** Formats this date using [formatter]. */
+    public fun format(formatter: DateTimeFormatter): String = formatter.format(this)
 
     /** Combines this date with [localTime]. */
     public fun atTime(localTime: LocalTime): ChronoLocalDateTime<*>
