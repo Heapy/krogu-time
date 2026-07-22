@@ -2,7 +2,6 @@ package io.heapy.grogu.time
 
 import io.heapy.grogu.time.temporal.TemporalQueries
 import io.heapy.grogu.time.zone.ZoneRules
-import io.heapy.grogu.time.zone.ZoneRulesException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -33,7 +32,7 @@ class ZoneIdTest {
         assertFailsWith<IllegalArgumentException> {
             ZoneId.ofOffset("utc", ZoneOffset.UTC)
         }
-        assertFailsWith<ZoneRulesException> { ZoneId.of("Europe/Paris") }
+        assertEquals("Europe/Paris", ZoneId.of("Europe/Paris").id)
     }
 
     @Test

@@ -99,7 +99,7 @@ public abstract class ZoneId {
                 return ofOffset(zoneId, ZoneOffset.UTC)
             }
             if (zoneId[prefixLength] != '+' && zoneId[prefixLength] != '-') {
-                throw ZoneRulesException("Unknown time-zone ID: $zoneId")
+                return RegionZoneId.of(zoneId)
             }
             val offset = ZoneOffset.of(zoneId.substring(prefixLength))
             return ofOffset(zoneId.substring(0, prefixLength), offset)

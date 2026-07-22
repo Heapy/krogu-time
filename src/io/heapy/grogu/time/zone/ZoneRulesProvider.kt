@@ -18,6 +18,10 @@ public abstract class ZoneRulesProvider protected constructor() {
         private val providers: MutableList<ZoneRulesProvider> = mutableListOf()
         private val zones: MutableMap<String, ZoneRulesProvider> = mutableMapOf()
 
+        init {
+            registerProvider(TzdbZoneRulesProvider())
+        }
+
         /** Returns a snapshot of all registered region IDs. */
         public fun getAvailableZoneIds(): Set<String> = zones.keys.toSet()
 

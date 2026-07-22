@@ -98,15 +98,15 @@ Implemented foundations:
   integration, adjustment, and Java-compatible ordering
 - `ZoneId` fixed-offset and `UTC`/`GMT`/`UT` prefixed identifiers, alias-map
   resolution, provider-backed region IDs, normalization, available-ID access,
-  and zone/zone-offset temporal queries (system defaults and display names
-  remain)
+  bundled IANA TZDB 2025a resolution, and zone/zone-offset temporal queries
+  (system defaults and display names remain)
 - `ZoneRules` fixed and variable in-memory rule sets, historic standard/wall
   transitions, recurring future rules, instant and ambiguous local-time
   resolution, daylight-saving calculations, transition navigation, and full
-  rule-list value semantics (external TZDB providers remain)
+  rule-list value semantics
 - `ZoneRulesProvider` registration, conflict detection, region/rule/version
-  lookup, dynamic no-cache rules, and refresh support (automatic service
-  loading and a bundled TZDB provider remain)
+  lookup, dynamic no-cache rules, refresh support, and automatic registration
+  of the bundled IANA TZDB 2025a database (service loading remains)
 - `ZoneOffsetTransition` gap/overlap values, validated factories, instant and
   local timeline conversion, duration, offset validation, ordering, hashing,
   and Java-compatible text output
@@ -152,7 +152,9 @@ Implemented foundations:
 - `ChronoField`
 
 Remaining work includes no-argument system-default current-value factories and
-system-default-zone lookup, a bundled region time-zone database, formatters and
-parsers beyond the implemented ISO defaults and amount parsers, locale-backed
-week-rule selection and display names, alternate chronologies, and complete
-cross-type conformance coverage.
+system-default-zone lookup, formatters and parsers beyond the implemented ISO
+defaults and amount parsers, locale-backed week-rule selection and display
+names, alternate chronologies, and complete cross-type conformance coverage.
+
+The bundled TZDB source is generated reproducibly from the OpenJDK 21
+`lib/tzdb.dat` file by `tools/generate-tzdb-data.rb`.
