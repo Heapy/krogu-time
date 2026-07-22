@@ -27,7 +27,9 @@ public class DateTimeFormatter private constructor(
     private val parser: (CharSequence) -> TemporalAccessor,
     private val description: String,
     private val decimalStyleScope: DecimalStyleScope = DecimalStyleScope.ALL,
+    private val resolverParser: ((String, ResolverStyle) -> TemporalAccessor)? = null,
     public val decimalStyle: DecimalStyle = DecimalStyle.STANDARD,
+    public val resolverStyle: ResolverStyle = ResolverStyle.STRICT,
 ) {
     /** Formats [temporal] into a string. */
     public fun format(temporal: TemporalAccessor): String =
@@ -39,8 +41,10 @@ public class DateTimeFormatter private constructor(
     }
 
     /** Parses [text] into a temporal accessor. */
-    public fun parse(text: CharSequence): TemporalAccessor =
-        parser(decimalStyleScope.standardize(text, decimalStyle))
+    public fun parse(text: CharSequence): TemporalAccessor {
+        val standardized = decimalStyleScope.standardize(text, decimalStyle)
+        return resolverParser?.invoke(standardized, resolverStyle) ?: parser(standardized)
+    }
 
     /** Returns a formatter using [decimalStyle] for numeric symbols. */
     public fun withDecimalStyle(decimalStyle: DecimalStyle): DateTimeFormatter =
@@ -52,7 +56,25 @@ public class DateTimeFormatter private constructor(
                 parser = parser,
                 description = description,
                 decimalStyleScope = decimalStyleScope,
+                resolverParser = resolverParser,
                 decimalStyle = decimalStyle,
+                resolverStyle = resolverStyle,
+            )
+        }
+
+    /** Returns a formatter using [resolverStyle] while resolving parsed fields. */
+    public fun withResolverStyle(resolverStyle: ResolverStyle): DateTimeFormatter =
+        if (resolverStyle == this.resolverStyle) {
+            this
+        } else {
+            DateTimeFormatter(
+                printer = printer,
+                parser = parser,
+                description = description,
+                decimalStyleScope = decimalStyleScope,
+                resolverParser = resolverParser,
+                decimalStyle = decimalStyle,
+                resolverStyle = resolverStyle,
             )
         }
 
@@ -118,6 +140,11 @@ public class DateTimeFormatter private constructor(
             parser = { text -> LocalDate.parse(text) },
             description =
                 "Value(Year,4,10,EXCEEDS_PAD)'-'Value(MonthOfYear,2)'-'Value(DayOfMonth,2)",
+            resolverParser = { text, style ->
+                ParsedTemporalAccessor(
+                    date = parseResolvedIsoDate(text, style, "ISO local date"),
+                )
+            },
         )
 
         /** The strict ISO formatter for a date with a required offset. */
@@ -131,6 +158,9 @@ public class DateTimeFormatter private constructor(
                     "(Value(Year,4,10,EXCEEDS_PAD)'-'Value(MonthOfYear,2)" +
                     "'-'Value(DayOfMonth,2))Offset(+HH:MM:ss,'Z')",
             decimalStyleScope = DecimalStyleScope.BEFORE_ISO_OFFSET,
+            resolverParser = { text, style ->
+                parseIsoDate(text, offsetRequired = true, resolverStyle = style)
+            },
         )
 
         /** The strict ISO formatter for a date with an optional offset. */
@@ -149,6 +179,9 @@ public class DateTimeFormatter private constructor(
                     "(Value(Year,4,10,EXCEEDS_PAD)'-'Value(MonthOfYear,2)" +
                     "'-'Value(DayOfMonth,2))[Offset(+HH:MM:ss,'Z')]",
             decimalStyleScope = DecimalStyleScope.BEFORE_ISO_OFFSET,
+            resolverParser = { text, style ->
+                parseIsoDate(text, offsetRequired = false, resolverStyle = style)
+            },
         )
 
         /** The strict ISO formatter for a time without a date or offset. */
@@ -159,6 +192,7 @@ public class DateTimeFormatter private constructor(
                 "Value(HourOfDay,2)':'Value(MinuteOfHour,2)" +
                     "[':'Value(SecondOfMinute,2)" +
                     "[Fraction(NanoOfSecond,0,9,DecimalPoint)]]",
+            resolverParser = { text, style -> parseResolvedIsoTimeAccessor(text, style) },
         )
 
         /** The strict ISO formatter for a time with an optional offset. */
@@ -179,6 +213,9 @@ public class DateTimeFormatter private constructor(
                     "[Fraction(NanoOfSecond,0,9,DecimalPoint)]])" +
                     "[Offset(+HH:MM:ss,'Z')]",
             decimalStyleScope = DecimalStyleScope.BEFORE_ISO_OFFSET,
+            resolverParser = { text, style ->
+                parseIsoTime(text, offsetRequired = false, resolverStyle = style)
+            },
         )
 
         /** The strict ISO formatter for a date-time without an offset. */
@@ -194,6 +231,10 @@ public class DateTimeFormatter private constructor(
                     "(Value(HourOfDay,2)':'Value(MinuteOfHour,2)" +
                     "[':'Value(SecondOfMinute,2)" +
                     "[Fraction(NanoOfSecond,0,9,DecimalPoint)]])",
+            resolverParser = { text, style ->
+                val dateTime = parseResolvedIsoDateTime(text, style)
+                ParsedTemporalAccessor(date = dateTime.date, time = dateTime.time)
+            },
         )
 
         /** The strict ISO formatter for a date-time with an optional offset and region zone. */
@@ -222,6 +263,14 @@ public class DateTimeFormatter private constructor(
                     "[Offset(+HH:MM:ss,'Z')" +
                     "['['ParseCaseSensitive(true)ZoneRegionId()']']]",
             decimalStyleScope = DecimalStyleScope.BEFORE_ISO_OFFSET,
+            resolverParser = { text, style ->
+                parseIsoDateTime(
+                    text,
+                    offsetRequired = false,
+                    regionAllowed = true,
+                    resolverStyle = style,
+                )
+            },
         )
 
         /** The strict ISO formatter for a year and day-of-year with an optional offset. */
@@ -301,6 +350,7 @@ public class DateTimeFormatter private constructor(
                     "Value(HourOfDay,2)':'Value(MinuteOfHour,2)" +
                     "[':'Value(SecondOfMinute,2)]' 'Offset(+HHMM,'GMT')",
             decimalStyleScope = DecimalStyleScope.BEFORE_RFC_OFFSET,
+            resolverStyle = ResolverStyle.SMART,
         )
 
         /** The strict ISO formatter for an instant in UTC. */
@@ -325,6 +375,9 @@ public class DateTimeFormatter private constructor(
                     "[Fraction(NanoOfSecond,0,9,DecimalPoint)]])" +
                     "Offset(+HH:MM:ss,'Z')",
             decimalStyleScope = DecimalStyleScope.BEFORE_ISO_OFFSET,
+            resolverParser = { text, style ->
+                parseIsoTime(text, offsetRequired = true, resolverStyle = style)
+            },
         )
 
         /** The strict ISO formatter for a date-time with an offset. */
@@ -344,6 +397,14 @@ public class DateTimeFormatter private constructor(
                     "[Fraction(NanoOfSecond,0,9,DecimalPoint)]]))" +
                     "ParseStrict(false)Offset(+HH:MM:ss,'Z')ParseStrict(true)",
             decimalStyleScope = DecimalStyleScope.BEFORE_ISO_OFFSET,
+            resolverParser = { text, style ->
+                parseIsoDateTime(
+                    text,
+                    offsetRequired = true,
+                    regionAllowed = false,
+                    resolverStyle = style,
+                )
+            },
         )
 
         /** The strict ISO formatter for a date-time with an offset and optional region zone. */
@@ -372,6 +433,14 @@ public class DateTimeFormatter private constructor(
                     "ParseStrict(false)Offset(+HH:MM:ss,'Z')ParseStrict(true))" +
                     "['['ParseCaseSensitive(true)ZoneRegionId()']']",
             decimalStyleScope = DecimalStyleScope.BEFORE_ISO_OFFSET,
+            resolverParser = { text, style ->
+                parseIsoDateTime(
+                    text,
+                    offsetRequired = true,
+                    regionAllowed = true,
+                    resolverStyle = style,
+                )
+            },
         )
 
         /** Returns a singleton query for the excess days produced while resolving. */
@@ -535,9 +604,165 @@ private fun parseIsoInstant(text: CharSequence): TemporalAccessor {
     )
 }
 
+private fun parseResolvedIsoDate(
+    input: String,
+    resolverStyle: ResolverStyle,
+    target: String,
+): LocalDate {
+    val daySeparator = input.lastIndexOf('-')
+    val monthSeparator = input.lastIndexOf('-', daySeparator - 1)
+    if (
+        monthSeparator <= 0 ||
+        daySeparator != monthSeparator + 3 ||
+        input.length != daySeparator + 3
+    ) {
+        throw DateTimeParseException("Text cannot be parsed to an $target", input, 0)
+    }
+    val year = parseIsoYear(input.substring(0, monthSeparator), input, target)
+    val month = parseFixedDigits(input, monthSeparator + 1, 2, input, target)
+    val day = parseFixedDigits(input, daySeparator + 1, 2, input, target)
+
+    return try {
+        when (resolverStyle) {
+            ResolverStyle.STRICT -> LocalDate.of(year, month, day)
+            ResolverStyle.SMART -> {
+                ChronoField.MONTH_OF_YEAR.checkValidValue(month.toLong())
+                ChronoField.DAY_OF_MONTH.checkValidValue(day.toLong())
+                val firstOfMonth = LocalDate.of(year, month, 1)
+                LocalDate.of(year, month, minOf(day, firstOfMonth.lengthOfMonth()))
+            }
+            ResolverStyle.LENIENT -> LocalDate.of(year, 1, 1)
+                .plusMonths(month.toLong() - 1)
+                .plusDays(day.toLong() - 1)
+        }
+    } catch (exception: RuntimeException) {
+        throw DateTimeParseException(
+            "Text cannot be parsed to an $target",
+            input,
+            0,
+            exception,
+        )
+    }
+}
+
+private data class ResolvedTime(
+    val time: LocalTime,
+    val excessDays: Period,
+)
+
+private fun parseResolvedIsoTimeAccessor(
+    input: String,
+    resolverStyle: ResolverStyle,
+): TemporalAccessor {
+    val resolved = parseResolvedIsoTime(input, resolverStyle, "ISO local time")
+    return ParsedTemporalAccessor(
+        time = resolved.time,
+        excessDays = resolved.excessDays,
+    )
+}
+
+private fun parseResolvedIsoTime(
+    input: String,
+    resolverStyle: ResolverStyle,
+    target: String,
+): ResolvedTime {
+    if (
+        input.length < 5 ||
+        input[2] != ':' ||
+        input.getOrNull(5)?.let { it != ':' } == true
+    ) {
+        throw DateTimeParseException("Text cannot be parsed to an $target", input, 0)
+    }
+    val hour = parseFixedDigits(input, 0, 2, input, target)
+    val minute = parseFixedDigits(input, 3, 2, input, target)
+    var second = 0
+    var nano = 0
+    if (input.length > 5) {
+        if (input.length < 8) {
+            throw DateTimeParseException("Text cannot be parsed to an $target", input, 5)
+        }
+        second = parseFixedDigits(input, 6, 2, input, target)
+        if (input.length > 8) {
+            if (input[8] != '.') {
+                throw DateTimeParseException("Text cannot be parsed to an $target", input, 8)
+            }
+            val fractionLength = input.length - 9
+            if (fractionLength > 9) {
+                throw DateTimeParseException("Text cannot be parsed to an $target", input, 18)
+            }
+            var index = 9
+            while (index < input.length) {
+                val digit = input[index]
+                if (digit !in '0'..'9') {
+                    throw DateTimeParseException("Text cannot be parsed to an $target", input, index)
+                }
+                nano = nano * 10 + (digit - '0')
+                index++
+            }
+            repeat(9 - fractionLength) { nano *= 10 }
+        }
+    }
+
+    return try {
+        when (resolverStyle) {
+            ResolverStyle.STRICT -> ResolvedTime(
+                LocalTime.of(hour, minute, second, nano),
+                Period.ZERO,
+            )
+            ResolverStyle.SMART -> if (hour == 24 && minute == 0 && second == 0 && nano == 0) {
+                ResolvedTime(LocalTime.MIDNIGHT, Period.ofDays(1))
+            } else {
+                ResolvedTime(LocalTime.of(hour, minute, second, nano), Period.ZERO)
+            }
+            ResolverStyle.LENIENT -> {
+                val totalNanos =
+                    (hour * 3_600L + minute * 60L + second) * 1_000_000_000L + nano
+                val excessDays = totalNanos / 86_400_000_000_000L
+                val nanoOfDay = totalNanos % 86_400_000_000_000L
+                ResolvedTime(
+                    LocalTime.ofNanoOfDay(nanoOfDay),
+                    Period.ofDays(excessDays.toInt()),
+                )
+            }
+        }
+    } catch (exception: RuntimeException) {
+        throw DateTimeParseException(
+            "Text cannot be parsed to an $target",
+            input,
+            0,
+            exception,
+        )
+    }
+}
+
+private fun parseResolvedIsoDateTime(
+    input: String,
+    resolverStyle: ResolverStyle,
+): LocalDateTime {
+    val separator = input.indexOfFirst { it == 'T' || it == 't' }
+    if (separator < 0) {
+        throw DateTimeParseException("Text cannot be parsed to an ISO local date-time", input, 0)
+    }
+    val date = parseResolvedIsoDate(
+        input.substring(0, separator),
+        resolverStyle,
+        "ISO local date-time",
+    )
+    val resolvedTime = parseResolvedIsoTime(
+        input.substring(separator + 1),
+        resolverStyle,
+        "ISO local date-time",
+    )
+    return LocalDateTime.of(
+        date.plusDays(resolvedTime.excessDays.days.toLong()),
+        resolvedTime.time,
+    )
+}
+
 private fun parseIsoDate(
     text: CharSequence,
     offsetRequired: Boolean,
+    resolverStyle: ResolverStyle = ResolverStyle.STRICT,
 ): TemporalAccessor {
     val input = text.toString()
     val offsetStart = isoOffsetStart(input)
@@ -545,16 +770,11 @@ private fun parseIsoDate(
         throw DateTimeParseException("Text cannot be parsed to an ISO date", input, input.length)
     }
     val dateEnd = offsetStart ?: input.length
-    val date = try {
-        LocalDate.parse(input.substring(0, dateEnd))
-    } catch (exception: DateTimeParseException) {
-        throw DateTimeParseException(
-            "Text cannot be parsed to an ISO date",
-            input,
-            exception.errorIndex,
-            exception,
-        )
-    }
+    val date = parseResolvedIsoDate(
+        input.substring(0, dateEnd),
+        resolverStyle,
+        "ISO date",
+    )
     val offset = offsetStart?.let { index ->
         val offsetText = input.substring(index)
         try {
@@ -571,27 +791,45 @@ private fun parseIsoDate(
     return ParsedTemporalAccessor(date = date, offset = offset)
 }
 
-private fun parseIsoTime(text: CharSequence): TemporalAccessor {
+private fun parseIsoTime(
+    text: CharSequence,
+    offsetRequired: Boolean = false,
+    resolverStyle: ResolverStyle = ResolverStyle.STRICT,
+): TemporalAccessor {
     val input = text.toString()
     val offsetStart = isoOffsetStart(input)
-    val time = try {
-        LocalTime.parse(input.substring(0, offsetStart ?: input.length))
-    } catch (exception: DateTimeParseException) {
-        throw DateTimeParseException(
-            "Text cannot be parsed to an ISO time",
-            input,
-            exception.errorIndex,
-            exception,
-        )
+    if (offsetRequired && offsetStart == null) {
+        throw DateTimeParseException("Text cannot be parsed to an ISO time", input, input.length)
     }
+    val resolvedTime = parseResolvedIsoTime(
+        input.substring(0, offsetStart ?: input.length),
+        resolverStyle,
+        "ISO time",
+    )
     val offset = offsetStart?.let { index -> parseIsoOffset(input, index, "ISO time") }
-    return ParsedTemporalAccessor(time = time, offset = offset)
+    return ParsedTemporalAccessor(
+        time = resolvedTime.time,
+        offset = offset,
+        excessDays = resolvedTime.excessDays,
+    )
 }
 
-private fun parseIsoDateTime(text: CharSequence): TemporalAccessor {
+private fun parseIsoDateTime(
+    text: CharSequence,
+    offsetRequired: Boolean = false,
+    regionAllowed: Boolean = true,
+    resolverStyle: ResolverStyle = ResolverStyle.STRICT,
+): TemporalAccessor {
     val input = text.toString()
     val bracketStart = input.lastIndexOf('[')
     val hasBracket = bracketStart >= 0 || ']' in input
+    if (hasBracket && !regionAllowed) {
+        throw DateTimeParseException(
+            "Text cannot be parsed to an ISO date-time",
+            input,
+            maxOf(bracketStart, 0),
+        )
+    }
     val zone = if (hasBracket) {
         if (bracketStart < 0 || !input.endsWith(']') || bracketStart == input.lastIndex) {
             throw DateTimeParseException(
@@ -627,23 +865,17 @@ private fun parseIsoDateTime(text: CharSequence): TemporalAccessor {
     val mainEnd = if (hasBracket) bracketStart else input.length
     val mainText = input.substring(0, mainEnd)
     val offsetStart = isoOffsetStart(mainText)
-    if (zone != null && offsetStart == null) {
+    if ((zone != null || offsetRequired) && offsetStart == null) {
         throw DateTimeParseException(
             "Text cannot be parsed to an ISO date-time",
             input,
-            bracketStart,
+            if (zone != null) bracketStart else mainEnd,
         )
     }
-    val dateTime = try {
-        LocalDateTime.parse(mainText.substring(0, offsetStart ?: mainText.length))
-    } catch (exception: DateTimeParseException) {
-        throw DateTimeParseException(
-            "Text cannot be parsed to an ISO date-time",
-            input,
-            exception.errorIndex,
-            exception,
-        )
-    }
+    val dateTime = parseResolvedIsoDateTime(
+        mainText.substring(0, offsetStart ?: mainText.length),
+        resolverStyle,
+    )
     val offset = offsetStart?.let { index -> parseIsoOffset(mainText, index, "ISO date-time") }
     return ParsedTemporalAccessor(
         date = dateTime.date,
