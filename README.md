@@ -36,7 +36,9 @@ Implemented foundations:
 - `ResolverStyle`, `FormatStyle`, `SignStyle`, and `TextStyle` formatter
   configuration enums
 - `DecimalStyle` standard symbols, immutable symbol replacement, digit
-  conversion, value semantics, and Java-compatible text (locale factories remain)
+  conversion, value semantics, and Java-compatible text, with immutable
+  `DateTimeFormatter` overrides for localized numeric printing and parsing
+  (locale factories remain)
 - `DateTimeFormatter` core formatting, appendable output, parsing, temporal
   queries, ordered `parseBest` conversion, and query-failure wrapping, with
   Java-compatible `ISO_LOCAL_DATE`, `ISO_LOCAL_TIME`,

@@ -26,9 +26,12 @@ public class DateTimeFormatter private constructor(
     private val printer: (TemporalAccessor) -> String,
     private val parser: (CharSequence) -> TemporalAccessor,
     private val description: String,
+    private val decimalStyleScope: DecimalStyleScope = DecimalStyleScope.ALL,
+    public val decimalStyle: DecimalStyle = DecimalStyle.STANDARD,
 ) {
     /** Formats [temporal] into a string. */
-    public fun format(temporal: TemporalAccessor): String = printer(temporal)
+    public fun format(temporal: TemporalAccessor): String =
+        decimalStyleScope.localize(printer(temporal), decimalStyle)
 
     /** Formats [temporal] and appends the result to [appendable]. */
     public fun formatTo(temporal: TemporalAccessor, appendable: Appendable) {
@@ -36,7 +39,22 @@ public class DateTimeFormatter private constructor(
     }
 
     /** Parses [text] into a temporal accessor. */
-    public fun parse(text: CharSequence): TemporalAccessor = parser(text)
+    public fun parse(text: CharSequence): TemporalAccessor =
+        parser(decimalStyleScope.standardize(text, decimalStyle))
+
+    /** Returns a formatter using [decimalStyle] for numeric symbols. */
+    public fun withDecimalStyle(decimalStyle: DecimalStyle): DateTimeFormatter =
+        if (decimalStyle == this.decimalStyle) {
+            this
+        } else {
+            DateTimeFormatter(
+                printer = printer,
+                parser = parser,
+                description = description,
+                decimalStyleScope = decimalStyleScope,
+                decimalStyle = decimalStyle,
+            )
+        }
 
     /** Parses [text] and applies [query] to the result. */
     public fun <T> parse(text: CharSequence, query: TemporalQuery<T>): T =
@@ -112,6 +130,7 @@ public class DateTimeFormatter private constructor(
                 "ParseCaseSensitive(false)" +
                     "(Value(Year,4,10,EXCEEDS_PAD)'-'Value(MonthOfYear,2)" +
                     "'-'Value(DayOfMonth,2))Offset(+HH:MM:ss,'Z')",
+            decimalStyleScope = DecimalStyleScope.BEFORE_ISO_OFFSET,
         )
 
         /** The strict ISO formatter for a date with an optional offset. */
@@ -129,6 +148,7 @@ public class DateTimeFormatter private constructor(
                 "ParseCaseSensitive(false)" +
                     "(Value(Year,4,10,EXCEEDS_PAD)'-'Value(MonthOfYear,2)" +
                     "'-'Value(DayOfMonth,2))[Offset(+HH:MM:ss,'Z')]",
+            decimalStyleScope = DecimalStyleScope.BEFORE_ISO_OFFSET,
         )
 
         /** The strict ISO formatter for a time without a date or offset. */
@@ -158,6 +178,7 @@ public class DateTimeFormatter private constructor(
                     "[':'Value(SecondOfMinute,2)" +
                     "[Fraction(NanoOfSecond,0,9,DecimalPoint)]])" +
                     "[Offset(+HH:MM:ss,'Z')]",
+            decimalStyleScope = DecimalStyleScope.BEFORE_ISO_OFFSET,
         )
 
         /** The strict ISO formatter for a date-time without an offset. */
@@ -200,6 +221,7 @@ public class DateTimeFormatter private constructor(
                     "[Fraction(NanoOfSecond,0,9,DecimalPoint)]]))" +
                     "[Offset(+HH:MM:ss,'Z')" +
                     "['['ParseCaseSensitive(true)ZoneRegionId()']']]",
+            decimalStyleScope = DecimalStyleScope.BEFORE_ISO_OFFSET,
         )
 
         /** The strict ISO formatter for a year and day-of-year with an optional offset. */
@@ -218,6 +240,7 @@ public class DateTimeFormatter private constructor(
                 "ParseCaseSensitive(false)" +
                     "Value(Year,4,10,EXCEEDS_PAD)'-'Value(DayOfYear,3)" +
                     "[Offset(+HH:MM:ss,'Z')]",
+            decimalStyleScope = DecimalStyleScope.BEFORE_ISO_OFFSET,
         )
 
         /** The strict ISO formatter for a week-based date with an optional offset. */
@@ -239,6 +262,7 @@ public class DateTimeFormatter private constructor(
                     "Value(WeekBasedYear,4,10,EXCEEDS_PAD)'-W'" +
                     "Value(WeekOfWeekBasedYear,2)'-'Value(DayOfWeek,1)" +
                     "[Offset(+HH:MM:ss,'Z')]",
+            decimalStyleScope = DecimalStyleScope.BEFORE_ISO_OFFSET,
         )
 
         /** The strict basic ISO date formatter with an optional compact offset. */
@@ -262,6 +286,7 @@ public class DateTimeFormatter private constructor(
                 "ParseCaseSensitive(false)Value(Year,4)" +
                     "Value(MonthOfYear,2)Value(DayOfMonth,2)" +
                     "[ParseStrict(false)Offset(+HHMMss,'Z')ParseStrict(true)]",
+            decimalStyleScope = DecimalStyleScope.BASIC_DATE,
         )
 
         /** The English RFC 1123 date-time formatter. */
@@ -275,6 +300,7 @@ public class DateTimeFormatter private constructor(
                     "Text(MonthOfYear)' 'Value(Year,4)' '" +
                     "Value(HourOfDay,2)':'Value(MinuteOfHour,2)" +
                     "[':'Value(SecondOfMinute,2)]' 'Offset(+HHMM,'GMT')",
+            decimalStyleScope = DecimalStyleScope.BEFORE_RFC_OFFSET,
         )
 
         /** The strict ISO formatter for an instant in UTC. */
@@ -282,6 +308,7 @@ public class DateTimeFormatter private constructor(
             printer = { temporal -> Instant.from(temporal).toString() },
             parser = { text -> parseIsoInstant(text) },
             description = "ParseCaseSensitive(false)Instant()",
+            decimalStyleScope = DecimalStyleScope.NONE,
         )
 
         /** The strict ISO formatter for a time with an offset. */
@@ -297,6 +324,7 @@ public class DateTimeFormatter private constructor(
                     "[':'Value(SecondOfMinute,2)" +
                     "[Fraction(NanoOfSecond,0,9,DecimalPoint)]])" +
                     "Offset(+HH:MM:ss,'Z')",
+            decimalStyleScope = DecimalStyleScope.BEFORE_ISO_OFFSET,
         )
 
         /** The strict ISO formatter for a date-time with an offset. */
@@ -315,6 +343,7 @@ public class DateTimeFormatter private constructor(
                     "[':'Value(SecondOfMinute,2)" +
                     "[Fraction(NanoOfSecond,0,9,DecimalPoint)]]))" +
                     "ParseStrict(false)Offset(+HH:MM:ss,'Z')ParseStrict(true)",
+            decimalStyleScope = DecimalStyleScope.BEFORE_ISO_OFFSET,
         )
 
         /** The strict ISO formatter for a date-time with an offset and optional region zone. */
@@ -341,7 +370,8 @@ public class DateTimeFormatter private constructor(
                     "[':'Value(SecondOfMinute,2)" +
                     "[Fraction(NanoOfSecond,0,9,DecimalPoint)]]))" +
                     "ParseStrict(false)Offset(+HH:MM:ss,'Z')ParseStrict(true))" +
-                "['['ParseCaseSensitive(true)ZoneRegionId()']']",
+                    "['['ParseCaseSensitive(true)ZoneRegionId()']']",
+            decimalStyleScope = DecimalStyleScope.BEFORE_ISO_OFFSET,
         )
 
         /** Returns a singleton query for the excess days produced while resolving. */
@@ -357,6 +387,69 @@ public class DateTimeFormatter private constructor(
         private val PARSED_LEAP_SECOND: TemporalQuery<Boolean> = TemporalQuery { temporal ->
             (temporal as? ParsedState)?.leapSecond ?: false
         }
+    }
+}
+
+private enum class DecimalStyleScope {
+    ALL,
+    BEFORE_ISO_OFFSET,
+    BASIC_DATE,
+    BEFORE_RFC_OFFSET,
+    NONE,
+    ;
+
+    fun localize(text: String, style: DecimalStyle): String =
+        convert(text, style, toLocalized = true)
+
+    fun standardize(text: CharSequence, style: DecimalStyle): String =
+        convert(text.toString(), style, toLocalized = false)
+
+    private fun convert(
+        text: String,
+        style: DecimalStyle,
+        toLocalized: Boolean,
+    ): String {
+        if (style == DecimalStyle.STANDARD || this == NONE) return text
+        val sectionEnd = sectionEnd(text)
+        return buildString(text.length) {
+            text.forEachIndexed { index, character ->
+                append(
+                    if (index >= sectionEnd) {
+                        character
+                    } else if (toLocalized) {
+                        character.toLocalized(index, style)
+                    } else {
+                        character.toStandard(index, style)
+                    },
+                )
+            }
+        }
+    }
+
+    private fun sectionEnd(text: String): Int = when (this) {
+        ALL -> text.length
+        BEFORE_ISO_OFFSET -> {
+            val mainEnd = text.indexOf('[').takeIf { it >= 0 } ?: text.length
+            isoOffsetStart(text.substring(0, mainEnd)) ?: mainEnd
+        }
+        BASIC_DATE -> minOf(8, text.length)
+        BEFORE_RFC_OFFSET -> text.lastIndexOf(' ').takeIf { it >= 0 } ?: text.length
+        NONE -> 0
+    }
+
+    private fun Char.toLocalized(index: Int, style: DecimalStyle): Char = when {
+        index == 0 && this == '+' -> style.positiveSign
+        index == 0 && this == '-' -> style.negativeSign
+        this in '0'..'9' -> (style.zeroDigit.code + (this - '0')).toChar()
+        this == '.' -> style.decimalSeparator
+        else -> this
+    }
+
+    private fun Char.toStandard(index: Int, style: DecimalStyle): Char = when {
+        index == 0 && this == style.positiveSign -> '+'
+        index == 0 && this == style.negativeSign -> '-'
+        this == style.decimalSeparator -> '.'
+        else -> style.convertToDigit(this).takeIf { it >= 0 }?.digitToChar() ?: this
     }
 }
 
