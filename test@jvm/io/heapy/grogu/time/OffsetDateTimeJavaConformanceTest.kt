@@ -35,6 +35,14 @@ class OffsetDateTimeJavaConformanceTest {
         values.forEach { value ->
             val javaValue = value.toJava()
             assertEquals(javaValue.toString(), value.toString())
+            assertEquals(
+                javaValue.toLocalDate().atTime(javaValue.toOffsetTime()).toString(),
+                value.date.atTime(value.toOffsetTime()).toString(),
+            )
+            assertEquals(
+                javaValue.toOffsetTime().atDate(javaValue.toLocalDate()).toString(),
+                value.toOffsetTime().atDate(value.date).toString(),
+            )
             assertEquals(javaValue.toEpochSecond(), value.toEpochSecond())
             assertEquals(javaValue.toInstant().toString(), value.toInstant().toString())
             assertEquals(javaValue.hashCode(), value.hashCode())

@@ -297,6 +297,9 @@ public class LocalDate private constructor(
     /** Combines this date with [time]. */
     public fun atTime(time: LocalTime): LocalDateTime = LocalDateTime.of(this, time)
 
+    /** Combines this date with an offset time. */
+    public fun atTime(time: OffsetTime): OffsetDateTime = OffsetDateTime.of(this, time.time, time.offset)
+
     /** Combines this date with an hour and minute. */
     public fun atTime(hour: Int, minute: Int): LocalDateTime =
         atTime(LocalTime.of(hour, minute))

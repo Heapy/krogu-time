@@ -25,6 +25,8 @@ class OffsetDateTimeTest {
         assertEquals(13, value.hour)
         assertEquals(123_456_789, value.nano)
         assertEquals(value, value.dateTime.atOffset(offset))
+        assertEquals(value, value.date.atTime(value.toOffsetTime()))
+        assertEquals(value, value.toOffsetTime().atDate(value.date))
         assertEquals(value.toInstant(), Instant.ofEpochSecond(value.toEpochSecond(), value.nano.toLong()))
         assertEquals(value, value.toInstant().atOffset(offset))
         assertEquals(OffsetTime.of(value.time, offset), value.toOffsetTime())

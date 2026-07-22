@@ -51,7 +51,7 @@ Implemented foundations:
   replacement, checked calendar arithmetic, complete-unit differences, and
   timeline and calendar-period comparison, including local time composition,
   strict ISO parsing, and ISO text output (clock, formatter overloads, queries,
-  and zone APIs remain)
+  and zone-region APIs remain)
 - `Period` factories, parsing, value behavior, temporal integration, checked
   arithmetic, normalization, and `between` (chronology integration remains)
 - `LocalTime` core value, validated factories, day conversions, temporal
@@ -78,7 +78,7 @@ Implemented foundations:
   offset conversion with same-local and same-instant semantics, replacement,
   truncation, wraparound arithmetic, complete-unit differences, timeline and
   structural ordering, epoch-second conversion, strict ISO parsing, and ISO
-  text output (clock/zone factories, formatters, and date composition remain)
+  text output (clock/zone factories and formatter overloads remain)
 - `OffsetDateTime` immutable composition, factories, fixed-offset/instant
   conversion, all standard fields and units, replacement, truncation, checked
   local arithmetic, complete-unit differences across offsets, timeline and

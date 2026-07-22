@@ -132,6 +132,9 @@ public class OffsetTime private constructor(
     public fun toEpochSecond(date: LocalDate): Long =
         date.toEpochDay() * SECONDS_PER_DAY + time.toSecondOfDay() - offset.totalSeconds
 
+    /** Combines this offset time with [date]. */
+    public fun atDate(date: LocalDate): OffsetDateTime = OffsetDateTime.of(date, time, offset)
+
     override fun compareTo(other: OffsetTime): Int {
         if (offset == other.offset) return time.compareTo(other.time)
         val instantComparison = toEpochNano().compareTo(other.toEpochNano())
