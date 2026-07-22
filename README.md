@@ -115,7 +115,8 @@ Implemented foundations:
   enumeration, the single-era Hijrah range, and chronology-specific localized
   display names
 - `Chronology` identity, lookup, ordering, era/leap/range contracts, plus the
-  `IsoChronology`, `JapaneseChronology`, `HijrahChronology`,
+  recommended `AbstractChronology` base with shared resolution and value
+  behavior, and the `IsoChronology`, `JapaneseChronology`, `HijrahChronology`,
   `MinguoChronology`, and `ThaiBuddhistChronology` singletons with generic
   date/date-time factories, locale calendar lookup, localized display names,
   strict/smart/lenient field-map date resolution, clock injection, period

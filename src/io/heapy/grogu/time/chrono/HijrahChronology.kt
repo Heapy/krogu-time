@@ -10,7 +10,7 @@ import io.heapy.grogu.time.temporal.TemporalAccessor
 import io.heapy.grogu.time.temporal.ValueRange
 
 /** The Islamic Umm al-Qura calendar system bundled by Java 21. */
-public object HijrahChronology : Chronology {
+public object HijrahChronology : AbstractChronology() {
     override val id: String = "Hijrah-umalqura"
     override val calendarType: String = "islamic-umalqura"
 

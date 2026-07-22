@@ -9,7 +9,7 @@ import io.heapy.grogu.time.temporal.TemporalAccessor
 import io.heapy.grogu.time.temporal.ValueRange
 
 /** The proleptic Minguo calendar system used in Taiwan. */
-public object MinguoChronology : Chronology {
+public object MinguoChronology : AbstractChronology() {
     internal const val YEARS_DIFFERENCE: Int = 1_911
 
     override val id: String = "Minguo"

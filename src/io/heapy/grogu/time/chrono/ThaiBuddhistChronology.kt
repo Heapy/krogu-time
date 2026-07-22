@@ -9,7 +9,7 @@ import io.heapy.grogu.time.temporal.TemporalAccessor
 import io.heapy.grogu.time.temporal.ValueRange
 
 /** The proleptic Thai Buddhist calendar system. */
-public object ThaiBuddhistChronology : Chronology {
+public object ThaiBuddhistChronology : AbstractChronology() {
     internal const val YEARS_DIFFERENCE: Int = 543
 
     override val id: String = "ThaiBuddhist"

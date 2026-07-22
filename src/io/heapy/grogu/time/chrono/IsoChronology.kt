@@ -14,7 +14,7 @@ import io.heapy.grogu.time.temporal.TemporalAccessor
 import io.heapy.grogu.time.temporal.ValueRange
 
 /** The singleton ISO-8601 chronology. */
-public object IsoChronology : Chronology {
+public object IsoChronology : AbstractChronology() {
     override val id: String = "ISO"
     override val calendarType: String = "iso8601"
     override val isIsoBased: Boolean = true

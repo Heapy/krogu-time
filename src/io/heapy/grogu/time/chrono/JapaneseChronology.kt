@@ -16,7 +16,7 @@ import io.heapy.grogu.time.temporal.UnsupportedTemporalTypeException
 import io.heapy.grogu.time.temporal.ValueRange
 
 /** The Japanese Imperial calendar system supported from Meiji 6 onward. */
-public object JapaneseChronology : Chronology {
+public object JapaneseChronology : AbstractChronology() {
     override val id: String = "Japanese"
     override val calendarType: String = "japanese"
     override val isIsoBased: Boolean = true
