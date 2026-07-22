@@ -1,6 +1,8 @@
 package io.heapy.grogu.time.chrono
 
 import io.heapy.grogu.time.DateTimeException
+import io.heapy.grogu.time.Locale
+import io.heapy.grogu.time.format.TextStyle
 import io.heapy.grogu.time.temporal.ChronoField
 import io.heapy.grogu.time.temporal.ValueRange
 import kotlin.test.Test
@@ -10,6 +12,16 @@ import kotlin.test.assertNotSame
 import kotlin.test.assertSame
 
 class AlternateEraTest {
+    @Test
+    fun erasExposeLocalizedDisplayNames() {
+        assertEquals("Anno Domini", IsoEra.CE.getDisplayName(TextStyle.FULL, Locale.ENGLISH))
+        assertEquals("AD", IsoEra.CE.getDisplayName(TextStyle.SHORT, Locale.ENGLISH))
+        assertEquals("A", IsoEra.CE.getDisplayName(TextStyle.NARROW, Locale.ENGLISH))
+        assertEquals("Reiwa", JapaneseEra.REIWA.getDisplayName(TextStyle.FULL, Locale.ENGLISH))
+        assertEquals("R", JapaneseEra.REIWA.getDisplayName(TextStyle.NARROW, Locale.ENGLISH))
+        assertEquals("AH", HijrahEra.AH.getDisplayName(TextStyle.SHORT, Locale.ENGLISH))
+    }
+
     @Test
     fun minguoAndThaiBuddhistErasUseTwoEraNumbering() {
         assertEquals(listOf(MinguoEra.BEFORE_ROC, MinguoEra.ROC), MinguoEra.entries)

@@ -1,5 +1,6 @@
 package io.heapy.grogu.time
 
+import io.heapy.grogu.time.format.TextStyle
 import io.heapy.grogu.time.temporal.ChronoField
 import io.heapy.grogu.time.temporal.ChronoUnit
 import io.heapy.grogu.time.temporal.Temporal
@@ -40,6 +41,20 @@ class DayOfWeekTest {
         DayOfWeek.entries.forEach { day ->
             assertSame(day, DayOfWeek.of(day.value))
         }
+    }
+
+    @Test
+    fun fromObtainsTheDayFromATemporalAccessor() {
+        assertSame(DayOfWeek.MONDAY, DayOfWeek.from(DayOfWeek.MONDAY))
+        assertSame(DayOfWeek.THURSDAY, DayOfWeek.from(LocalDate.of(2024, 2, 29)))
+        assertFailsWith<DateTimeException> { DayOfWeek.from(LocalTime.NOON) }
+    }
+
+    @Test
+    fun displayNameUsesLocalizedText() {
+        assertEquals("Monday", DayOfWeek.MONDAY.getDisplayName(TextStyle.FULL, Locale.ENGLISH))
+        assertEquals("Mon", DayOfWeek.MONDAY.getDisplayName(TextStyle.SHORT, Locale.ENGLISH))
+        assertEquals("M", DayOfWeek.MONDAY.getDisplayName(TextStyle.NARROW, Locale.ENGLISH))
     }
 
     @Test

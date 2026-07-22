@@ -1,5 +1,9 @@
 package io.heapy.grogu.time
 
+import io.heapy.grogu.time.chrono.IsoChronology
+import io.heapy.grogu.time.format.LocaleTextField
+import io.heapy.grogu.time.format.TextStyle
+import io.heapy.grogu.time.format.localeTextValues
 import io.heapy.grogu.time.temporal.ChronoField
 import io.heapy.grogu.time.temporal.Temporal
 import io.heapy.grogu.time.temporal.TemporalAccessor
@@ -25,6 +29,15 @@ public enum class DayOfWeek : TemporalAccessor, TemporalAdjuster {
     /** The ISO-8601 day number, from 1 (Monday) to 7 (Sunday). */
     public val value: Int
         get() = ordinal + 1
+
+    /** Returns this day's localized display name, or its numeric value when unavailable. */
+    public fun getDisplayName(style: TextStyle, locale: Locale): String =
+        localeTextValues(
+            locale.toLanguageTag(),
+            IsoChronology.id,
+            LocaleTextField.DAY_OF_WEEK,
+            style,
+        ).firstOrNull { it.value == value.toLong() }?.text ?: value.toString()
 
     /** Returns this day with [days] added, wrapping around the seven-day week. */
     public fun plus(days: Long): DayOfWeek {
@@ -59,6 +72,19 @@ public enum class DayOfWeek : TemporalAccessor, TemporalAdjuster {
                 throw DateTimeException("Invalid value for DayOfWeek: $dayOfWeek")
             }
             return entries[dayOfWeek - 1]
+        }
+
+        /** Obtains a day-of-week from [temporal]. */
+        public fun from(temporal: TemporalAccessor): DayOfWeek {
+            if (temporal is DayOfWeek) return temporal
+            return try {
+                of(temporal.get(ChronoField.DAY_OF_WEEK))
+            } catch (exception: DateTimeException) {
+                throw DateTimeException(
+                    "Unable to obtain DayOfWeek from TemporalAccessor: $temporal",
+                    exception,
+                )
+            }
         }
     }
 }

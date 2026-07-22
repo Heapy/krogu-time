@@ -1,5 +1,10 @@
 package io.heapy.grogu.time
 
+import io.heapy.grogu.time.chrono.Chronology
+import io.heapy.grogu.time.chrono.IsoChronology
+import io.heapy.grogu.time.format.LocaleTextField
+import io.heapy.grogu.time.format.TextStyle
+import io.heapy.grogu.time.format.localeTextValues
 import io.heapy.grogu.time.temporal.ChronoField
 import io.heapy.grogu.time.temporal.Temporal
 import io.heapy.grogu.time.temporal.TemporalAccessor
@@ -27,6 +32,15 @@ public enum class Month : TemporalAccessor, TemporalAdjuster {
     /** The ISO-8601 month number, from 1 (January) to 12 (December). */
     public val value: Int
         get() = ordinal + 1
+
+    /** Returns this month's localized display name, or its numeric value when unavailable. */
+    public fun getDisplayName(style: TextStyle, locale: Locale): String =
+        localeTextValues(
+            locale.toLanguageTag(),
+            IsoChronology.id,
+            LocaleTextField.MONTH_OF_YEAR,
+            style,
+        ).firstOrNull { it.value == value.toLong() }?.text ?: value.toString()
 
     /** Returns this month with [months] added, wrapping around the year. */
     public fun plus(months: Long): Month {
@@ -94,6 +108,24 @@ public enum class Month : TemporalAccessor, TemporalAdjuster {
                 throw DateTimeException("Invalid value for MonthOfYear: $month")
             }
             return entries[month - 1]
+        }
+
+        /** Obtains an ISO month from [temporal]. */
+        public fun from(temporal: TemporalAccessor): Month {
+            if (temporal is Month) return temporal
+            return try {
+                val isoTemporal = if (Chronology.from(temporal) == IsoChronology) {
+                    temporal
+                } else {
+                    LocalDate.from(temporal)
+                }
+                of(isoTemporal.get(ChronoField.MONTH_OF_YEAR))
+            } catch (exception: DateTimeException) {
+                throw DateTimeException(
+                    "Unable to obtain Month from TemporalAccessor: $temporal",
+                    exception,
+                )
+            }
         }
     }
 }

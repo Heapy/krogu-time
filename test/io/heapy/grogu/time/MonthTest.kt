@@ -1,5 +1,7 @@
 package io.heapy.grogu.time
 
+import io.heapy.grogu.time.chrono.HijrahDate
+import io.heapy.grogu.time.format.TextStyle
 import io.heapy.grogu.time.temporal.ChronoField
 import io.heapy.grogu.time.temporal.ChronoUnit
 import io.heapy.grogu.time.temporal.Temporal
@@ -43,6 +45,26 @@ class MonthTest {
             val error = assertFailsWith<DateTimeException> { Month.of(value) }
             assertEquals("Invalid value for MonthOfYear: $value", error.message)
         }
+    }
+
+    @Test
+    fun fromObtainsTheIsoMonthFromATemporalAccessor() {
+        assertSame(Month.MARCH, Month.from(Month.MARCH))
+        assertSame(Month.FEBRUARY, Month.from(LocalDate.of(2024, 2, 29)))
+
+        val hijrahDate = HijrahDate.of(1445, 9, 1)
+        assertSame(
+            LocalDate.ofEpochDay(hijrahDate.toEpochDay()).month,
+            Month.from(hijrahDate),
+        )
+        assertFailsWith<DateTimeException> { Month.from(LocalTime.NOON) }
+    }
+
+    @Test
+    fun displayNameUsesLocalizedText() {
+        assertEquals("January", Month.JANUARY.getDisplayName(TextStyle.FULL, Locale.ENGLISH))
+        assertEquals("Jan", Month.JANUARY.getDisplayName(TextStyle.SHORT, Locale.ENGLISH))
+        assertEquals("J", Month.JANUARY.getDisplayName(TextStyle.NARROW, Locale.ENGLISH))
     }
 
     @Test
