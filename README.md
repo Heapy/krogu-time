@@ -43,7 +43,9 @@ Implemented foundations:
   and default/explicit locale factories honoring `nu` and `rg`, with immutable
   `DateTimeFormatter` overrides for localized numeric printing and parsing
 - `DateTimeFormatter` core formatting, appendable output, parsing, temporal
-  queries, ordered `parseBest` conversion, and query-failure wrapping, with
+  queries, ordered `parseBest` conversion, query-failure wrapping, and
+  position-aware resolved and unresolved parsing through a KMP `ParsePosition`
+  that maps to `java.text.ParsePosition` on JVM and Android, with
   default and explicit locale factories plus immutable locale, resolver-style,
   resolver-field, chronology, and zone overrides, plus `localizedBy` calendar,
   numbering-system, region, and CLDR timezone-extension overrides,

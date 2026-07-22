@@ -93,6 +93,88 @@ public class DateTimeFormatter private constructor(
         }
     }
 
+    /**
+     * Parses from [position] without requiring the parse to consume all of [text].
+     *
+     * The position advances to the first unparsed character. Syntax errors are
+     * recorded on the position and also reported as [DateTimeParseException].
+     */
+    public fun parse(
+        text: CharSequence,
+        position: ParsePosition,
+    ): TemporalAccessor {
+        val input = text.toString()
+        val parsed = parsePositioned(input, position)
+        if (parsed == null || position.errorIndex >= 0) {
+            throw positionParseError(input, position.errorIndex)
+        }
+        return try {
+            applyOverrides(
+                parsed.resolve(
+                    text = input,
+                    resolverStyle = resolverStyle,
+                    chronology = chronology,
+                    resolverFields = resolverFields,
+                ),
+            )
+        } catch (exception: DateTimeParseException) {
+            throw exception
+        } catch (exception: RuntimeException) {
+            throw createParseError(input, exception)
+        }
+    }
+
+    /**
+     * Parses from [position] without resolving or validating the parsed fields.
+     *
+     * Syntax errors return `null`, leave the current index unchanged, and set
+     * [ParsePosition.errorIndex].
+     */
+    public fun parseUnresolved(
+        text: CharSequence,
+        position: ParsePosition,
+    ): TemporalAccessor? = parsePositioned(text.toString(), position)?.toUnresolved()
+
+    private fun parsePositioned(
+        text: String,
+        position: ParsePosition,
+    ): ParsedPatternParse? {
+        val startIndex = position.index
+        if (startIndex < 0 || startIndex > text.length) {
+            val invalidCharacter = text[startIndex]
+            throw IndexOutOfBoundsException(
+                "ParsePosition index $startIndex resolved to unexpected character $invalidCharacter",
+            )
+        }
+        val standardized = decimalStyleScope.standardize(text, decimalStyle)
+        val parsed = try {
+            parsePatternUnresolved(
+                tokens = builderTokens,
+                text = standardized,
+                startIndex = startIndex,
+                chronology = chronology,
+                locale = locale,
+            )
+        } catch (exception: DateTimeParseException) {
+            position.errorIndex = exception.errorIndex
+            return null
+        }
+        position.index = parsed.endIndex
+        return parsed
+    }
+
+    private fun positionParseError(
+        text: String,
+        errorIndex: Int,
+    ): DateTimeParseException {
+        val displayText = if (text.length > 64) "${text.take(64)}..." else text
+        return DateTimeParseException(
+            "Text '$displayText' could not be parsed at index $errorIndex",
+            text,
+            errorIndex,
+        )
+    }
+
     internal fun tokensForBuilder(): List<PatternToken> = builderTokens
 
     /** Returns a formatter using [decimalStyle] for numeric symbols. */
@@ -1880,6 +1962,44 @@ private fun formatPatternYear(
     }
 }
 
+private data class ParsedPatternParse(
+    val values: Map<TemporalField, Long>,
+    val offset: ZoneOffset?,
+    val zone: ZoneId?,
+    val chronology: Chronology?,
+    val leapSecond: Boolean,
+    val dayPeriod: LocaleDayPeriod?,
+    val endIndex: Int,
+) {
+    fun resolve(
+        text: String,
+        resolverStyle: ResolverStyle,
+        chronology: Chronology?,
+        resolverFields: Set<TemporalField>?,
+    ): TemporalAccessor {
+        val resolvingValues = resolverFields?.let { fields ->
+            values.filterKeys(fields::contains)
+        } ?: values
+        return resolvePatternValues(
+            values = resolvingValues,
+            text = text,
+            resolverStyle = resolverStyle,
+            chronology = this.chronology ?: chronology ?: IsoChronology,
+            offset = offset.takeIf { ChronoField.OFFSET_SECONDS in resolvingValues },
+            zone = zone,
+            leapSecond = leapSecond,
+            dayPeriod = dayPeriod,
+        )
+    }
+
+    fun toUnresolved(): TemporalAccessor = UnresolvedParsedTemporalAccessor(
+        fields = values,
+        chronology = chronology,
+        zone = zone,
+        leapSecond = leapSecond,
+    )
+}
+
 private fun parsePattern(
     tokens: List<PatternToken>,
     text: String,
@@ -1888,6 +2008,35 @@ private fun parsePattern(
     resolverFields: Set<TemporalField>? = null,
     locale: Locale = Locale.ROOT,
 ): TemporalAccessor {
+    val parsed = parsePatternUnresolved(
+        tokens = tokens,
+        text = text,
+        startIndex = 0,
+        chronology = chronology,
+        locale = locale,
+    )
+    if (parsed.endIndex != text.length) {
+        throw DateTimeParseException(
+            "Text could not be parsed, unparsed text found",
+            text,
+            parsed.endIndex,
+        )
+    }
+    return parsed.resolve(
+        text = text,
+        resolverStyle = resolverStyle,
+        chronology = chronology,
+        resolverFields = resolverFields,
+    )
+}
+
+private fun parsePatternUnresolved(
+    tokens: List<PatternToken>,
+    text: String,
+    startIndex: Int,
+    chronology: Chronology? = null,
+    locale: Locale = Locale.ROOT,
+): ParsedPatternParse {
     val values = mutableMapOf<TemporalField, Long>()
     var offset: ZoneOffset? = null
     var zone: ZoneId? = null
@@ -1895,7 +2044,7 @@ private fun parsePattern(
     var leapSecond = false
     var dayPeriod: LocaleDayPeriod? = null
     val chronologySensitiveReducedValues = mutableListOf<ParsedChronologySensitiveReducedValue>()
-    var index = 0
+    var index = startIndex
     var caseSensitive = true
     var strict = true
     fun effectiveChronology(): Chronology = parsedChronology ?: chronology ?: IsoChronology
@@ -2270,21 +2419,14 @@ private fun parsePattern(
         }
     }
     parseTokens(tokens, text)
-    if (index != text.length) {
-        throw DateTimeParseException("Text could not be parsed, unparsed text found", text, index)
-    }
-    val resolvingValues = resolverFields?.let { fields ->
-        values.filterKeys(fields::contains)
-    } ?: values
-    return resolvePatternValues(
-        values = resolvingValues,
-        text = text,
-        resolverStyle = resolverStyle,
-        chronology = effectiveChronology(),
-        offset = offset.takeIf { ChronoField.OFFSET_SECONDS in resolvingValues },
+    return ParsedPatternParse(
+        values = values,
+        offset = offset,
         zone = zone,
+        chronology = parsedChronology,
         leapSecond = leapSecond,
         dayPeriod = dayPeriod,
+        endIndex = index,
     )
 }
 
@@ -4600,6 +4742,41 @@ private fun resolveOrdinalDateInChronology(
     chronology.dateYearDay(year, 1).plus(dayOfYear.toLong() - 1, ChronoUnit.DAYS)
 } else {
     chronology.dateYearDay(year, dayOfYear)
+}
+
+private class UnresolvedParsedTemporalAccessor(
+    private val fields: Map<TemporalField, Long>,
+    private val chronology: Chronology?,
+    private val zone: ZoneId?,
+    override val leapSecond: Boolean,
+) : TemporalAccessor, ParsedState {
+    override val excessDays: Period = Period.ZERO
+
+    override fun isSupported(field: TemporalField): Boolean = field in fields
+
+    override fun range(field: TemporalField): ValueRange = when {
+        field in fields -> field.range
+        field is ChronoField -> unsupported(field)
+        else -> field.rangeRefinedBy(this)
+    }
+
+    override fun getLong(field: TemporalField): Long = fields[field] ?: unsupported(field)
+
+    override fun <R> query(query: TemporalQuery<R>): R {
+        val result: Any? = when (query) {
+            TemporalQueries.chronology() -> chronology
+            TemporalQueries.zoneId() -> zone
+            TemporalQueries.precision() -> null
+            else -> return super<TemporalAccessor>.query(query)
+        }
+        @Suppress("UNCHECKED_CAST")
+        return result as R
+    }
+
+    override fun toString(): String = fields.toString()
+
+    private fun unsupported(field: TemporalField): Nothing =
+        throw UnsupportedTemporalTypeException("Unsupported field: $field")
 }
 
 private class ParsedTemporalAccessor(
