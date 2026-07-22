@@ -1,12 +1,18 @@
 package io.heapy.grogu.time
 
 import io.heapy.grogu.time.chrono.IsoEra
+import io.heapy.grogu.time.internal.addExact
+import io.heapy.grogu.time.internal.floorDiv
 import io.heapy.grogu.time.internal.floorMod
+import io.heapy.grogu.time.internal.multiplyExact
 import io.heapy.grogu.time.temporal.ChronoField
+import io.heapy.grogu.time.temporal.ChronoUnit
 import io.heapy.grogu.time.temporal.Temporal
 import io.heapy.grogu.time.temporal.TemporalAccessor
 import io.heapy.grogu.time.temporal.TemporalAdjuster
+import io.heapy.grogu.time.temporal.TemporalAmount
 import io.heapy.grogu.time.temporal.TemporalField
+import io.heapy.grogu.time.temporal.TemporalUnit
 import io.heapy.grogu.time.temporal.UnsupportedTemporalTypeException
 import io.heapy.grogu.time.temporal.ValueRange
 
@@ -15,7 +21,7 @@ public class LocalDate private constructor(
     public val year: Int,
     public val monthValue: Int,
     public val dayOfMonth: Int,
-) : TemporalAccessor, TemporalAdjuster, Comparable<LocalDate> {
+) : Temporal, TemporalAdjuster, Comparable<LocalDate> {
     /** The month of this date. */
     public val month: Month
         get() = Month.of(monthValue)
@@ -36,6 +42,9 @@ public class LocalDate private constructor(
     public val isLeapYear: Boolean
         get() = Year.isLeap(year.toLong())
 
+    private val prolepticMonth: Long
+        get() = year * 12L + monthValue - 1
+
     /** Returns the number of days in this date's month. */
     public fun lengthOfMonth(): Int = month.length(isLeapYear)
 
@@ -44,6 +53,9 @@ public class LocalDate private constructor(
 
     override fun isSupported(field: TemporalField): Boolean =
         if (field is ChronoField) field.isDateBased else field.isSupportedBy(this)
+
+    override fun isSupported(unit: TemporalUnit): Boolean =
+        if (unit is ChronoUnit) unit.isDateBased else unit.isSupportedBy(this)
 
     override fun range(field: TemporalField): ValueRange = when (field) {
         ChronoField.DAY_OF_MONTH -> ValueRange.of(1, lengthOfMonth().toLong())
@@ -57,7 +69,7 @@ public class LocalDate private constructor(
         } else {
             ValueRange.of(1, Year.MAX_VALUE.toLong())
         }
-        else -> super<TemporalAccessor>.range(field)
+        else -> super<Temporal>.range(field)
     }
 
     override fun getLong(field: TemporalField): Long = when (field) {
@@ -70,7 +82,7 @@ public class LocalDate private constructor(
         ChronoField.ALIGNED_WEEK_OF_MONTH -> ((dayOfMonth - 1) / 7 + 1).toLong()
         ChronoField.ALIGNED_WEEK_OF_YEAR -> ((dayOfYear - 1) / 7 + 1).toLong()
         ChronoField.MONTH_OF_YEAR -> monthValue.toLong()
-        ChronoField.PROLEPTIC_MONTH -> year * 12L + monthValue - 1
+        ChronoField.PROLEPTIC_MONTH -> prolepticMonth
         ChronoField.YEAR_OF_ERA -> (if (year >= 1) year else 1 - year).toLong()
         ChronoField.YEAR -> year.toLong()
         ChronoField.ERA -> if (year >= 1) 1 else 0
@@ -96,8 +108,171 @@ public class LocalDate private constructor(
         return total - DAYS_0000_TO_1970
     }
 
+    override fun with(adjuster: TemporalAdjuster): LocalDate =
+        adjuster.adjustInto(this) as LocalDate
+
+    override fun with(field: TemporalField, newValue: Long): LocalDate {
+        if (field !is ChronoField) return field.adjustInto(this, newValue)
+        field.checkValidValue(newValue)
+        return when (field) {
+            ChronoField.DAY_OF_WEEK -> plusDays(newValue - dayOfWeek.value)
+            ChronoField.ALIGNED_DAY_OF_WEEK_IN_MONTH -> plusDays(
+                newValue - getLong(ChronoField.ALIGNED_DAY_OF_WEEK_IN_MONTH),
+            )
+            ChronoField.ALIGNED_DAY_OF_WEEK_IN_YEAR -> plusDays(
+                newValue - getLong(ChronoField.ALIGNED_DAY_OF_WEEK_IN_YEAR),
+            )
+            ChronoField.DAY_OF_MONTH -> withDayOfMonth(newValue.toInt())
+            ChronoField.DAY_OF_YEAR -> withDayOfYear(newValue.toInt())
+            ChronoField.EPOCH_DAY -> ofEpochDay(newValue)
+            ChronoField.ALIGNED_WEEK_OF_MONTH -> plusWeeks(
+                newValue - getLong(ChronoField.ALIGNED_WEEK_OF_MONTH),
+            )
+            ChronoField.ALIGNED_WEEK_OF_YEAR -> plusWeeks(
+                newValue - getLong(ChronoField.ALIGNED_WEEK_OF_YEAR),
+            )
+            ChronoField.MONTH_OF_YEAR -> withMonth(newValue.toInt())
+            ChronoField.PROLEPTIC_MONTH -> plusMonths(newValue - prolepticMonth)
+            ChronoField.YEAR_OF_ERA -> withYear(
+                if (year >= 1) newValue.toInt() else 1 - newValue.toInt(),
+            )
+            ChronoField.YEAR -> withYear(newValue.toInt())
+            ChronoField.ERA -> if (getLong(ChronoField.ERA) == newValue) this else withYear(1 - year)
+            else -> throw UnsupportedTemporalTypeException("Unsupported field: $field")
+        }
+    }
+
+    /** Returns this date with the year changed, resolving an invalid day to month-end. */
+    public fun withYear(year: Int): LocalDate {
+        if (this.year == year) return this
+        ChronoField.YEAR.checkValidValue(year.toLong())
+        return resolvePreviousValid(year, monthValue, dayOfMonth)
+    }
+
+    /** Returns this date with the month changed, resolving an invalid day to month-end. */
+    public fun withMonth(month: Int): LocalDate {
+        if (monthValue == month) return this
+        ChronoField.MONTH_OF_YEAR.checkValidValue(month.toLong())
+        return resolvePreviousValid(year, month, dayOfMonth)
+    }
+
+    /** Returns this date with the day-of-month changed. */
+    public fun withDayOfMonth(dayOfMonth: Int): LocalDate =
+        if (this.dayOfMonth == dayOfMonth) this else of(year, monthValue, dayOfMonth)
+
+    /** Returns this date with the day-of-year changed. */
+    public fun withDayOfYear(dayOfYear: Int): LocalDate =
+        if (this.dayOfYear == dayOfYear) this else ofYearDay(year, dayOfYear)
+
+    override fun plus(amount: TemporalAmount): LocalDate = amount.addTo(this) as LocalDate
+
+    override fun plus(amountToAdd: Long, unit: TemporalUnit): LocalDate {
+        if (unit !is ChronoUnit) return unit.addTo(this, amountToAdd)
+        return when (unit) {
+            ChronoUnit.DAYS -> plusDays(amountToAdd)
+            ChronoUnit.WEEKS -> plusWeeks(amountToAdd)
+            ChronoUnit.MONTHS -> plusMonths(amountToAdd)
+            ChronoUnit.YEARS -> plusYears(amountToAdd)
+            ChronoUnit.DECADES -> plusYears(multiplyExact(amountToAdd, 10))
+            ChronoUnit.CENTURIES -> plusYears(multiplyExact(amountToAdd, 100))
+            ChronoUnit.MILLENNIA -> plusYears(multiplyExact(amountToAdd, 1_000))
+            ChronoUnit.ERAS -> with(
+                ChronoField.ERA,
+                addExact(getLong(ChronoField.ERA), amountToAdd),
+            )
+            else -> throw UnsupportedTemporalTypeException("Unsupported unit: $unit")
+        }
+    }
+
+    /** Returns this date with [yearsToAdd] added. */
+    public fun plusYears(yearsToAdd: Long): LocalDate {
+        if (yearsToAdd == 0L) return this
+        val newYear = ChronoField.YEAR.checkValidIntValue(year.toLong() + yearsToAdd)
+        return resolvePreviousValid(newYear, monthValue, dayOfMonth)
+    }
+
+    /** Returns this date with [monthsToAdd] added. */
+    public fun plusMonths(monthsToAdd: Long): LocalDate {
+        if (monthsToAdd == 0L) return this
+        val calculatedMonths = prolepticMonth + monthsToAdd
+        val newYear = ChronoField.YEAR.checkValidIntValue(floorDiv(calculatedMonths, 12))
+        val newMonth = floorMod(calculatedMonths, 12).toInt() + 1
+        return resolvePreviousValid(newYear, newMonth, dayOfMonth)
+    }
+
+    /** Returns this date with [weeksToAdd] added. */
+    public fun plusWeeks(weeksToAdd: Long): LocalDate =
+        plusDays(multiplyExact(weeksToAdd, 7))
+
+    /** Returns this date with [daysToAdd] added. */
+    public fun plusDays(daysToAdd: Long): LocalDate =
+        if (daysToAdd == 0L) this else ofEpochDay(addExact(toEpochDay(), daysToAdd))
+
+    override fun minus(amount: TemporalAmount): LocalDate = amount.subtractFrom(this) as LocalDate
+
+    override fun minus(amountToSubtract: Long, unit: TemporalUnit): LocalDate =
+        if (amountToSubtract == Long.MIN_VALUE) {
+            plus(Long.MAX_VALUE, unit).plus(1, unit)
+        } else {
+            plus(-amountToSubtract, unit)
+        }
+
+    /** Returns this date with [yearsToSubtract] subtracted. */
+    public fun minusYears(yearsToSubtract: Long): LocalDate =
+        if (yearsToSubtract == Long.MIN_VALUE) {
+            plusYears(Long.MAX_VALUE).plusYears(1)
+        } else {
+            plusYears(-yearsToSubtract)
+        }
+
+    /** Returns this date with [monthsToSubtract] subtracted. */
+    public fun minusMonths(monthsToSubtract: Long): LocalDate =
+        if (monthsToSubtract == Long.MIN_VALUE) {
+            plusMonths(Long.MAX_VALUE).plusMonths(1)
+        } else {
+            plusMonths(-monthsToSubtract)
+        }
+
+    /** Returns this date with [weeksToSubtract] subtracted. */
+    public fun minusWeeks(weeksToSubtract: Long): LocalDate =
+        if (weeksToSubtract == Long.MIN_VALUE) {
+            plusWeeks(Long.MAX_VALUE).plusWeeks(1)
+        } else {
+            plusWeeks(-weeksToSubtract)
+        }
+
+    /** Returns this date with [daysToSubtract] subtracted. */
+    public fun minusDays(daysToSubtract: Long): LocalDate =
+        if (daysToSubtract == Long.MIN_VALUE) {
+            plusDays(Long.MAX_VALUE).plusDays(1)
+        } else {
+            plusDays(-daysToSubtract)
+        }
+
     override fun adjustInto(temporal: Temporal): Temporal =
         temporal.with(ChronoField.EPOCH_DAY, toEpochDay())
+
+    override fun until(endExclusive: Temporal, unit: TemporalUnit): Long {
+        val end = from(endExclusive)
+        if (unit !is ChronoUnit) return unit.between(this, end)
+        return when (unit) {
+            ChronoUnit.DAYS -> end.toEpochDay() - toEpochDay()
+            ChronoUnit.WEEKS -> (end.toEpochDay() - toEpochDay()) / 7
+            ChronoUnit.MONTHS -> monthsUntil(end)
+            ChronoUnit.YEARS -> monthsUntil(end) / 12
+            ChronoUnit.DECADES -> monthsUntil(end) / 120
+            ChronoUnit.CENTURIES -> monthsUntil(end) / 1_200
+            ChronoUnit.MILLENNIA -> monthsUntil(end) / 12_000
+            ChronoUnit.ERAS -> end.getLong(ChronoField.ERA) - getLong(ChronoField.ERA)
+            else -> throw UnsupportedTemporalTypeException("Unsupported unit: $unit")
+        }
+    }
+
+    private fun monthsUntil(end: LocalDate): Long {
+        val packedThis = prolepticMonth * 32 + dayOfMonth
+        val packedEnd = end.prolepticMonth * 32 + end.dayOfMonth
+        return (packedEnd - packedThis) / 32
+    }
 
     override fun compareTo(other: LocalDate): Int {
         val yearComparison = year.compareTo(other.year)
@@ -141,6 +316,11 @@ public class LocalDate private constructor(
         public val MIN: LocalDate = LocalDate(Year.MIN_VALUE, 1, 1)
         public val MAX: LocalDate = LocalDate(Year.MAX_VALUE, 12, 31)
         public val EPOCH: LocalDate = LocalDate(1970, 1, 1)
+
+        private fun resolvePreviousValid(year: Int, month: Int, day: Int): LocalDate {
+            val resolvedDay = minOf(day, Month.of(month).length(Year.isLeap(year.toLong())))
+            return LocalDate(year, month, resolvedDay)
+        }
 
         /** Obtains a date from an ISO year, month, and day. */
         public fun of(year: Int, month: Month, dayOfMonth: Int): LocalDate =
@@ -204,6 +384,19 @@ public class LocalDate private constructor(
                 month,
                 day,
             )
+        }
+
+        /** Obtains a date from a temporal accessor. */
+        public fun from(temporal: TemporalAccessor): LocalDate {
+            if (temporal is LocalDate) return temporal
+            return try {
+                ofEpochDay(temporal.getLong(ChronoField.EPOCH_DAY))
+            } catch (exception: DateTimeException) {
+                throw DateTimeException(
+                    "Unable to obtain LocalDate from TemporalAccessor: $temporal",
+                    exception,
+                )
+            }
         }
     }
 }

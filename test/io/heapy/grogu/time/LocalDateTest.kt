@@ -4,6 +4,8 @@ import io.heapy.grogu.time.chrono.IsoEra
 import io.heapy.grogu.time.temporal.ChronoField
 import io.heapy.grogu.time.temporal.ChronoUnit
 import io.heapy.grogu.time.temporal.Temporal
+import io.heapy.grogu.time.temporal.TemporalAccessor
+import io.heapy.grogu.time.temporal.TemporalAmount
 import io.heapy.grogu.time.temporal.TemporalField
 import io.heapy.grogu.time.temporal.TemporalUnit
 import io.heapy.grogu.time.temporal.UnsupportedTemporalTypeException
@@ -137,6 +139,88 @@ class LocalDateTest {
     }
 
     @Test
+    fun replacesDateComponentsAndTemporalFields() {
+        val leapDay = LocalDate.of(2024, 2, 29)
+        assertEquals(LocalDate.of(2023, 2, 28), leapDay.withYear(2023))
+        assertEquals(LocalDate.of(2024, 1, 29), leapDay.withMonth(1))
+        assertEquals(LocalDate.of(2024, 2, 28), leapDay.withDayOfMonth(28))
+        assertEquals(LocalDate.of(2024, 12, 31), leapDay.withDayOfYear(366))
+        assertFailsWith<DateTimeException> { leapDay.withDayOfMonth(30) }
+        assertFailsWith<DateTimeException> { LocalDate.of(2023, 1, 1).withDayOfYear(366) }
+
+        assertEquals(
+            LocalDate.of(2024, 2, 26),
+            leapDay.with(ChronoField.DAY_OF_WEEK, 1),
+        )
+        assertEquals(
+            LocalDate.of(2024, 2, 1),
+            leapDay.with(ChronoField.ALIGNED_WEEK_OF_MONTH, 1),
+        )
+        assertEquals(
+            LocalDate.of(1970, 1, 1),
+            leapDay.with(ChronoField.EPOCH_DAY, 0),
+        )
+        assertEquals(
+            LocalDate.of(2024, 3, 29),
+            leapDay.with(ChronoField.PROLEPTIC_MONTH, 24_290),
+        )
+        assertEquals(
+            LocalDate.of(-2023, 2, 28),
+            leapDay.with(ChronoField.ERA, 0),
+        )
+        assertEquals(LocalDate.of(2025, 2, 28), leapDay.with(NextYearField, 2_026))
+    }
+
+    @Test
+    fun supportsDateUnitsAndCalendarArithmetic() {
+        val date = LocalDate.of(2024, 1, 31)
+        ChronoUnit.entries.forEach { unit ->
+            assertEquals(unit.isDateBased, date.isSupported(unit), unit.toString())
+        }
+
+        assertEquals(LocalDate.of(2025, 1, 31), date.plusYears(1))
+        assertEquals(LocalDate.of(2024, 2, 29), date.plusMonths(1))
+        assertEquals(LocalDate.of(2024, 2, 7), date.plusWeeks(1))
+        assertEquals(LocalDate.of(2024, 2, 1), date.plusDays(1))
+        assertEquals(LocalDate.of(2023, 12, 31), date.minusMonths(1))
+        assertEquals(LocalDate.of(2024, 1, 24), date.minusWeeks(1))
+        assertEquals(LocalDate.of(2024, 1, 30), date.minusDays(1))
+        assertEquals(LocalDate.of(2034, 1, 31), date.plus(1, ChronoUnit.DECADES))
+        assertEquals(LocalDate.of(-2023, 1, 31), date.minus(1, ChronoUnit.ERAS))
+        assertFailsWith<UnsupportedTemporalTypeException> {
+            date.plus(1, ChronoUnit.HOURS)
+        }
+        assertFailsWith<DateTimeException> { LocalDate.MAX.plusDays(1) }
+        assertFailsWith<ArithmeticException> { date.plusWeeks(Long.MAX_VALUE) }
+
+        assertEquals(LocalDate.of(2024, 2, 2), date.plus(TwoDaysAmount))
+        assertEquals(LocalDate.of(2024, 1, 29), date.minus(TwoDaysAmount))
+        assertTrue(date.isSupported(TwoDayUnit))
+        assertEquals(LocalDate.of(2024, 2, 4), date.plus(2, TwoDayUnit))
+    }
+
+    @Test
+    fun calculatesCompleteUnitsUntilOtherDates() {
+        val start = LocalDate.of(2024, 1, 31)
+        assertEquals(60, start.until(LocalDate.of(2024, 3, 31), ChronoUnit.DAYS))
+        assertEquals(8, start.until(LocalDate.of(2024, 3, 31), ChronoUnit.WEEKS))
+        assertEquals(1, start.until(LocalDate.of(2024, 3, 30), ChronoUnit.MONTHS))
+        assertEquals(2, start.until(LocalDate.of(2024, 3, 31), ChronoUnit.MONTHS))
+        assertEquals(1, start.until(LocalDate.of(2025, 1, 31), ChronoUnit.YEARS))
+        assertEquals(-1, start.until(LocalDate.of(2023, 1, 31), ChronoUnit.YEARS))
+        assertEquals(30, start.until(LocalDate.of(2024, 3, 31), TwoDayUnit))
+        assertFailsWith<UnsupportedTemporalTypeException> {
+            start.until(LocalDate.of(2024, 2, 1), ChronoUnit.HOURS)
+        }
+
+        assertEquals(start, LocalDate.from(start))
+        assertEquals(
+            LocalDate.of(2024, 1, 31),
+            LocalDate.from(EpochDayRecordingTemporal(start.toEpochDay())),
+        )
+    }
+
+    @Test
     fun formatsAndOrdersIsoDates() {
         assertEquals("2024-02-29", LocalDate.of(2024, 2, 29).toString())
         assertEquals("0000-01-01", LocalDate.of(0, 1, 1).toString())
@@ -156,20 +240,49 @@ class LocalDateTest {
         override val isDateBased: Boolean = true
         override val isTimeBased: Boolean = false
 
-        override fun isSupportedBy(temporal: io.heapy.grogu.time.temporal.TemporalAccessor): Boolean =
+        override fun isSupportedBy(temporal: TemporalAccessor): Boolean =
             temporal is LocalDate
 
-        override fun rangeRefinedBy(
-            temporal: io.heapy.grogu.time.temporal.TemporalAccessor,
-        ): ValueRange = range
+        override fun rangeRefinedBy(temporal: TemporalAccessor): ValueRange = range
 
-        override fun getFrom(temporal: io.heapy.grogu.time.temporal.TemporalAccessor): Long =
+        override fun getFrom(temporal: TemporalAccessor): Long =
             temporal.getLong(ChronoField.YEAR) + 1
 
         override fun <R : Temporal> adjustInto(temporal: R, newValue: Long): R {
             @Suppress("UNCHECKED_CAST")
             return temporal.with(ChronoField.YEAR, newValue - 1) as R
         }
+    }
+
+    private object TwoDaysAmount : TemporalAmount {
+        override val units: List<TemporalUnit> = listOf(ChronoUnit.DAYS)
+
+        override fun get(unit: TemporalUnit): Long =
+            if (unit === ChronoUnit.DAYS) 2 else
+                throw UnsupportedTemporalTypeException("Unsupported unit: $unit")
+
+        override fun addTo(temporal: Temporal): Temporal = temporal.plus(2, ChronoUnit.DAYS)
+
+        override fun subtractFrom(temporal: Temporal): Temporal = temporal.minus(2, ChronoUnit.DAYS)
+    }
+
+    private object TwoDayUnit : TemporalUnit {
+        override val duration: Duration = Duration.ofDays(2)
+        override val isDurationEstimated: Boolean = true
+        override val isDateBased: Boolean = true
+        override val isTimeBased: Boolean = false
+
+        override fun isSupportedBy(temporal: Temporal): Boolean = temporal is LocalDate
+
+        override fun <R : Temporal> addTo(temporal: R, amount: Long): R {
+            @Suppress("UNCHECKED_CAST")
+            return temporal.plus(amount * 2, ChronoUnit.DAYS) as R
+        }
+
+        override fun between(
+            temporal1Inclusive: Temporal,
+            temporal2Exclusive: Temporal,
+        ): Long = temporal1Inclusive.until(temporal2Exclusive, ChronoUnit.DAYS) / 2
     }
 
     private data class EpochDayRecordingTemporal(
