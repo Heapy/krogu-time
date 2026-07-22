@@ -1,8 +1,10 @@
 package io.heapy.grogu.time.temporal
 
 import io.heapy.grogu.time.DayOfWeek
+import io.heapy.grogu.time.Locale
 import io.heapy.grogu.time.chrono.ChronoLocalDate
 import io.heapy.grogu.time.chrono.Chronology
+import io.heapy.grogu.time.localeWeekRules
 
 /**
  * A localized definition of the first day of the week and the minimum number
@@ -278,6 +280,12 @@ public class WeekFields private constructor(
         public val WEEK_BASED_YEARS: TemporalUnit = IsoFields.WEEK_BASED_YEARS
 
         /** Obtains the canonical definition for the supplied week rules. */
+        public fun of(locale: Locale): WeekFields {
+            val rules = localeWeekRules(locale.toLanguageTag())
+            return of(DayOfWeek.of(rules.firstDayOfWeek), rules.minimalDaysInFirstWeek)
+        }
+
+        /** Obtains the canonical definition for the supplied explicit week rules. */
         public fun of(
             firstDayOfWeek: DayOfWeek,
             minimalDaysInFirstWeek: Int,

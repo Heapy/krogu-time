@@ -3,6 +3,7 @@ package io.heapy.grogu.time.temporal
 import io.heapy.grogu.time.DayOfWeek
 import io.heapy.grogu.time.LocalDate
 import io.heapy.grogu.time.LocalTime
+import io.heapy.grogu.time.Locale
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -24,6 +25,15 @@ class WeekFieldsTest {
         assertEquals(WeekFields.of(DayOfWeek.THURSDAY, 7), WeekFields.of(DayOfWeek.THURSDAY, 7))
         assertFailsWith<IllegalArgumentException> { WeekFields.of(DayOfWeek.MONDAY, 0) }
         assertFailsWith<IllegalArgumentException> { WeekFields.of(DayOfWeek.MONDAY, 8) }
+    }
+
+    @Test
+    fun obtainsWeekRulesFromLocales() {
+        assertSame(WeekFields.SUNDAY_START, WeekFields.of(Locale.US))
+        assertSame(WeekFields.ISO, WeekFields.of(Locale.UK))
+
+        val defaultRules = WeekFields.of(Locale.getDefault())
+        assertTrue(defaultRules.minimalDaysInFirstWeek in 1..7)
     }
 
     @Test

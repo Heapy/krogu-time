@@ -8,3 +8,11 @@ internal actual fun defaultFormatLocaleTag(): String =
     } else {
         java.util.Locale.getDefault().toLanguageTag()
     }
+
+internal actual fun localeWeekRules(languageTag: String): LocaleWeekRules {
+    val calendar = java.util.Calendar.getInstance(java.util.Locale.forLanguageTag(languageTag))
+    return LocaleWeekRules(
+        firstDayOfWeek = (calendar.firstDayOfWeek + 5) % 7 + 1,
+        minimalDaysInFirstWeek = calendar.minimalDaysInFirstWeek,
+    )
+}

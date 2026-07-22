@@ -201,14 +201,15 @@ Implemented foundations:
   leap-year ranges, field adjustment, calendar arithmetic, and strict/smart/
   lenient quarter and week-date resolution
 - `WeekFields` canonical explicit week definitions for every first-day and
-  minimal-days combination, with all five localized computed fields
+  minimal-days combination, locale-backed rule selection through JVM,
+  Android, and iOS locale data, and all five localized computed fields
 - `ValueRange`
 - `ChronoUnit`
 - `ChronoField`
 
 Remaining work includes formatters and parsers beyond the implemented ISO
-defaults and amount parsers, locale-backed week-rule selection and display names,
-and complete cross-type conformance coverage.
+defaults and amount parsers, locale-backed display names and localized
+formatter factories, and complete cross-type conformance coverage.
 
 The bundled TZDB source is generated reproducibly from the OpenJDK 21
 `lib/tzdb.dat` file by `tools/generate-tzdb-data.rb`.

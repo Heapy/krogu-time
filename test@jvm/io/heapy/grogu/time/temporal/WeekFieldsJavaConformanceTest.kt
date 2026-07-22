@@ -2,6 +2,8 @@ package io.heapy.grogu.time.temporal
 
 import io.heapy.grogu.time.DayOfWeek
 import io.heapy.grogu.time.LocalDate
+import io.heapy.grogu.time.Locale
+import java.util.Locale as JavaLocale
 import java.time.DayOfWeek as JavaDayOfWeek
 import java.time.LocalDate as JavaLocalDate
 import java.time.temporal.WeekFields as JavaWeekFields
@@ -9,6 +11,25 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class WeekFieldsJavaConformanceTest {
+    @Test
+    fun localeWeekDefinitionsMatchJavaTime() {
+        listOf(
+            "und",
+            "en-US",
+            "en-GB",
+            "fr-FR",
+            "ar-SA",
+            "fa-IR",
+            "en-US-u-fw-mon",
+            "en-GB-u-fw-sun",
+        ).forEach { languageTag ->
+            val javaFields = JavaWeekFields.of(JavaLocale.forLanguageTag(languageTag))
+            val fields = WeekFields.of(Locale.forLanguageTag(languageTag))
+
+            assertDefinition(javaFields, fields)
+        }
+    }
+
     @Test
     fun everyExplicitWeekDefinitionMatchesJavaTime() {
         val dates = listOf(
