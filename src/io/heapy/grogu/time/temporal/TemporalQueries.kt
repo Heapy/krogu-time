@@ -8,19 +8,32 @@ import io.heapy.grogu.time.chrono.Chronology
 
 /** Common queries for extracting information from temporal objects. */
 public object TemporalQueries {
-    private val offsetQuery: TemporalQuery<ZoneOffset?> = TemporalQuery { temporal ->
-        if (temporal.isSupported(ChronoField.OFFSET_SECONDS)) {
-            ZoneOffset.ofTotalSeconds(temporal.get(ChronoField.OFFSET_SECONDS))
-        } else {
-            null
+    private val offsetQuery: TemporalQuery<ZoneOffset?> =
+        object : TemporalQuery<ZoneOffset?> {
+            override fun queryFrom(temporal: TemporalAccessor): ZoneOffset? =
+                if (temporal.isSupported(ChronoField.OFFSET_SECONDS)) {
+                    ZoneOffset.ofTotalSeconds(temporal.get(ChronoField.OFFSET_SECONDS))
+                } else {
+                    null
+                }
+
+            override fun toString(): String = "ZoneOffset"
         }
-    }
 
-    private val zoneIdQuery: TemporalQuery<ZoneId?> = TemporalQuery { null }
+    private val zoneIdQuery: TemporalQuery<ZoneId?> =
+        object : TemporalQuery<ZoneId?> {
+            override fun queryFrom(temporal: TemporalAccessor): ZoneId? = temporal.query(this)
 
-    private val zoneQuery: TemporalQuery<ZoneId?> = TemporalQuery { temporal ->
-        temporal.query(zoneIdQuery) ?: temporal.query(offsetQuery)
-    }
+            override fun toString(): String = "ZoneId"
+        }
+
+    private val zoneQuery: TemporalQuery<ZoneId?> =
+        object : TemporalQuery<ZoneId?> {
+            override fun queryFrom(temporal: TemporalAccessor): ZoneId? =
+                temporal.query(zoneIdQuery) ?: temporal.query(offsetQuery)
+
+            override fun toString(): String = "Zone"
+        }
 
     private val localDateQuery: TemporalQuery<LocalDate?> = object : TemporalQuery<LocalDate?> {
         override fun queryFrom(temporal: TemporalAccessor): LocalDate? =

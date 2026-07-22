@@ -9,6 +9,42 @@ import kotlin.test.assertEquals
 
 class TemporalQueriesJavaConformanceTest {
     @Test
+    fun querySingletonNamesMatchJavaTime() {
+        val queries = listOf(
+            JavaTemporalQueries.chronology() to TemporalQueries.chronology(),
+            JavaTemporalQueries.localDate() to TemporalQueries.localDate(),
+            JavaTemporalQueries.localTime() to TemporalQueries.localTime(),
+            JavaTemporalQueries.precision() to TemporalQueries.precision(),
+            JavaTemporalQueries.zoneId() to TemporalQueries.zoneId(),
+            JavaTemporalQueries.offset() to TemporalQueries.offset(),
+            JavaTemporalQueries.zone() to TemporalQueries.zone(),
+        )
+
+        queries.forEach { (expected, actual) ->
+            assertEquals(expected.toString(), actual.toString())
+        }
+    }
+
+    @Test
+    fun directStrictZoneQueryMatchesJavaTime() {
+        val javaZoned = java.time.ZonedDateTime.parse("2024-06-01T12:30+02:00[Europe/Paris]")
+        val zoned = ZonedDateTime.parse("2024-06-01T12:30+02:00[Europe/Paris]")
+
+        assertEquals(
+            JavaTemporalQueries.zoneId().queryFrom(javaZoned).toString(),
+            TemporalQueries.zoneId().queryFrom(zoned).toString(),
+        )
+        assertEquals(
+            JavaTemporalQueries.zoneId()
+                .queryFrom(java.time.LocalDate.of(2024, 6, 1))
+                ?.toString(),
+            TemporalQueries.zoneId()
+                .queryFrom(LocalDate.of(2024, 6, 1))
+                ?.toString(),
+        )
+    }
+
+    @Test
     fun localDateLocalTimePrecisionAndChronologyQueriesMatchJavaTime() {
         val values = listOf(
             java.time.LocalDate.of(2024, 6, 1) to LocalDate.of(2024, 6, 1),

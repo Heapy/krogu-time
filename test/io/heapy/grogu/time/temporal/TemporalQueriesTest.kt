@@ -9,6 +9,7 @@ import io.heapy.grogu.time.OffsetDateTime
 import io.heapy.grogu.time.OffsetTime
 import io.heapy.grogu.time.Year
 import io.heapy.grogu.time.YearMonth
+import io.heapy.grogu.time.ZoneId
 import io.heapy.grogu.time.ZoneOffset
 import io.heapy.grogu.time.ZonedDateTime
 import io.heapy.grogu.time.chrono.IsoChronology
@@ -69,10 +70,22 @@ class TemporalQueriesTest {
         assertEquals("LocalDate", TemporalQueries.localDate().toString())
         assertEquals("LocalTime", TemporalQueries.localTime().toString())
         assertEquals("Precision", TemporalQueries.precision().toString())
+        assertEquals("ZoneId", TemporalQueries.zoneId().toString())
+        assertEquals("ZoneOffset", TemporalQueries.offset().toString())
+        assertEquals("Zone", TemporalQueries.zone().toString())
         assertEquals(
             ChronoUnit.NANOS,
             TemporalQueries.precision().queryFrom(Instant.EPOCH),
         )
+    }
+
+    @Test
+    fun strictZoneQueryDelegatesBackToTheTemporal() {
+        val zone = ZoneId.of("Europe/Paris")
+        val zoned = ZonedDateTime.of(LocalDateTime.of(2024, 6, 1, 12, 30), zone)
+
+        assertSame(zone, TemporalQueries.zoneId().queryFrom(zoned))
+        assertNull(TemporalQueries.zoneId().queryFrom(LocalDate.of(2024, 6, 1)))
     }
 
     @Test

@@ -39,7 +39,11 @@ public interface TemporalAccessor {
 
     /** Runs [query] against this object. */
     public fun <R> query(query: TemporalQuery<R>): R {
-        if (query === TemporalQueries.chronology() || query === TemporalQueries.precision()) {
+        if (
+            query === TemporalQueries.zoneId() ||
+            query === TemporalQueries.chronology() ||
+            query === TemporalQueries.precision()
+        ) {
             @Suppress("UNCHECKED_CAST")
             return null as R
         }

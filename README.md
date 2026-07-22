@@ -232,7 +232,8 @@ Implemented foundations:
   reuse of clock implementations
 - temporal interfaces and exceptions, including `TemporalField` localized-name
   defaults and parsed-field resolution, plus all standard chronology, zone,
-  offset, local-date, local-time, and precision queries
+  offset, local-date, local-time, and precision queries with Java-compatible
+  singleton names and strict zone-query delegation
 - `TemporalAdjusters` complete date-adjuster utility surface
 - `JulianFields` Julian day, modified Julian day, and Rata Die fields with
   full-range epoch conversion, adjustment, and chronology-aware parsed-field
