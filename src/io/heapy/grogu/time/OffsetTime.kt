@@ -168,6 +168,12 @@ public class OffsetTime private constructor(
         public val MIN: OffsetTime = OffsetTime(LocalTime.MIN, ZoneOffset.MAX)
         public val MAX: OffsetTime = OffsetTime(LocalTime.MAX, ZoneOffset.MIN)
 
+        /** Obtains the current offset time using the system clock in [zone]. */
+        public fun now(zone: ZoneId): OffsetTime = now(Clock.system(zone))
+
+        /** Obtains the current offset time from [clock]. */
+        public fun now(clock: Clock): OffsetTime = OffsetDateTime.now(clock).toOffsetTime()
+
         public fun of(time: LocalTime, offset: ZoneOffset): OffsetTime = OffsetTime(time, offset)
 
         public fun of(

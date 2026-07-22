@@ -102,6 +102,15 @@ public class MonthDay private constructor(
     }
 
     public companion object {
+        /** Obtains the current month-day using the system clock in [zone]. */
+        public fun now(zone: ZoneId): MonthDay = now(Clock.system(zone))
+
+        /** Obtains the current month-day from [clock]. */
+        public fun now(clock: Clock): MonthDay {
+            val date = LocalDate.now(clock)
+            return of(date.monthValue, date.dayOfMonth)
+        }
+
         /** Obtains a month-day from a month and day. */
         public fun of(month: Month, dayOfMonth: Int): MonthDay = of(month.value, dayOfMonth)
 

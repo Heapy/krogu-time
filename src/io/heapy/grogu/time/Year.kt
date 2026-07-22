@@ -167,6 +167,12 @@ public class Year private constructor(
         public const val MIN_VALUE: Int = -999_999_999
         public const val MAX_VALUE: Int = 999_999_999
 
+        /** Obtains the current year using the system clock in [zone]. */
+        public fun now(zone: ZoneId): Year = now(Clock.system(zone))
+
+        /** Obtains the current year from [clock]. */
+        public fun now(clock: Clock): Year = of(LocalDate.now(clock).year)
+
         /** Obtains an ISO year. */
         public fun of(isoYear: Int): Year =
             Year(ChronoField.YEAR.checkValidIntValue(isoYear.toLong()))

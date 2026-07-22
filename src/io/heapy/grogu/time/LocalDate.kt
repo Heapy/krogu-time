@@ -383,6 +383,12 @@ public class LocalDate private constructor(
         public val MAX: LocalDate = LocalDate(Year.MAX_VALUE, 12, 31)
         public val EPOCH: LocalDate = LocalDate(1970, 1, 1)
 
+        /** Obtains the current date using the system clock in [zone]. */
+        public fun now(zone: ZoneId): LocalDate = now(Clock.system(zone))
+
+        /** Obtains the current date from [clock]. */
+        public fun now(clock: Clock): LocalDate = LocalDateTime.now(clock).date
+
         private fun resolvePreviousValid(year: Int, month: Int, day: Int): LocalDate {
             val resolvedDay = minOf(day, Month.of(month).length(Year.isLeap(year.toLong())))
             return LocalDate(year, month, resolvedDay)

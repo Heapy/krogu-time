@@ -221,6 +221,15 @@ public class OffsetDateTime private constructor(
         public val MIN: OffsetDateTime = OffsetDateTime(LocalDateTime.MIN, ZoneOffset.MAX)
         public val MAX: OffsetDateTime = OffsetDateTime(LocalDateTime.MAX, ZoneOffset.MIN)
 
+        /** Obtains the current offset date-time using the system clock in [zone]. */
+        public fun now(zone: ZoneId): OffsetDateTime = now(Clock.system(zone))
+
+        /** Obtains the current offset date-time from [clock]. */
+        public fun now(clock: Clock): OffsetDateTime {
+            val instant = clock.instant()
+            return ofInstant(instant, clock.zone.rules.getOffset(instant))
+        }
+
         public fun of(date: LocalDate, time: LocalTime, offset: ZoneOffset): OffsetDateTime =
             OffsetDateTime(LocalDateTime.of(date, time), offset)
 

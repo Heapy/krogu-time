@@ -220,6 +220,15 @@ public class YearMonth private constructor(
         if (year == newYear && monthValue == newMonth) this else YearMonth(newYear, newMonth)
 
     public companion object {
+        /** Obtains the current year-month using the system clock in [zone]. */
+        public fun now(zone: ZoneId): YearMonth = now(Clock.system(zone))
+
+        /** Obtains the current year-month from [clock]. */
+        public fun now(clock: Clock): YearMonth {
+            val date = LocalDate.now(clock)
+            return of(date.year, date.monthValue)
+        }
+
         /** Obtains a year-month from a year and month. */
         public fun of(year: Int, month: Month): YearMonth = of(year, month.value)
 

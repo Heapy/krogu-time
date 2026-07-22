@@ -332,6 +332,12 @@ public class LocalTime private constructor(
         public val MIDNIGHT: LocalTime = MIN
         public val NOON: LocalTime = LocalTime(12, 0, 0, 0)
 
+        /** Obtains the current time using the system clock in [zone]. */
+        public fun now(zone: ZoneId): LocalTime = now(Clock.system(zone))
+
+        /** Obtains the current time from [clock]. */
+        public fun now(clock: Clock): LocalTime = LocalDateTime.now(clock).time
+
         /** Obtains a time from an hour and minute. */
         public fun of(hour: Int, minute: Int): LocalTime = of(hour, minute, 0, 0)
 

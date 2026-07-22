@@ -249,6 +249,12 @@ public class ZonedDateTime private constructor(
         private val TIME_LINE_ORDER: Comparator<ZonedDateTime> =
             Comparator { first, second -> first.compareInstant(second) }
 
+        /** Obtains the current zoned date-time using the system clock in [zone]. */
+        public fun now(zone: ZoneId): ZonedDateTime = now(Clock.system(zone))
+
+        /** Obtains the current zoned date-time from [clock]. */
+        public fun now(clock: Clock): ZonedDateTime = ofInstant(clock.instant(), clock.zone)
+
         public fun of(date: LocalDate, time: LocalTime, zone: ZoneId): ZonedDateTime =
             of(LocalDateTime.of(date, time), zone)
 

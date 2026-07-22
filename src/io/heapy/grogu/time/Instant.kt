@@ -340,6 +340,12 @@ public class Instant private constructor(
         public val MIN: Instant = Instant(MIN_SECOND, 0)
         public val MAX: Instant = Instant(MAX_SECOND, 999_999_999)
 
+        /** Obtains the current instant from the system UTC clock. */
+        public fun now(): Instant = Clock.systemUTC().instant()
+
+        /** Obtains the current instant from [clock]. */
+        public fun now(clock: Clock): Instant = clock.instant()
+
         /** Obtains an instant from seconds since the epoch. */
         public fun ofEpochSecond(epochSecond: Long): Instant = create(epochSecond, 0)
 
