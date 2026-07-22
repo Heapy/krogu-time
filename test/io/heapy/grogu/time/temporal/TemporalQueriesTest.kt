@@ -11,6 +11,7 @@ import io.heapy.grogu.time.Year
 import io.heapy.grogu.time.YearMonth
 import io.heapy.grogu.time.ZoneOffset
 import io.heapy.grogu.time.ZonedDateTime
+import io.heapy.grogu.time.chrono.IsoChronology
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -64,6 +65,7 @@ class TemporalQueriesTest {
 
     @Test
     fun querySingletonsHaveJavaCompatibleNames() {
+        assertEquals("Chronology", TemporalQueries.chronology().toString())
         assertEquals("LocalDate", TemporalQueries.localDate().toString())
         assertEquals("LocalTime", TemporalQueries.localTime().toString())
         assertEquals("Precision", TemporalQueries.precision().toString())
@@ -71,5 +73,30 @@ class TemporalQueriesTest {
             ChronoUnit.NANOS,
             TemporalQueries.precision().queryFrom(Instant.EPOCH),
         )
+    }
+
+    @Test
+    fun reportsIsoChronologyOnlyForIsoCalendarTypes() {
+        val date = LocalDate.of(2024, 6, 1)
+        val time = LocalTime.NOON
+        val dateTime = LocalDateTime.of(date, time)
+
+        assertSame(IsoChronology, date.query(TemporalQueries.chronology()))
+        assertSame(IsoChronology, dateTime.query(TemporalQueries.chronology()))
+        assertSame(IsoChronology, Year.of(2024).query(TemporalQueries.chronology()))
+        assertSame(IsoChronology, YearMonth.of(2024, 6).query(TemporalQueries.chronology()))
+        assertSame(IsoChronology, MonthDay.of(6, 1).query(TemporalQueries.chronology()))
+        assertSame(
+            IsoChronology,
+            OffsetDateTime.of(dateTime, ZoneOffset.UTC).query(TemporalQueries.chronology()),
+        )
+        assertSame(
+            IsoChronology,
+            ZonedDateTime.of(dateTime, ZoneOffset.UTC).query(TemporalQueries.chronology()),
+        )
+        assertNull(time.query(TemporalQueries.chronology()))
+        assertNull(OffsetTime.of(time, ZoneOffset.UTC).query(TemporalQueries.chronology()))
+        assertNull(Instant.EPOCH.query(TemporalQueries.chronology()))
+        assertNull(ZoneOffset.UTC.query(TemporalQueries.chronology()))
     }
 }

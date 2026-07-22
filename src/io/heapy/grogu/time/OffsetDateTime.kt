@@ -1,5 +1,6 @@
 package io.heapy.grogu.time
 
+import io.heapy.grogu.time.chrono.IsoChronology
 import io.heapy.grogu.time.format.DateTimeParseException
 import io.heapy.grogu.time.temporal.ChronoField
 import io.heapy.grogu.time.temporal.ChronoUnit
@@ -146,6 +147,10 @@ public class OffsetDateTime private constructor(
         if (nanos == Long.MIN_VALUE) plusNanos(Long.MAX_VALUE).plusNanos(1) else plusNanos(-nanos)
 
     override fun <R> query(query: TemporalQuery<R>): R {
+        if (query === TemporalQueries.chronology()) {
+            @Suppress("UNCHECKED_CAST")
+            return IsoChronology as R
+        }
         if (query === TemporalQueries.localDate()) {
             @Suppress("UNCHECKED_CAST")
             return date as R

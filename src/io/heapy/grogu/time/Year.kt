@@ -1,5 +1,6 @@
 package io.heapy.grogu.time
 
+import io.heapy.grogu.time.chrono.IsoChronology
 import io.heapy.grogu.time.format.DateTimeParseException
 import io.heapy.grogu.time.internal.addExact
 import io.heapy.grogu.time.internal.multiplyExact
@@ -82,6 +83,10 @@ public class Year private constructor(
     }
 
     override fun <R> query(query: TemporalQuery<R>): R {
+        if (query === TemporalQueries.chronology()) {
+            @Suppress("UNCHECKED_CAST")
+            return IsoChronology as R
+        }
         if (query === TemporalQueries.precision()) {
             @Suppress("UNCHECKED_CAST")
             return ChronoUnit.YEARS as R

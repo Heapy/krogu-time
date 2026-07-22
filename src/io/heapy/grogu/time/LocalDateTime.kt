@@ -1,5 +1,6 @@
 package io.heapy.grogu.time
 
+import io.heapy.grogu.time.chrono.IsoChronology
 import io.heapy.grogu.time.format.DateTimeParseException
 import io.heapy.grogu.time.internal.addExact
 import io.heapy.grogu.time.internal.floorDiv
@@ -75,6 +76,7 @@ public class LocalDateTime private constructor(
 
     override fun <R> query(query: TemporalQuery<R>): R {
         val result: Any = when (query) {
+            TemporalQueries.chronology() -> IsoChronology
             TemporalQueries.localDate() -> date
             TemporalQueries.localTime() -> time
             TemporalQueries.precision() -> ChronoUnit.NANOS

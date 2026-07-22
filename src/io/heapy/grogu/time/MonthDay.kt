@@ -1,11 +1,14 @@
 package io.heapy.grogu.time
 
+import io.heapy.grogu.time.chrono.IsoChronology
 import io.heapy.grogu.time.format.DateTimeParseException
 import io.heapy.grogu.time.temporal.ChronoField
 import io.heapy.grogu.time.temporal.Temporal
 import io.heapy.grogu.time.temporal.TemporalAccessor
 import io.heapy.grogu.time.temporal.TemporalAdjuster
 import io.heapy.grogu.time.temporal.TemporalField
+import io.heapy.grogu.time.temporal.TemporalQueries
+import io.heapy.grogu.time.temporal.TemporalQuery
 import io.heapy.grogu.time.temporal.UnsupportedTemporalTypeException
 import io.heapy.grogu.time.temporal.ValueRange
 
@@ -41,6 +44,14 @@ public class MonthDay private constructor(
         ChronoField.DAY_OF_MONTH -> dayOfMonth.toLong()
         is ChronoField -> throw UnsupportedTemporalTypeException("Unsupported field: $field")
         else -> field.getFrom(this)
+    }
+
+    override fun <R> query(query: TemporalQuery<R>): R {
+        if (query === TemporalQueries.chronology()) {
+            @Suppress("UNCHECKED_CAST")
+            return IsoChronology as R
+        }
+        return super<TemporalAccessor>.query(query)
     }
 
     /** Returns this month-day with [month] changed, clamping to month-end if necessary. */

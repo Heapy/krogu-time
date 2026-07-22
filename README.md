@@ -36,11 +36,14 @@ Implemented foundations:
 - `DayOfWeek`
 - `Month`
 - `Era` and `IsoEra`
+- `Chronology` identity, lookup, ordering, era/leap/range contracts, and the
+  `IsoChronology` singleton with ISO date/date-time factories, clock injection,
+  period creation, and epoch-second conversion
 - `Year` core value, leap-year, temporal-field, year-scale arithmetic, and
   comparison behavior, including default parsing and `atDay` date production
   plus injected-clock/explicit-zone current-value factories and `MonthDay`
   validation/date production (system-default current values, formatter
-  overloads, and chronology-query integration remain)
+  overloads remain)
 - `MonthDay` value, factories, temporal fields, replacement, year validation,
   date production and adjustment, ordering, strict ISO parsing, and ISO text
   output, including injected-clock/explicit-zone current-value factories
@@ -49,14 +52,13 @@ Implemented foundations:
   month/year-scale arithmetic, complete-unit differences, date production and
   adjustment, ordering, strict ISO parsing, ISO text output, and
   injected-clock/explicit-zone current-value factories (system-default current
-  values, formatter overloads, and chronology-query integration remain)
+  values and formatter overloads remain)
 - `LocalDate` core value, full-range epoch conversion, temporal fields,
   replacement, checked calendar arithmetic, complete-unit differences, and
   timeline and calendar-period comparison, including local time composition,
   earliest-valid zoned start-of-day composition, strict ISO parsing, and ISO
   text output, with injected-clock/explicit-zone current-value factories
-  (system-default current values, formatter overloads, and chronology-query
-  integration remain)
+  (system-default current values and formatter overloads remain)
 - `Period` factories, parsing, value behavior, temporal integration, checked
   arithmetic, normalization, and `between` (chronology integration remains)
 - `LocalTime` core value, validated factories, day conversions, temporal
@@ -68,8 +70,7 @@ Implemented foundations:
   epoch/fixed-offset/zone conversion, replacement, truncation, checked date/time
   arithmetic, complete-unit differences, boundaries, ordering, strict ISO
   parsing, ISO text output, and injected-clock/explicit-zone current-value
-  factories (system-default current values, formatter overloads, and
-  chronology-query integration remain)
+  factories (system-default current values and formatter overloads remain)
 - `Duration` with the complete Java 21 public API surface, including parsing,
   temporal integration, checked arithmetic, conversions, truncation, and
   `between`
@@ -124,15 +125,15 @@ Implemented foundations:
 - `InstantSource` system, fixed, offset, and tick sources, default millisecond
   conversion, arbitrary-source zone-to-clock bridging, and Java-compatible
   reuse of clock implementations
-- temporal interfaces and exceptions, plus the standard zone, offset,
-  local-date, local-time, and precision queries
+- temporal interfaces and exceptions, plus all standard chronology, zone,
+  offset, local-date, local-time, and precision queries
 - `TemporalAdjusters` complete date-adjuster utility surface
 - `ValueRange`
 - `ChronoUnit`
 - `ChronoField`
 
-Remaining work includes the standard chronology query, no-argument
-system-default current-value factories and system-default-zone lookup, a
-bundled region time-zone database, formatters and parsers beyond the
-implemented ISO defaults and amount parsers, alternate chronologies, and
-complete cross-type conformance coverage.
+Remaining work includes the generic chronology date/date-time/period type
+hierarchies, no-argument system-default current-value factories and
+system-default-zone lookup, a bundled region time-zone database, formatters and
+parsers beyond the implemented ISO defaults and amount parsers, alternate
+chronologies, and complete cross-type conformance coverage.

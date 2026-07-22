@@ -9,7 +9,7 @@ import kotlin.test.assertEquals
 
 class TemporalQueriesJavaConformanceTest {
     @Test
-    fun localDateLocalTimeAndPrecisionQueriesMatchJavaTime() {
+    fun localDateLocalTimePrecisionAndChronologyQueriesMatchJavaTime() {
         val values = listOf(
             java.time.LocalDate.of(2024, 6, 1) to LocalDate.of(2024, 6, 1),
             java.time.LocalTime.of(12, 30, 45, 123_456_789) to
@@ -47,6 +47,11 @@ class TemporalQueriesJavaConformanceTest {
         assertEquals(
             expected.query(JavaTemporalQueries.precision())?.toString(),
             actual.query(TemporalQueries.precision())?.toString(),
+            actual.toString(),
+        )
+        assertEquals(
+            expected.query(JavaTemporalQueries.chronology())?.toString(),
+            actual.query(TemporalQueries.chronology())?.toString(),
             actual.toString(),
         )
     }

@@ -4,6 +4,7 @@ import io.heapy.grogu.time.LocalDate
 import io.heapy.grogu.time.LocalTime
 import io.heapy.grogu.time.ZoneOffset
 import io.heapy.grogu.time.ZoneId
+import io.heapy.grogu.time.chrono.Chronology
 
 /** Common queries for extracting information from temporal objects. */
 public object TemporalQueries {
@@ -51,6 +52,14 @@ public object TemporalQueries {
             override fun toString(): String = "Precision"
         }
 
+    private val chronologyQuery: TemporalQuery<Chronology?> =
+        object : TemporalQuery<Chronology?> {
+            override fun queryFrom(temporal: TemporalAccessor): Chronology? =
+                temporal.query(this)
+
+            override fun toString(): String = "Chronology"
+        }
+
     /** Returns a query that obtains the zone offset, or `null` when unavailable. */
     public fun offset(): TemporalQuery<ZoneOffset?> = offsetQuery
 
@@ -68,4 +77,7 @@ public object TemporalQueries {
 
     /** Returns a query that obtains the smallest supported unit. */
     public fun precision(): TemporalQuery<TemporalUnit?> = precisionQuery
+
+    /** Returns a query that obtains the chronology. */
+    public fun chronology(): TemporalQuery<Chronology?> = chronologyQuery
 }
