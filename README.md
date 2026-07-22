@@ -141,6 +141,8 @@ Implemented foundations:
 - temporal interfaces and exceptions, plus all standard chronology, zone,
   offset, local-date, local-time, and precision queries
 - `TemporalAdjusters` complete date-adjuster utility surface
+- `JulianFields` Julian day, modified Julian day, and Rata Die fields with
+  full-range epoch conversion and adjustment
 - `ValueRange`
 - `ChronoUnit`
 - `ChronoField`
