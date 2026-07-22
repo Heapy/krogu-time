@@ -227,6 +227,9 @@ class LocalDateTest {
         assertEquals("-0001-01-01", LocalDate.of(-1, 1, 1).toString())
         assertEquals("+10000-01-01", LocalDate.of(10_000, 1, 1).toString())
         assertTrue(LocalDate.of(2024, 1, 1) < LocalDate.of(2024, 1, 2))
+        assertTrue(LocalDate.of(2024, 1, 2).isAfter(LocalDate.of(2024, 1, 1)))
+        assertTrue(LocalDate.of(2024, 1, 1).isBefore(LocalDate.of(2024, 1, 2)))
+        assertTrue(LocalDate.of(2024, 1, 1).isEqual(LocalDate.of(2024, 1, 1)))
         assertEquals(LocalDate.of(1970, 1, 1), LocalDate.EPOCH)
     }
 

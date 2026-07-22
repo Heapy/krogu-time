@@ -146,6 +146,30 @@ class LocalDateJavaConformanceTest {
         }
     }
 
+    @Test
+    fun timelineComparisonMatchesJavaTime() {
+        val epochDays = listOf(
+            -365_243_219_162L,
+            -1L,
+            0L,
+            1L,
+            19_782L,
+            365_241_780_471L,
+        )
+
+        epochDays.forEach { firstEpochDay ->
+            val javaFirst = JavaLocalDate.ofEpochDay(firstEpochDay)
+            val first = LocalDate.ofEpochDay(firstEpochDay)
+            epochDays.forEach { secondEpochDay ->
+                val javaSecond = JavaLocalDate.ofEpochDay(secondEpochDay)
+                val second = LocalDate.ofEpochDay(secondEpochDay)
+                assertEquals(javaFirst.isAfter(javaSecond), first.isAfter(second))
+                assertEquals(javaFirst.isBefore(javaSecond), first.isBefore(second))
+                assertEquals(javaFirst.isEqual(javaSecond), first.isEqual(second))
+            }
+        }
+    }
+
     private fun assertSameOutcome(
         javaOperation: () -> Any?,
         kotlinOperation: () -> Any?,

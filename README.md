@@ -38,6 +38,9 @@ Implemented foundations:
 - `Era` and `IsoEra`
 - `Year` core value, leap-year, temporal-field, year-scale arithmetic, and
   comparison behavior (clock, formatting, and date-producing APIs remain)
+- `LocalDate` core value, full-range epoch conversion, temporal fields,
+  replacement, checked calendar arithmetic, complete-unit differences, and
+  timeline comparison (clock, formatting, period, and cross-type APIs remain)
 - `Duration` with the complete Java 21 public API surface, including parsing,
   temporal integration, checked arithmetic, conversions, truncation, and
   `between`
@@ -46,7 +49,7 @@ Implemented foundations:
 - `ChronoUnit`
 - `ChronoField`
 
-Remaining work includes temporal queries and adjusters, local and offset
-date/time types, instants and clocks, periods, zones and rules, formatters and
-parsers beyond duration parsing, alternate chronologies, and complete
-cross-type conformance coverage.
+Remaining work includes standard temporal queries and adjusters, other local
+and offset date/time types, instants and clocks, periods, zones and rules,
+formatters and parsers beyond duration parsing, alternate chronologies, and
+complete cross-type conformance coverage.

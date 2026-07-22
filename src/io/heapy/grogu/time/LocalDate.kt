@@ -281,6 +281,15 @@ public class LocalDate private constructor(
         return if (monthComparison != 0) monthComparison else dayOfMonth.compareTo(other.dayOfMonth)
     }
 
+    /** Whether this date is after [other] on the local timeline. */
+    public fun isAfter(other: LocalDate): Boolean = compareTo(other) > 0
+
+    /** Whether this date is before [other] on the local timeline. */
+    public fun isBefore(other: LocalDate): Boolean = compareTo(other) < 0
+
+    /** Whether this date represents the same local date as [other]. */
+    public fun isEqual(other: LocalDate): Boolean = compareTo(other) == 0
+
     override fun equals(other: Any?): Boolean =
         this === other ||
             other is LocalDate &&
