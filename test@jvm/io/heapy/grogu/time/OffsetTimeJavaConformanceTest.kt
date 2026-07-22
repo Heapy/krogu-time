@@ -45,6 +45,19 @@ class OffsetTimeJavaConformanceTest {
                     kotlinOperation = { time.getLong(field) },
                     context = context,
                 )
+                val javaResult = runCatching { javaTime.get(javaField) }
+                val kotlinResult = runCatching { time.get(field) }
+                assertEquals(javaResult.getOrNull(), kotlinResult.getOrNull(), context)
+                assertEquals(
+                    javaResult.exceptionOrNull()?.javaClass?.simpleName,
+                    kotlinResult.exceptionOrNull()?.javaClass?.simpleName,
+                    context,
+                )
+                assertEquals(
+                    javaResult.exceptionOrNull()?.message,
+                    kotlinResult.exceptionOrNull()?.message,
+                    context,
+                )
             }
             times.forEach { other ->
                 assertEquals(javaTime.compareTo(other.toJava()), time.compareTo(other))

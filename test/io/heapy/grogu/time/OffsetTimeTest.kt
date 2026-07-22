@@ -56,11 +56,27 @@ class OffsetTimeTest {
         }
         assertEquals(7_200L, time.getLong(ChronoField.OFFSET_SECONDS))
         assertEquals(13L, time.getLong(ChronoField.HOUR_OF_DAY))
+        assertEquals(7_200, time.get(ChronoField.OFFSET_SECONDS))
+        assertEquals(13, time.get(ChronoField.HOUR_OF_DAY))
         assertSame(time.offset, time.query(TemporalQueries.offset()))
         ChronoUnit.entries.forEach { unit ->
             assertEquals(unit.isTimeBased, time.isSupported(unit), unit.toString())
         }
         assertFailsWith<UnsupportedTemporalTypeException> { time.getLong(ChronoField.EPOCH_DAY) }
+        val nanoOfDayException = assertFailsWith<UnsupportedTemporalTypeException> {
+            time.get(ChronoField.NANO_OF_DAY)
+        }
+        assertEquals(
+            "Invalid field NanoOfDay for get() method, use getLong() instead",
+            nanoOfDayException.message,
+        )
+        val microOfDayException = assertFailsWith<UnsupportedTemporalTypeException> {
+            time.get(ChronoField.MICRO_OF_DAY)
+        }
+        assertEquals(
+            "Invalid field MicroOfDay for get() method, use getLong() instead",
+            microOfDayException.message,
+        )
     }
 
     @Test
