@@ -25,7 +25,10 @@ class IsoChronologyTest {
         assertTrue(IsoChronology.isIsoBased)
         assertSame(IsoChronology, Chronology.of("ISO"))
         assertSame(IsoChronology, Chronology.of("iso8601"))
-        assertEquals(setOf(IsoChronology), Chronology.getAvailableChronologies())
+        assertEquals(
+            setOf(IsoChronology, MinguoChronology),
+            Chronology.getAvailableChronologies(),
+        )
         assertSame(IsoChronology, Chronology.from(LocalDate.of(2024, 6, 1)))
         assertSame(IsoChronology, Chronology.from(LocalTime.NOON))
         assertFailsWith<DateTimeException> { Chronology.of("Unknown") }

@@ -38,9 +38,12 @@ Implemented foundations:
 - `Era` and `IsoEra`
 - `MinguoEra`, `ThaiBuddhistEra`, and `HijrahEra`, including their Java-compatible
   numeric values and the single-era Hijrah range
-- `Chronology` identity, lookup, ordering, era/leap/range contracts, and the
-  `IsoChronology` singleton with generic and ISO date/date-time factories, clock
-  injection, period creation, and epoch-second conversion
+- `Chronology` identity, lookup, ordering, era/leap/range contracts, plus the
+  `IsoChronology` and `MinguoChronology` singletons with generic date/date-time
+  factories, clock injection, period creation, and epoch-second conversion
+- `MinguoDate` factories, fields and refined ranges, calendar arithmetic,
+  periods, generic local/zoned date-time composition, and Java-compatible value
+  semantics across the full ISO-backed date range
 - `ChronoLocalDate` chronology, era, leap-year and length contracts, generic
   conversion, covariant date arithmetic, standard queries, epoch-day adjustment,
   chronology-aware and timeline ordering, with `LocalDate` integration
@@ -153,7 +156,8 @@ Implemented foundations:
 
 Remaining work includes formatters and parsers beyond the implemented ISO
 defaults and amount parsers, locale-backed week-rule selection and display names,
-alternate chronologies, and complete cross-type conformance coverage.
+the remaining alternate chronologies, and complete cross-type conformance
+coverage.
 
 The bundled TZDB source is generated reproducibly from the OpenJDK 21
 `lib/tzdb.dat` file by `tools/generate-tzdb-data.rb`.
