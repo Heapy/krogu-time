@@ -56,6 +56,19 @@ class YearMonthTest {
             assertTrue(yearMonth.isSupported(field), field.toString())
             assertEquals(expected, yearMonth.getLong(field), field.toString())
         }
+        assertEquals(2, yearMonth.get(ChronoField.MONTH_OF_YEAR))
+        assertEquals(2, yearMonth.get(ChronoField.YEAR_OF_ERA))
+        assertEquals(-1, yearMonth.get(ChronoField.YEAR))
+        assertEquals(0, yearMonth.get(ChronoField.ERA))
+        val prolepticMonthException = assertFailsWith<DateTimeException> {
+            yearMonth.get(ChronoField.PROLEPTIC_MONTH)
+        }
+        assertFalse(prolepticMonthException is UnsupportedTemporalTypeException)
+        assertEquals(
+            "Invalid value for ProlepticMonth " +
+                "(valid values -11999999988 - 11999999999): -11",
+            prolepticMonthException.message,
+        )
         assertEquals(
             ValueRange.of(1, Year.MAX_VALUE.toLong() + 1),
             yearMonth.range(ChronoField.YEAR_OF_ERA),

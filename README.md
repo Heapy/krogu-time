@@ -155,11 +155,12 @@ Implemented foundations:
   ordering, strict ISO parsing, and ISO text output, including system-default/
   injected-clock/explicit-zone current-value factories and formatter-based
   parsing/formatting
-- `YearMonth` value, factories, temporal fields, replacement, checked
-  month/year-scale arithmetic, complete-unit differences, non-ISO epoch-day
-  conversion, date production and ISO-guarded adjustment, ordering, strict ISO
-  parsing, ISO text output, and system-default/injected-clock/explicit-zone
-  current-value factories and formatter-based parsing/formatting
+- `YearMonth` value, factories, Java-compatible int/long temporal fields,
+  replacement, checked month/year-scale arithmetic, complete-unit differences,
+  non-ISO epoch-day conversion, date production and ISO-guarded adjustment,
+  ordering, strict ISO parsing, ISO text output, and system-default/
+  injected-clock/explicit-zone current-value factories and formatter-based
+  parsing/formatting
 - `LocalDate` core value, full-range epoch and instant/zone conversion,
   Java-compatible int/long temporal fields, replacement, checked calendar
   arithmetic, complete-unit differences, and timeline and calendar-period

@@ -57,6 +57,19 @@ class YearMonthJavaConformanceTest {
                     kotlinOperation = { yearMonth.getLong(field) },
                     context = "$yearMonth field=$field getLong",
                 )
+                val javaResult = runCatching { javaYearMonth.get(javaField) }
+                val kotlinResult = runCatching { yearMonth.get(field) }
+                assertEquals(javaResult.getOrNull(), kotlinResult.getOrNull(), field.toString())
+                assertEquals(
+                    javaResult.exceptionOrNull()?.javaClass?.simpleName,
+                    kotlinResult.exceptionOrNull()?.javaClass?.simpleName,
+                    field.toString(),
+                )
+                assertEquals(
+                    javaResult.exceptionOrNull()?.message,
+                    kotlinResult.exceptionOrNull()?.message,
+                    field.toString(),
+                )
             }
         }
     }
