@@ -40,14 +40,17 @@ Implemented foundations:
   comparison behavior (clock, formatting, and date-producing APIs remain)
 - `LocalDate` core value, full-range epoch conversion, temporal fields,
   replacement, checked calendar arithmetic, complete-unit differences, and
-  timeline and calendar-period comparison (clock, formatting, and cross-type
-  APIs remain)
+  timeline and calendar-period comparison, including local time composition
+  (clock, parsing/formatters, and zone APIs remain)
 - `Period` factories, parsing, value behavior, temporal integration, checked
   arithmetic, normalization, and `between` (chronology integration remains)
 - `LocalTime` core value, validated factories, day conversions, temporal
   fields, replacement, truncation, wraparound arithmetic, complete-unit
   differences, ordering, strict ISO parsing, and ISO text output (formatter
-  overloads, queries, and cross-type APIs remain)
+  overloads, queries, and offset/zone APIs remain)
+- `LocalDateTime` immutable composition, factories, local field access,
+  conversion, boundaries, ordering, and ISO text output (temporal arithmetic,
+  parsing/formatters, queries, and zone APIs remain)
 - `Duration` with the complete Java 21 public API surface, including parsing,
   temporal integration, checked arithmetic, conversions, truncation, and
   `between`

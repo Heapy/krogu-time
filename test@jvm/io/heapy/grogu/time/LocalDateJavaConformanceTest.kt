@@ -163,6 +163,7 @@ class LocalDateJavaConformanceTest {
             epochDays.forEach { secondEpochDay ->
                 val javaSecond = JavaLocalDate.ofEpochDay(secondEpochDay)
                 val second = LocalDate.ofEpochDay(secondEpochDay)
+                assertEquals(javaFirst.compareTo(javaSecond), first.compareTo(second))
                 assertEquals(javaFirst.isAfter(javaSecond), first.isAfter(second))
                 assertEquals(javaFirst.isBefore(javaSecond), first.isBefore(second))
                 assertEquals(javaFirst.isEqual(javaSecond), first.isEqual(second))

@@ -293,11 +293,33 @@ public class LocalDate private constructor(
         return (packedEnd - packedThis) / 32
     }
 
+    /** Combines this date with [time]. */
+    public fun atTime(time: LocalTime): LocalDateTime = LocalDateTime.of(this, time)
+
+    /** Combines this date with an hour and minute. */
+    public fun atTime(hour: Int, minute: Int): LocalDateTime =
+        atTime(LocalTime.of(hour, minute))
+
+    /** Combines this date with an hour, minute, and second. */
+    public fun atTime(hour: Int, minute: Int, second: Int): LocalDateTime =
+        atTime(LocalTime.of(hour, minute, second))
+
+    /** Combines this date with a complete local time. */
+    public fun atTime(
+        hour: Int,
+        minute: Int,
+        second: Int,
+        nanoOfSecond: Int,
+    ): LocalDateTime = atTime(LocalTime.of(hour, minute, second, nanoOfSecond))
+
+    /** Returns this date at midnight. */
+    public fun atStartOfDay(): LocalDateTime = atTime(LocalTime.MIDNIGHT)
+
     override fun compareTo(other: LocalDate): Int {
-        val yearComparison = year.compareTo(other.year)
+        val yearComparison = year - other.year
         if (yearComparison != 0) return yearComparison
-        val monthComparison = monthValue.compareTo(other.monthValue)
-        return if (monthComparison != 0) monthComparison else dayOfMonth.compareTo(other.dayOfMonth)
+        val monthComparison = monthValue - other.monthValue
+        return if (monthComparison != 0) monthComparison else dayOfMonth - other.dayOfMonth
     }
 
     /** Whether this date is after [other] on the local timeline. */
