@@ -1,6 +1,7 @@
 package io.heapy.grogu.time.format
 
 import io.heapy.grogu.time.DateTimeException
+import io.heapy.grogu.time.chrono.ChronoLocalDate
 import io.heapy.grogu.time.temporal.TemporalField
 
 /**
@@ -71,7 +72,32 @@ public class DateTimeFormatterBuilder {
                 "Unable to add printer-parser as the range exceeds the capacity of an int",
             )
         }
-        tokens += PatternToken.ReducedValue(field, width, maxWidth, baseValue)
+        tokens += PatternToken.ReducedValue(
+            field,
+            width,
+            maxWidth,
+            ReducedValueBase.Value(baseValue),
+        )
+    }
+
+    /** Appends a reduced numeric [field] relative to a chronology-aware [baseDate]. */
+    public fun appendValueReduced(
+        field: TemporalField,
+        width: Int,
+        maxWidth: Int,
+        baseDate: ChronoLocalDate,
+    ): DateTimeFormatterBuilder = apply {
+        require(width in 1..10) { "The width must be from 1 to 10 inclusive but was $width" }
+        require(maxWidth in 1..10) { "The maxWidth must be from 1 to 10 inclusive but was $maxWidth" }
+        require(maxWidth >= width) {
+            "Maximum width must exceed or equal the minimum width but $maxWidth < $width"
+        }
+        tokens += PatternToken.ReducedValue(
+            field,
+            width,
+            maxWidth,
+            ReducedValueBase.Date(baseDate),
+        )
     }
 
     /** Appends the fractional value of a fixed-range [field]. */

@@ -3,6 +3,8 @@ package io.heapy.grogu.time.format
 import io.heapy.grogu.time.LocalDateTime
 import io.heapy.grogu.time.LocalDate
 import io.heapy.grogu.time.LocalTime
+import io.heapy.grogu.time.chrono.ThaiBuddhistChronology
+import io.heapy.grogu.time.chrono.ThaiBuddhistDate
 import io.heapy.grogu.time.temporal.ChronoField
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -105,6 +107,26 @@ class DateTimeFormatterBuilderTest {
             assertEquals(text, formatter.format(date))
             assertEquals(date, formatter.parse(text, LocalDate::from))
         }
+    }
+
+    @Test
+    fun appendsReducedValuesUsingAChronologyAwareBaseDate() {
+        val formatter = DateTimeFormatterBuilder()
+            .appendValueReduced(
+                ChronoField.YEAR,
+                2,
+                2,
+                LocalDate.of(1950, 1, 1),
+            )
+            .toFormatter()
+
+        assertEquals(1950, formatter.parse("50").getLong(ChronoField.YEAR))
+        assertEquals(2049, formatter.parse("49").getLong(ChronoField.YEAR))
+
+        val buddhistFormatter = formatter.withChronology(ThaiBuddhistChronology)
+        assertEquals("93", buddhistFormatter.format(ThaiBuddhistDate.of(2493, 1, 1)))
+        assertEquals(2493, buddhistFormatter.parse("93").getLong(ChronoField.YEAR))
+        assertEquals(2592, buddhistFormatter.parse("92").getLong(ChronoField.YEAR))
     }
 
     @Test

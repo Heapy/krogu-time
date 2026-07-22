@@ -129,6 +129,40 @@ class DateTimeFormatterBuilderJavaConformanceTest {
     }
 
     @Test
+    fun chronologyAwareReducedBaseDatesMatchJavaTime() {
+        val javaFormatter = java.time.format.DateTimeFormatterBuilder()
+            .appendValueReduced(
+                java.time.temporal.ChronoField.YEAR,
+                2,
+                2,
+                java.time.LocalDate.of(1950, 1, 1),
+            )
+            .toFormatter()
+            .withChronology(java.time.chrono.ThaiBuddhistChronology.INSTANCE)
+        val groguFormatter = DateTimeFormatterBuilder()
+            .appendValueReduced(
+                io.heapy.grogu.time.temporal.ChronoField.YEAR,
+                2,
+                2,
+                io.heapy.grogu.time.LocalDate.of(1950, 1, 1),
+            )
+            .toFormatter()
+            .withChronology(io.heapy.grogu.time.chrono.ThaiBuddhistChronology)
+
+        listOf(2492, 2493, 2500, 2592, 2593).forEach { year ->
+            val javaDate = java.time.chrono.ThaiBuddhistDate.of(year, 1, 1)
+            val groguDate = io.heapy.grogu.time.chrono.ThaiBuddhistDate.of(year, 1, 1)
+            assertEquals(javaFormatter.format(javaDate), groguFormatter.format(groguDate))
+        }
+        listOf("92", "93", "00").forEach { text ->
+            assertEquals(
+                javaFormatter.parse(text).getLong(java.time.temporal.ChronoField.YEAR),
+                groguFormatter.parse(text).getLong(io.heapy.grogu.time.temporal.ChronoField.YEAR),
+            )
+        }
+    }
+
+    @Test
     fun fractionFormattingAndParsingMatchesJavaTime() {
         val javaFormatter = java.time.format.DateTimeFormatterBuilder()
             .appendPattern("HH:mm:ss")

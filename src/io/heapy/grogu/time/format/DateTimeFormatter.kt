@@ -31,6 +31,7 @@ public class DateTimeFormatter private constructor(
     private val description: String,
     private val decimalStyleScope: DecimalStyleScope = DecimalStyleScope.ALL,
     private val resolverParser: ((String, ResolverStyle) -> TemporalAccessor)? = null,
+    private val patternTokens: List<PatternToken>? = null,
     public val decimalStyle: DecimalStyle = DecimalStyle.STANDARD,
     public val resolverStyle: ResolverStyle = ResolverStyle.STRICT,
     public val chronology: Chronology? = null,
@@ -48,7 +49,9 @@ public class DateTimeFormatter private constructor(
     /** Parses [text] into a temporal accessor. */
     public fun parse(text: CharSequence): TemporalAccessor {
         val standardized = decimalStyleScope.standardize(text, decimalStyle)
-        val parsed = resolverParser?.invoke(standardized, resolverStyle) ?: parser(standardized)
+        val parsed = patternTokens?.let { tokens ->
+            parsePattern(tokens, standardized, resolverStyle, chronology)
+        } ?: resolverParser?.invoke(standardized, resolverStyle) ?: parser(standardized)
         return try {
             applyOverrides(parsed)
         } catch (exception: DateTimeParseException) {
@@ -69,6 +72,7 @@ public class DateTimeFormatter private constructor(
                 description = description,
                 decimalStyleScope = decimalStyleScope,
                 resolverParser = resolverParser,
+                patternTokens = patternTokens,
                 decimalStyle = decimalStyle,
                 resolverStyle = resolverStyle,
                 chronology = chronology,
@@ -87,6 +91,7 @@ public class DateTimeFormatter private constructor(
                 description = description,
                 decimalStyleScope = decimalStyleScope,
                 resolverParser = resolverParser,
+                patternTokens = patternTokens,
                 decimalStyle = decimalStyle,
                 resolverStyle = resolverStyle,
                 chronology = chronology,
@@ -105,6 +110,7 @@ public class DateTimeFormatter private constructor(
                 description = description,
                 decimalStyleScope = decimalStyleScope,
                 resolverParser = resolverParser,
+                patternTokens = patternTokens,
                 decimalStyle = decimalStyle,
                 resolverStyle = resolverStyle,
                 chronology = chronology,
@@ -123,6 +129,7 @@ public class DateTimeFormatter private constructor(
                 description = description,
                 decimalStyleScope = decimalStyleScope,
                 resolverParser = resolverParser,
+                patternTokens = patternTokens,
                 decimalStyle = decimalStyle,
                 resolverStyle = resolverStyle,
                 chronology = chronology,
@@ -271,6 +278,7 @@ public class DateTimeFormatter private constructor(
                 parser = { text -> parsePattern(snapshot, text.toString(), ResolverStyle.SMART) },
                 description = describePattern(snapshot),
                 resolverParser = { text, style -> parsePattern(snapshot, text, style) },
+                patternTokens = snapshot,
                 resolverStyle = ResolverStyle.SMART,
             )
         }
@@ -630,7 +638,7 @@ internal sealed interface PatternToken {
         val field: TemporalField,
         val minWidth: Int,
         val maxWidth: Int,
-        val baseValue: Int,
+        val base: ReducedValueBase,
     ) : PatternToken
 
     data class Fraction(
@@ -646,6 +654,12 @@ internal sealed interface PatternToken {
     ) : PatternToken
 
     data class ZoneId(val queryMode: ZoneQueryMode) : PatternToken
+}
+
+internal sealed interface ReducedValueBase {
+    data class Value(val value: Int) : ReducedValueBase
+
+    data class Date(val date: ChronoLocalDate) : ReducedValueBase
 }
 
 internal enum class ZoneQueryMode {
@@ -841,9 +855,12 @@ private fun formatPatternReducedValue(
     temporal: TemporalAccessor,
 ): String {
     val value = temporal.getLong(token.field)
+    val baseValue = token.resolveBaseValue(
+        temporal.query(TemporalQueries.chronology()) ?: IsoChronology,
+    )
     val minRange = reducedPowerOfTen(token.minWidth)
     val maxRange = reducedPowerOfTen(token.maxWidth)
-    val divisor = if (value >= token.baseValue && value < token.baseValue + minRange) {
+    val divisor = if (value >= baseValue && value < baseValue + minRange) {
         minRange
     } else {
         maxRange
@@ -962,6 +979,7 @@ private fun parsePattern(
     tokens: List<PatternToken>,
     text: String,
     resolverStyle: ResolverStyle,
+    chronology: Chronology? = null,
 ): TemporalAccessor {
     val values = mutableMapOf<TemporalField, Long>()
     var offset: ZoneOffset? = null
@@ -1025,7 +1043,14 @@ private fun parsePattern(
                 index = parsed.endIndex
             }
             is PatternToken.ReducedValue -> {
-                val parsed = parsePatternReducedValue(tokens, tokenIndex, token, text, index)
+                val parsed = parsePatternReducedValue(
+                    tokens,
+                    tokenIndex,
+                    token,
+                    text,
+                    index,
+                    chronology ?: IsoChronology,
+                )
                 val previous = values.put(token.field, parsed.value)
                 if (previous != null && previous != parsed.value) {
                     throw DateTimeParseException(
@@ -1399,6 +1424,7 @@ private fun parsePatternReducedValue(
     token: PatternToken.ReducedValue,
     text: String,
     startIndex: Int,
+    chronology: Chronology,
 ): ParsedPatternField {
     var digitRunEnd = startIndex
     while (digitRunEnd < text.length && text[digitRunEnd] in '0'..'9') digitRunEnd++
@@ -1415,14 +1441,21 @@ private fun parsePatternReducedValue(
     var value = text.substring(startIndex, endIndex).toLongOrNull()
         ?: throw DateTimeParseException("Invalid numeric value", text, startIndex)
     if (digitCount == token.minWidth) {
+        val baseValue = token.resolveBaseValue(chronology)
         val range = reducedPowerOfTen(token.minWidth)
-        val lastPart = token.baseValue % range
-        val basePart = token.baseValue - lastPart
-        value = if (token.baseValue > 0) basePart + value else basePart - value
-        if (value < token.baseValue) value += range
+        val lastPart = baseValue % range
+        val basePart = baseValue - lastPart
+        value = if (baseValue > 0) basePart + value else basePart - value
+        if (value < baseValue) value += range
     }
     return ParsedPatternField(value, endIndex)
 }
+
+private fun PatternToken.ReducedValue.resolveBaseValue(chronology: Chronology): Int =
+    when (val reducedBase = base) {
+        is ReducedValueBase.Value -> reducedBase.value
+        is ReducedValueBase.Date -> chronology.date(reducedBase.date).get(field)
+    }
 
 private fun parsePatternField(
     token: PatternToken.Field,
@@ -1594,7 +1627,12 @@ private fun describePattern(tokens: List<PatternToken>): String = buildString {
                 .append(',')
                 .append(token.maxWidth)
                 .append(',')
-                .append(token.baseValue)
+                .append(
+                    when (val reducedBase = token.base) {
+                        is ReducedValueBase.Value -> reducedBase.value
+                        is ReducedValueBase.Date -> reducedBase.date
+                    },
+                )
                 .append(')')
             is PatternToken.Fraction -> append("Fraction(")
                 .append(token.field)
