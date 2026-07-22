@@ -35,6 +35,8 @@ Implemented foundations:
 - `DateTimeParseException`
 - `ResolverStyle`, `FormatStyle`, `SignStyle`, and `TextStyle` formatter
   configuration enums
+- `DecimalStyle` standard symbols, immutable symbol replacement, digit
+  conversion, value semantics, and Java-compatible text (locale factories remain)
 - `DayOfWeek`
 - `Month`
 - `Era` and `IsoEra`
