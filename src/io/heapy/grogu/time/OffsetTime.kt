@@ -1,5 +1,6 @@
 package io.heapy.grogu.time
 
+import io.heapy.grogu.time.format.DateTimeFormatter
 import io.heapy.grogu.time.format.DateTimeParseException
 import io.heapy.grogu.time.temporal.ChronoField
 import io.heapy.grogu.time.temporal.ChronoUnit
@@ -160,6 +161,9 @@ public class OffsetTime private constructor(
 
     override fun toString(): String = "$time$offset"
 
+    /** Formats this offset time using [formatter]. */
+    public fun format(formatter: DateTimeFormatter): String = formatter.format(this)
+
     private fun with(time: LocalTime, offset: ZoneOffset): OffsetTime =
         if (this.time == time && this.offset == offset) this else OffsetTime(time, offset)
 
@@ -238,6 +242,10 @@ public class OffsetTime private constructor(
             }
             return of(time, offset)
         }
+
+        /** Parses an offset time from [text] using [formatter]. */
+        public fun parse(text: CharSequence, formatter: DateTimeFormatter): OffsetTime =
+            from(formatter.parse(text))
 
         private fun parseFailure(input: String, errorIndex: Int): DateTimeParseException =
             DateTimeParseException("Text cannot be parsed to an OffsetTime", input, errorIndex)

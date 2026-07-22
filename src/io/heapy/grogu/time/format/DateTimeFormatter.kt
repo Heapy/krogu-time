@@ -4,6 +4,9 @@ import io.heapy.grogu.time.Instant
 import io.heapy.grogu.time.LocalDate
 import io.heapy.grogu.time.LocalDateTime
 import io.heapy.grogu.time.LocalTime
+import io.heapy.grogu.time.OffsetDateTime
+import io.heapy.grogu.time.OffsetTime
+import io.heapy.grogu.time.ZonedDateTime
 import io.heapy.grogu.time.temporal.TemporalAccessor
 import io.heapy.grogu.time.temporal.TemporalQuery
 
@@ -52,8 +55,7 @@ public class DateTimeFormatter private constructor(
         /** The strict ISO formatter for a date-time without an offset. */
         public val ISO_LOCAL_DATE_TIME: DateTimeFormatter = DateTimeFormatter(
             printer = { temporal ->
-                val dateTime = LocalDateTime.from(temporal)
-                "${dateTime.date}T${formatIsoLocalTime(dateTime.time)}"
+                formatIsoLocalDateTime(LocalDateTime.from(temporal))
             },
             parser = { text -> LocalDateTime.parse(text) },
             description =
@@ -71,8 +73,71 @@ public class DateTimeFormatter private constructor(
             parser = { text -> Instant.parse(text) },
             description = "ParseCaseSensitive(false)Instant()",
         )
+
+        /** The strict ISO formatter for a time with an offset. */
+        public val ISO_OFFSET_TIME: DateTimeFormatter = DateTimeFormatter(
+            printer = { temporal ->
+                val offsetTime = OffsetTime.from(temporal)
+                formatIsoLocalTime(offsetTime.time) + offsetTime.offset
+            },
+            parser = { text -> OffsetTime.parse(text) },
+            description =
+                "ParseCaseSensitive(false)" +
+                    "(Value(HourOfDay,2)':'Value(MinuteOfHour,2)" +
+                    "[':'Value(SecondOfMinute,2)" +
+                    "[Fraction(NanoOfSecond,0,9,DecimalPoint)]])" +
+                    "Offset(+HH:MM:ss,'Z')",
+        )
+
+        /** The strict ISO formatter for a date-time with an offset. */
+        public val ISO_OFFSET_DATE_TIME: DateTimeFormatter = DateTimeFormatter(
+            printer = { temporal ->
+                val dateTime = OffsetDateTime.from(temporal)
+                formatIsoLocalDateTime(dateTime.dateTime) + dateTime.offset
+            },
+            parser = { text -> OffsetDateTime.parse(text) },
+            description =
+                "ParseCaseSensitive(false)" +
+                    "(ParseCaseSensitive(false)" +
+                    "(Value(Year,4,10,EXCEEDS_PAD)'-'Value(MonthOfYear,2)" +
+                    "'-'Value(DayOfMonth,2))'T'" +
+                    "(Value(HourOfDay,2)':'Value(MinuteOfHour,2)" +
+                    "[':'Value(SecondOfMinute,2)" +
+                    "[Fraction(NanoOfSecond,0,9,DecimalPoint)]]))" +
+                    "ParseStrict(false)Offset(+HH:MM:ss,'Z')ParseStrict(true)",
+        )
+
+        /** The strict ISO formatter for a date-time with an offset and optional region zone. */
+        public val ISO_ZONED_DATE_TIME: DateTimeFormatter = DateTimeFormatter(
+            printer = { temporal ->
+                val dateTime = ZonedDateTime.from(temporal)
+                buildString {
+                    append(formatIsoLocalDateTime(dateTime.dateTime))
+                    append(dateTime.offset)
+                    if (dateTime.zone != dateTime.offset) {
+                        append('[')
+                        append(dateTime.zone)
+                        append(']')
+                    }
+                }
+            },
+            parser = { text -> ZonedDateTime.parse(text) },
+            description =
+                "(ParseCaseSensitive(false)" +
+                    "(ParseCaseSensitive(false)" +
+                    "(Value(Year,4,10,EXCEEDS_PAD)'-'Value(MonthOfYear,2)" +
+                    "'-'Value(DayOfMonth,2))'T'" +
+                    "(Value(HourOfDay,2)':'Value(MinuteOfHour,2)" +
+                    "[':'Value(SecondOfMinute,2)" +
+                    "[Fraction(NanoOfSecond,0,9,DecimalPoint)]]))" +
+                    "ParseStrict(false)Offset(+HH:MM:ss,'Z')ParseStrict(true))" +
+                    "['['ParseCaseSensitive(true)ZoneRegionId()']']",
+        )
     }
 }
+
+private fun formatIsoLocalDateTime(dateTime: LocalDateTime): String =
+    "${dateTime.date}T${formatIsoLocalTime(dateTime.time)}"
 
 private fun formatIsoLocalTime(time: LocalTime): String = buildString {
     append(time.hour.toString().padStart(2, '0'))

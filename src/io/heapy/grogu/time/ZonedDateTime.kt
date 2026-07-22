@@ -2,6 +2,7 @@ package io.heapy.grogu.time
 
 import io.heapy.grogu.time.chrono.ChronoZonedDateTime
 import io.heapy.grogu.time.chrono.IsoChronology
+import io.heapy.grogu.time.format.DateTimeFormatter
 import io.heapy.grogu.time.format.DateTimeParseException
 import io.heapy.grogu.time.temporal.ChronoField
 import io.heapy.grogu.time.temporal.ChronoUnit
@@ -246,6 +247,9 @@ public class ZonedDateTime private constructor(
         }
     }
 
+    /** Formats this zoned date-time using [formatter]. */
+    public fun format(formatter: DateTimeFormatter): String = formatter.format(this)
+
     private fun resolveLocal(newDateTime: LocalDateTime): ZonedDateTime =
         ofLocal(newDateTime, zone, offset)
 
@@ -435,6 +439,10 @@ public class ZonedDateTime private constructor(
             }
             return ofInstant(offsetDateTime.toInstant(), zone)
         }
+
+        /** Parses a zoned date-time from [text] using [formatter]. */
+        public fun parse(text: CharSequence, formatter: DateTimeFormatter): ZonedDateTime =
+            from(formatter.parse(text))
 
         /** Returns a comparator that compares zoned date-times only by instant. */
         public fun timeLineOrder(): Comparator<ZonedDateTime> = TIME_LINE_ORDER

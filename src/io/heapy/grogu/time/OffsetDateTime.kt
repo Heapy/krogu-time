@@ -1,6 +1,7 @@
 package io.heapy.grogu.time
 
 import io.heapy.grogu.time.chrono.IsoChronology
+import io.heapy.grogu.time.format.DateTimeFormatter
 import io.heapy.grogu.time.format.DateTimeParseException
 import io.heapy.grogu.time.temporal.ChronoField
 import io.heapy.grogu.time.temporal.ChronoUnit
@@ -222,6 +223,9 @@ public class OffsetDateTime private constructor(
 
     override fun toString(): String = "$dateTime$offset"
 
+    /** Formats this offset date-time using [formatter]. */
+    public fun format(formatter: DateTimeFormatter): String = formatter.format(this)
+
     private fun with(dateTime: LocalDateTime, offset: ZoneOffset): OffsetDateTime =
         if (this.dateTime == dateTime && this.offset == offset) this else OffsetDateTime(dateTime, offset)
 
@@ -346,6 +350,10 @@ public class OffsetDateTime private constructor(
             }
             return of(dateTime, offset)
         }
+
+        /** Parses an offset date-time from [text] using [formatter]. */
+        public fun parse(text: CharSequence, formatter: DateTimeFormatter): OffsetDateTime =
+            from(formatter.parse(text))
 
         /** Returns a comparator that compares offset date-times only by instant. */
         public fun timeLineOrder(): Comparator<OffsetDateTime> = TIME_LINE_ORDER

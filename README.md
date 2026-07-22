@@ -39,8 +39,9 @@ Implemented foundations:
   conversion, value semantics, and Java-compatible text (locale factories remain)
 - `DateTimeFormatter` core formatting, appendable output, parsing and temporal
   queries, with Java-compatible `ISO_LOCAL_DATE`, `ISO_LOCAL_TIME`,
-  `ISO_LOCAL_DATE_TIME`, and `ISO_INSTANT` constants and formatter overloads on
-  their corresponding value types
+  `ISO_LOCAL_DATE_TIME`, `ISO_INSTANT`, `ISO_OFFSET_TIME`,
+  `ISO_OFFSET_DATE_TIME`, and `ISO_ZONED_DATE_TIME` constants and formatter
+  overloads on their corresponding value types
 - `DayOfWeek`
 - `Month`
 - `Era` and `IsoEra`
@@ -135,19 +136,19 @@ Implemented foundations:
   truncation, wraparound arithmetic, complete-unit differences, timeline and
   structural ordering, epoch-second conversion, strict ISO parsing, and ISO
   text output, including system-default/injected-clock/explicit-zone current
-  values (formatter overloads remain)
+  values and formatter overloads
 - `OffsetDateTime` immutable composition, factories, fixed-offset/instant
   conversion, same-instant/similar-local region-zone composition, all standard
   fields and units, replacement, truncation, checked local arithmetic,
   complete-unit differences across offsets, timeline and structural ordering,
   strict ISO parsing, ISO text output, and system-default/injected-clock/
-  explicit-zone current values (formatter overloads remain)
+  explicit-zone current values and formatter overloads
 - `ZonedDateTime` local, strict, and instant factories; gap shifting and
   overlap preference/switching; date-based versus elapsed-time arithmetic;
   temporal fields, replacement, truncation, complete-unit differences, zone
   conversion, instant/offset conversion, timeline and structural ordering,
   queries, strict ISO parsing, Java-compatible text output, and system-default/
-  injected-clock/explicit-zone current values (formatter overloads remain)
+  injected-clock/explicit-zone current values and formatter overloads
 - `Clock` system clocks for the default and explicit zones, fixed and offset
   clocks, validated nanosecond-to-minute tick clocks, millisecond access, zone
   replacement, and Java-compatible value/text semantics
