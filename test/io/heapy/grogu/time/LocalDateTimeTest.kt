@@ -1,8 +1,12 @@
 package io.heapy.grogu.time
 
 import io.heapy.grogu.time.temporal.ChronoField
+import io.heapy.grogu.time.temporal.ChronoUnit
+import io.heapy.grogu.time.temporal.Temporal
 import io.heapy.grogu.time.temporal.TemporalAccessor
+import io.heapy.grogu.time.temporal.TemporalAdjuster
 import io.heapy.grogu.time.temporal.TemporalField
+import io.heapy.grogu.time.temporal.TemporalUnit
 import io.heapy.grogu.time.temporal.UnsupportedTemporalTypeException
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -93,6 +97,71 @@ class LocalDateTimeTest {
         assertEquals(LocalDateTime.of(LocalDate.MAX, LocalTime.MAX), LocalDateTime.MAX)
     }
 
+    @Test
+    fun supportsUnitsAndReplacesDateAndTimeParts() {
+        val dateTime = LocalDateTime.of(2024, 2, 29, 13, 14, 15, 123_456_789)
+        ChronoUnit.entries.forEach { unit ->
+            assertEquals(unit !== ChronoUnit.FOREVER, dateTime.isSupported(unit), unit.toString())
+        }
+
+        assertEquals(LocalDateTime.of(2023, 2, 28, 13, 14, 15, 123_456_789), dateTime.withYear(2023))
+        assertEquals(LocalDateTime.of(2024, 1, 29, 13, 14, 15, 123_456_789), dateTime.withMonth(1))
+        assertEquals(LocalDateTime.of(2024, 2, 2, 13, 14, 15, 123_456_789), dateTime.withDayOfMonth(2))
+        assertEquals(LocalDateTime.of(2024, 3, 1, 13, 14, 15, 123_456_789), dateTime.withDayOfYear(61))
+        assertEquals(LocalDateTime.of(2024, 2, 29, 2, 14, 15, 123_456_789), dateTime.withHour(2))
+        assertEquals(LocalDateTime.of(2024, 2, 29, 13, 2, 15, 123_456_789), dateTime.withMinute(2))
+        assertEquals(LocalDateTime.of(2024, 2, 29, 13, 14, 2, 123_456_789), dateTime.withSecond(2))
+        assertEquals(LocalDateTime.of(2024, 2, 29, 13, 14, 15, 2), dateTime.withNano(2))
+        assertEquals(LocalDateTime.of(2025, 2, 28, 13, 14, 15, 123_456_789), dateTime.with(ChronoField.YEAR, 2025))
+        assertEquals(LocalDateTime.of(2024, 2, 29, 2, 14, 15, 123_456_789), dateTime.with(ChronoField.HOUR_OF_DAY, 2))
+        assertEquals(LocalDateTime.of(2025, 1, 2, 13, 14, 15, 123_456_789), dateTime.with(LocalDate.of(2025, 1, 2)))
+        assertEquals(LocalDateTime.of(2024, 2, 29, 1, 2, 3, 4), dateTime.with(LocalTime.of(1, 2, 3, 4)))
+        assertEquals(
+            LocalDateTime.of(2024, 2, 29, 13, 14, 20, 123_456_789),
+            dateTime.with(TemporalAdjuster { it.with(ChronoField.SECOND_OF_MINUTE, 20) }),
+        )
+    }
+
+    @Test
+    fun addsAndSubtractsDateAndTimeAmountsAcrossMidnight() {
+        val dateTime = LocalDateTime.of(2024, 2, 29, 23, 59, 59, 999_999_999)
+        assertEquals(LocalDateTime.of(2024, 3, 1, 0, 0), dateTime.plusNanos(1))
+        assertEquals(LocalDateTime.of(2024, 3, 1, 0, 0, 0, 999_999_999), dateTime.plusSeconds(1))
+        assertEquals(LocalDateTime.of(2024, 3, 1, 0, 0, 59, 999_999_999), dateTime.plusMinutes(1))
+        assertEquals(LocalDateTime.of(2024, 3, 1, 0, 59, 59, 999_999_999), dateTime.plusHours(1))
+        assertEquals(LocalDateTime.of(2025, 2, 28, 23, 59, 59, 999_999_999), dateTime.plusYears(1))
+        assertEquals(LocalDateTime.of(2024, 3, 29, 23, 59, 59, 999_999_999), dateTime.plusMonths(1))
+        assertEquals(dateTime.plusDays(7), dateTime.plusWeeks(1))
+        assertEquals(dateTime.plusHours(12), dateTime.plus(1, ChronoUnit.HALF_DAYS))
+        assertEquals(dateTime.plusSeconds(2).plusNanos(3), dateTime.plus(Duration.ofSeconds(2, 3)))
+        assertEquals(dateTime.plusMonths(1).plusDays(2), dateTime.plus(Period.of(0, 1, 2)))
+        assertEquals(dateTime, dateTime.plusHours(25).minusHours(25))
+        assertEquals(dateTime, dateTime.minusNanos(Long.MIN_VALUE).plusNanos(Long.MIN_VALUE))
+        assertFailsWith<UnsupportedTemporalTypeException> { dateTime.plus(1, ChronoUnit.FOREVER) }
+    }
+
+    @Test
+    fun truncatesMeasuresCompleteUnitsAndAdjustsAnotherTemporal() {
+        val start = LocalDateTime.of(2024, 2, 28, 23, 30, 40, 500_000_000)
+        val end = LocalDateTime.of(2024, 3, 1, 1, 31, 42, 750_000_000)
+        assertEquals(LocalDateTime.of(2024, 2, 28, 23, 30), start.truncatedTo(ChronoUnit.MINUTES))
+        assertEquals(93_662_250_000_000L, start.until(end, ChronoUnit.NANOS))
+        assertEquals(93_662L, start.until(end, ChronoUnit.SECONDS))
+        assertEquals(26L, start.until(end, ChronoUnit.HOURS))
+        assertEquals(1L, start.until(end, ChronoUnit.DAYS))
+        assertEquals(0L, start.until(end, ChronoUnit.MONTHS))
+        assertEquals(-26L, end.until(start, ChronoUnit.HOURS))
+        assertEquals(
+            DateTimeRecordingTemporal(
+                operations = listOf(
+                    ChronoField.EPOCH_DAY to start.date.toEpochDay(),
+                    ChronoField.NANO_OF_DAY to start.time.toNanoOfDay(),
+                ),
+            ),
+            start.adjustInto(DateTimeRecordingTemporal()),
+        )
+    }
+
     private data class DateTimeAccessor(
         val epochDay: Long? = null,
         val nanoOfDay: Long? = null,
@@ -106,5 +175,27 @@ class LocalDateTimeTest {
             ChronoField.NANO_OF_DAY -> nanoOfDay
             else -> null
         } ?: throw UnsupportedTemporalTypeException("Unsupported field: $field")
+    }
+
+    private data class DateTimeRecordingTemporal(
+        val operations: List<Pair<TemporalField, Long>> = emptyList(),
+    ) : Temporal {
+        override fun isSupported(field: TemporalField): Boolean =
+            field === ChronoField.EPOCH_DAY || field === ChronoField.NANO_OF_DAY
+
+        override fun isSupported(unit: TemporalUnit): Boolean = false
+
+        override fun getLong(field: TemporalField): Long =
+            throw UnsupportedTemporalTypeException("Unsupported field: $field")
+
+        override fun with(field: TemporalField, newValue: Long): Temporal =
+            if (isSupported(field)) copy(operations = operations + (field to newValue)) else
+                throw UnsupportedTemporalTypeException("Unsupported field: $field")
+
+        override fun plus(amountToAdd: Long, unit: TemporalUnit): Temporal =
+            throw UnsupportedTemporalTypeException("Unsupported unit: $unit")
+
+        override fun until(endExclusive: Temporal, unit: TemporalUnit): Long =
+            throw UnsupportedTemporalTypeException("Unsupported unit: $unit")
     }
 }

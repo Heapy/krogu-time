@@ -2,7 +2,9 @@ package io.heapy.grogu.time
 
 import java.time.LocalDateTime as JavaLocalDateTime
 import java.time.temporal.ChronoField as JavaChronoField
+import java.time.temporal.ChronoUnit as JavaChronoUnit
 import io.heapy.grogu.time.temporal.ChronoField
+import io.heapy.grogu.time.temporal.ChronoUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -95,6 +97,84 @@ class LocalDateTimeJavaConformanceTest {
             )
         }
     }
+
+    @Test
+    fun fieldReplacementAndArithmeticMatchJavaTime() {
+        val dateTimes = listOf(
+            LocalDateTime.of(-1, 1, 1, 0, 0),
+            LocalDateTime.of(1970, 1, 1, 0, 0, 0, 1),
+            LocalDateTime.of(2024, 2, 29, 13, 14, 15, 123_456_789),
+            LocalDateTime.of(999_999_998, 12, 31, 23, 59, 59, 999_999_999),
+        )
+        val amounts = listOf(Long.MIN_VALUE, -1_000L, -1L, 0L, 1L, 1_000L, Long.MAX_VALUE)
+
+        dateTimes.forEach { dateTime ->
+            val javaDateTime = dateTime.toJava()
+            ChronoField.entries.forEach { field ->
+                val javaField = JavaChronoField.valueOf(field.name)
+                listOf(field.range.minimum, 0L, 1L, field.range.maximum).distinct().forEach { value ->
+                    assertSameOutcome(
+                        javaOperation = { javaDateTime.with(javaField, value).toString() },
+                        kotlinOperation = { dateTime.with(field, value).toString() },
+                        context = "time=$dateTime field=$field value=$value",
+                    )
+                }
+            }
+            ChronoUnit.entries.forEach { unit ->
+                val javaUnit = JavaChronoUnit.valueOf(unit.name)
+                assertEquals(javaDateTime.isSupported(javaUnit), dateTime.isSupported(unit), unit.toString())
+                amounts.forEach { amount ->
+                    assertSameOutcome(
+                        javaOperation = { javaDateTime.plus(amount, javaUnit).toString() },
+                        kotlinOperation = { dateTime.plus(amount, unit).toString() },
+                        context = "plus time=$dateTime unit=$unit amount=$amount",
+                    )
+                    assertSameOutcome(
+                        javaOperation = { javaDateTime.minus(amount, javaUnit).toString() },
+                        kotlinOperation = { dateTime.minus(amount, unit).toString() },
+                        context = "minus time=$dateTime unit=$unit amount=$amount",
+                    )
+                }
+                assertSameOutcome(
+                    javaOperation = { javaDateTime.truncatedTo(javaUnit).toString() },
+                    kotlinOperation = { dateTime.truncatedTo(unit).toString() },
+                    context = "truncate time=$dateTime unit=$unit",
+                )
+            }
+        }
+    }
+
+    @Test
+    fun completeUnitsUntilMatchJavaTime() {
+        val dateTimes = listOf(
+            LocalDateTime.of(1969, 12, 31, 23, 59, 59, 999_999_999),
+            LocalDateTime.of(1970, 1, 1, 0, 0),
+            LocalDateTime.of(2024, 2, 29, 13, 14, 15, 123_456_789),
+            LocalDateTime.of(2025, 3, 30, 12, 13, 14, 987_654_321),
+        )
+        dateTimes.forEach { start ->
+            dateTimes.forEach { end ->
+                ChronoUnit.entries.forEach { unit ->
+                    val javaUnit = JavaChronoUnit.valueOf(unit.name)
+                    assertSameOutcome(
+                        javaOperation = { start.toJava().until(end.toJava(), javaUnit) },
+                        kotlinOperation = { start.until(end, unit) },
+                        context = "start=$start end=$end unit=$unit",
+                    )
+                }
+            }
+        }
+    }
+
+    private fun LocalDateTime.toJava(): JavaLocalDateTime = JavaLocalDateTime.of(
+        year,
+        monthValue,
+        dayOfMonth,
+        hour,
+        minute,
+        second,
+        nano,
+    )
 
     private fun assertSameOutcome(
         javaOperation: () -> Any?,
