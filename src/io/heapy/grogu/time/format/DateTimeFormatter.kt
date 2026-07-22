@@ -29,6 +29,7 @@ import io.heapy.grogu.time.temporal.TemporalQueries
 import io.heapy.grogu.time.temporal.TemporalQuery
 import io.heapy.grogu.time.temporal.UnsupportedTemporalTypeException
 import io.heapy.grogu.time.temporal.ValueRange
+import io.heapy.grogu.time.temporal.WeekFields
 
 /** A formatter that prints and parses date-time objects. */
 public class DateTimeFormatter private constructor(
@@ -1027,6 +1028,11 @@ internal sealed interface PatternToken {
         val style: TextStyle,
     ) : PatternToken
 
+    data class LocalizedWeek(
+        val symbol: Char,
+        val count: Int,
+    ) : PatternToken
+
     data class Instant(val fractionalDigits: Int) : PatternToken
 
     data class Composite(
@@ -1223,11 +1229,16 @@ private fun Char.isAsciiLetter(): Boolean = this in 'A'..'Z' || this in 'a'..'z'
 
 private fun validatePatternField(symbol: Char, count: Int) {
     when (symbol) {
-        'u', 'y', 'g' -> require(count <= 19) {
+        'u', 'y', 'Y', 'g' -> require(count <= 19) {
             "The count of pattern letters must not exceed 19: $symbol"
         }
         'Q', 'q', 'M', 'L' -> require(count <= 5) { "Too many pattern letters: $symbol" }
-        'G', 'E' -> require(count <= 5) { "Too many pattern letters: $symbol" }
+        'G', 'E', 'e' -> require(count <= 5) { "Too many pattern letters: $symbol" }
+        'c' -> require(count != 2 && count <= 5) {
+            if (count == 2) "Invalid pattern \"cc\"" else "Too many pattern letters: $symbol"
+        }
+        'w' -> require(count <= 2) { "Too many pattern letters: $symbol" }
+        'W' -> require(count == 1) { "Too many pattern letters: $symbol" }
         'a' -> require(count == 1) { "Too many pattern letters: $symbol" }
         'd', 'H', 'k', 'K', 'h', 'm', 's' -> require(count <= 2) {
             "Too many pattern letters: $symbol"
@@ -1272,6 +1283,12 @@ private fun createPatternFieldToken(
         timePatternValue(ChronoField.MONTH_OF_YEAR, count)
     } else {
         localizedPatternText(ChronoField.MONTH_OF_YEAR, count, symbol == 'L')
+    }
+    'Y', 'w', 'W' -> PatternToken.LocalizedWeek(symbol, count)
+    'e', 'c' -> if (count <= 2) {
+        PatternToken.LocalizedWeek(symbol, count)
+    } else {
+        localizedPatternText(ChronoField.DAY_OF_WEEK, count, symbol == 'c')
     }
     'E' -> localizedPatternText(ChronoField.DAY_OF_WEEK, maxOf(count, 3), false)
     'G' -> localizedPatternText(ChronoField.ERA, maxOf(count, 3), false)
@@ -1330,6 +1347,7 @@ private fun formatPattern(
             is PatternToken.Fraction -> append(formatPatternFraction(token, temporal))
             is PatternToken.Text -> append(formatPatternText(token, temporal))
             is PatternToken.LocalizedText -> append(formatPatternLocalizedText(token, temporal, locale))
+            is PatternToken.LocalizedWeek -> append(formatPatternLocalizedWeek(token, temporal, locale))
             is PatternToken.Instant -> append(formatPatternInstant(token, temporal))
             is PatternToken.Composite -> append(formatPattern(token.tokens, temporal, locale))
             is PatternToken.Offset -> append(formatBuilderOffset(token, temporal))
@@ -1379,6 +1397,47 @@ private fun formatPatternLocalizedText(
         .firstOrNull { candidate -> candidate.value == value }
         ?.text
         ?: value.toString()
+}
+
+private fun formatPatternLocalizedWeek(
+    token: PatternToken.LocalizedWeek,
+    temporal: TemporalAccessor,
+    locale: Locale,
+): String = when (val numericToken = token.numericToken(locale)) {
+    is PatternToken.Value -> formatPatternValue(numericToken, temporal)
+    is PatternToken.ReducedValue -> formatPatternReducedValue(numericToken, temporal)
+    else -> error("Unsupported localized week token: $numericToken")
+}
+
+private fun PatternToken.LocalizedWeek.numericToken(locale: Locale): PatternToken {
+    val weekFields = WeekFields.of(locale)
+    val field = when (symbol) {
+        'Y' -> weekFields.weekBasedYear
+        'w' -> weekFields.weekOfWeekBasedYear
+        'W' -> weekFields.weekOfMonth
+        'e', 'c' -> weekFields.dayOfWeek
+        else -> error("Unsupported localized week pattern: $symbol")
+    }
+    return when {
+        symbol == 'Y' && count == 2 -> PatternToken.ReducedValue(
+            field = field,
+            minWidth = 2,
+            maxWidth = 2,
+            base = ReducedValueBase.Date(LocalDate.of(2000, 1, 1)),
+        )
+        symbol == 'Y' -> PatternToken.Value(
+            field = field,
+            minWidth = count,
+            maxWidth = 19,
+            signStyle = if (count < 4) SignStyle.NORMAL else SignStyle.EXCEEDS_PAD,
+        )
+        else -> PatternToken.Value(
+            field = field,
+            minWidth = count,
+            maxWidth = if (symbol == 'w') 2 else count,
+            signStyle = SignStyle.NOT_NEGATIVE,
+        )
+    }
 }
 
 private fun formatBuilderChronologyId(temporal: TemporalAccessor): String =
@@ -1801,6 +1860,49 @@ private fun parsePattern(
                         )
                     }
                     index = parsed.endIndex
+                }
+                is PatternToken.LocalizedWeek -> {
+                    val numericToken = token.numericToken(locale)
+                    val (field, parsedValue, parsedEndIndex) = when (numericToken) {
+                        is PatternToken.Value -> parsePatternValue(
+                            tokens = currentTokens,
+                            tokenIndex = tokenIndex,
+                            token = numericToken,
+                            text = input,
+                            startIndex = index,
+                            strict = strict,
+                        ).let { parsed ->
+                            Triple(numericToken.field, parsed.value, parsed.endIndex)
+                        }
+                        is PatternToken.ReducedValue -> parsePatternReducedValue(
+                            tokens = currentTokens,
+                            tokenIndex = tokenIndex,
+                            token = numericToken,
+                            text = input,
+                            startIndex = index,
+                            chronology = effectiveChronology(),
+                            strict = strict,
+                        ).let { parsed ->
+                            if (numericToken.base is ReducedValueBase.Date) {
+                                chronologySensitiveReducedValues += ParsedChronologySensitiveReducedValue(
+                                    token = numericToken,
+                                    rawValue = parsed.rawValue,
+                                    digitCount = parsed.digitCount,
+                                )
+                            }
+                            Triple(numericToken.field, parsed.value, parsed.endIndex)
+                        }
+                        else -> error("Unsupported localized week token: $numericToken")
+                    }
+                    val previous = values.put(field, parsedValue)
+                    if (previous != null && previous != parsedValue) {
+                        throw DateTimeParseException(
+                            "Conflict found for field $field",
+                            input,
+                            index,
+                        )
+                    }
+                    index = parsedEndIndex
                 }
                 is PatternToken.Instant -> {
                     val parsed = parsePatternInstant(token, input, index, caseSensitive, strict)
@@ -2492,6 +2594,11 @@ private fun PatternToken.adjacentFixedNumericWidth(): Int? = when (this) {
     is PatternToken.Fraction -> minWidth.takeIf {
         minWidth == maxWidth && !decimalPoint
     }
+    is PatternToken.LocalizedWeek -> when (symbol) {
+        'Y', 'w' -> count.takeIf { count == 2 }
+        'W', 'e', 'c' -> count
+        else -> null
+    }
     is PatternToken.Text,
     is PatternToken.LocalizedText,
     is PatternToken.Instant,
@@ -2682,12 +2789,12 @@ private fun resolvePatternValues(
     } else {
         null
     }
-    val dayOfWeek = fieldValues[ChronoField.DAY_OF_WEEK]
     val customDates = try {
         resolveCustomDateFields(fieldValues, chronology, resolverStyle)
     } catch (exception: RuntimeException) {
         throw DateTimeParseException("Text cannot be parsed to a date", text, 0, exception)
     }
+    val dayOfWeek = fieldValues[ChronoField.DAY_OF_WEEK]
     val resolvedDates = listOfNotNull(calendarDate, ordinalDate) + customDates
     val date = resolvedDates.firstOrNull()
     if (
@@ -3182,6 +3289,7 @@ private fun describePattern(tokens: List<PatternToken>): String = buildString {
                     if (token.style != TextStyle.FULL) append(',').append(token.style)
                 }
                 .append(')')
+            is PatternToken.LocalizedWeek -> append(describeLocalizedWeek(token))
             is PatternToken.Instant -> append("Instant()")
             is PatternToken.Composite -> append('(')
                 .append(token.description)
@@ -3244,6 +3352,31 @@ private fun TemporalField.toLocaleTextField(): LocaleTextField? = when (this) {
     ChronoField.AMPM_OF_DAY -> LocaleTextField.AMPM_OF_DAY
     IsoFields.QUARTER_OF_YEAR -> LocaleTextField.QUARTER_OF_YEAR
     else -> null
+}
+
+private fun describeLocalizedWeek(token: PatternToken.LocalizedWeek): String = buildString {
+    append("Localized(")
+    if (token.symbol == 'Y') {
+        when (token.count) {
+            1 -> append("WeekBasedYear")
+            2 -> append("ReducedValue(WeekBasedYear,2,2,2000-01-01)")
+            else -> append("WeekBasedYear,")
+                .append(token.count)
+                .append(",19,")
+                .append(if (token.count < 4) SignStyle.NORMAL else SignStyle.EXCEEDS_PAD)
+        }
+    } else {
+        append(
+            when (token.symbol) {
+                'e', 'c' -> "DayOfWeek"
+                'w' -> "WeekOfWeekBasedYear"
+                'W' -> "WeekOfMonth"
+                else -> error("Unsupported localized week pattern: ${token.symbol}")
+            },
+        )
+        append(',').append(token.count)
+    }
+    append(')')
 }
 
 private fun describePatternValue(token: PatternToken.Value): String = when {

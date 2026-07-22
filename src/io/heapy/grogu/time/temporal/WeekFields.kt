@@ -1,9 +1,15 @@
 package io.heapy.grogu.time.temporal
 
 import io.heapy.grogu.time.DayOfWeek
+import io.heapy.grogu.time.DateTimeException
+import io.heapy.grogu.time.LocalDate
 import io.heapy.grogu.time.Locale
 import io.heapy.grogu.time.chrono.ChronoLocalDate
 import io.heapy.grogu.time.chrono.Chronology
+import io.heapy.grogu.time.format.ResolverStyle
+import io.heapy.grogu.time.internal.addExact
+import io.heapy.grogu.time.internal.multiplyExact
+import io.heapy.grogu.time.internal.subtractExact
 import io.heapy.grogu.time.localeWeekRules
 
 /**
@@ -132,6 +138,194 @@ public class WeekFields private constructor(
             } else {
                 temporal.plus((newValueInt - currentValue).toLong(), baseUnit) as R
             }
+        }
+
+        override fun resolve(
+            fieldValues: MutableMap<TemporalField, Long>,
+            partialTemporal: TemporalAccessor,
+            resolverStyle: ResolverStyle,
+        ): TemporalAccessor? {
+            val value = fieldValues[this] ?: return null
+            val newValue = toIntExact(value)
+            if (rangeUnit === ChronoUnit.WEEKS) {
+                val checkedValue = range.checkValidIntValue(value, this)
+                val isoDayOfWeek = floorMod(
+                    weekDefinition.firstDayOfWeek.value - 1 + checkedValue - 1,
+                    7,
+                ) + 1
+                fieldValues.remove(this)
+                fieldValues[ChronoField.DAY_OF_WEEK] = isoDayOfWeek.toLong()
+                return null
+            }
+
+            val isoDayOfWeek = fieldValues[ChronoField.DAY_OF_WEEK] ?: return null
+            val localDayOfWeek = localizedDayOfWeek(
+                ChronoField.DAY_OF_WEEK.checkValidIntValue(isoDayOfWeek),
+            )
+            val chronology = Chronology.from(partialTemporal)
+            val yearValue = fieldValues[ChronoField.YEAR]
+            if (yearValue != null) {
+                val year = ChronoField.YEAR.checkValidIntValue(yearValue)
+                if (rangeUnit === ChronoUnit.MONTHS && ChronoField.MONTH_OF_YEAR in fieldValues) {
+                    return resolveWeekOfMonth(
+                        fieldValues = fieldValues,
+                        chronology = chronology,
+                        year = year,
+                        month = requireNotNull(fieldValues[ChronoField.MONTH_OF_YEAR]),
+                        weekOfMonth = newValue.toLong(),
+                        localDayOfWeek = localDayOfWeek,
+                        resolverStyle = resolverStyle,
+                    )
+                }
+                if (rangeUnit === ChronoUnit.YEARS) {
+                    return resolveWeekOfYear(
+                        fieldValues = fieldValues,
+                        chronology = chronology,
+                        year = year,
+                        weekOfYear = newValue.toLong(),
+                        localDayOfWeek = localDayOfWeek,
+                        resolverStyle = resolverStyle,
+                    )
+                }
+            } else if (
+                (rangeUnit === IsoFields.WEEK_BASED_YEARS || rangeUnit === ChronoUnit.FOREVER) &&
+                weekDefinition.weekBasedYear in fieldValues &&
+                weekDefinition.weekOfWeekBasedYear in fieldValues
+            ) {
+                return resolveWeekBasedYear(
+                    fieldValues = fieldValues,
+                    chronology = chronology,
+                    localDayOfWeek = localDayOfWeek,
+                    resolverStyle = resolverStyle,
+                )
+            }
+            return null
+        }
+
+        private fun resolveWeekOfMonth(
+            fieldValues: MutableMap<TemporalField, Long>,
+            chronology: Chronology,
+            year: Int,
+            month: Long,
+            weekOfMonth: Long,
+            localDayOfWeek: Int,
+            resolverStyle: ResolverStyle,
+        ): ChronoLocalDate {
+            val date = if (resolverStyle == ResolverStyle.LENIENT) {
+                val first = chronology.date(year, 1, 1)
+                    .plus(subtractExact(month, 1), ChronoUnit.MONTHS)
+                val weeks = subtractExact(weekOfMonth, localizedWeekOfMonth(first).toLong())
+                val days = localDayOfWeek - localizedDayOfWeek(first)
+                first.plus(
+                    addExact(multiplyExact(weeks, 7), days.toLong()),
+                    ChronoUnit.DAYS,
+                )
+            } else {
+                val validMonth = ChronoField.MONTH_OF_YEAR.checkValidIntValue(month)
+                val first = chronology.date(year, validMonth, 1)
+                val validWeek = range.checkValidIntValue(weekOfMonth, this)
+                val weeks = validWeek - localizedWeekOfMonth(first)
+                val days = localDayOfWeek - localizedDayOfWeek(first)
+                first.plus((weeks * 7 + days).toLong(), ChronoUnit.DAYS).also { resolved ->
+                    if (
+                        resolverStyle == ResolverStyle.STRICT &&
+                        resolved.getLong(ChronoField.MONTH_OF_YEAR) != month
+                    ) {
+                        throw DateTimeException(
+                            "Strict mode rejected resolved date as it is in a different month",
+                        )
+                    }
+                }
+            }
+            fieldValues.remove(this)
+            fieldValues.remove(ChronoField.YEAR)
+            fieldValues.remove(ChronoField.MONTH_OF_YEAR)
+            fieldValues.remove(ChronoField.DAY_OF_WEEK)
+            return date
+        }
+
+        private fun resolveWeekOfYear(
+            fieldValues: MutableMap<TemporalField, Long>,
+            chronology: Chronology,
+            year: Int,
+            weekOfYear: Long,
+            localDayOfWeek: Int,
+            resolverStyle: ResolverStyle,
+        ): ChronoLocalDate {
+            val first = chronology.date(year, 1, 1)
+            val date = if (resolverStyle == ResolverStyle.LENIENT) {
+                val weeks = subtractExact(weekOfYear, localizedWeekOfYear(first).toLong())
+                val days = localDayOfWeek - localizedDayOfWeek(first)
+                first.plus(
+                    addExact(multiplyExact(weeks, 7), days.toLong()),
+                    ChronoUnit.DAYS,
+                )
+            } else {
+                val validWeek = range.checkValidIntValue(weekOfYear, this)
+                val weeks = validWeek - localizedWeekOfYear(first)
+                val days = localDayOfWeek - localizedDayOfWeek(first)
+                first.plus((weeks * 7 + days).toLong(), ChronoUnit.DAYS).also { resolved ->
+                    if (
+                        resolverStyle == ResolverStyle.STRICT &&
+                        resolved.getLong(ChronoField.YEAR) != year.toLong()
+                    ) {
+                        throw DateTimeException(
+                            "Strict mode rejected resolved date as it is in a different year",
+                        )
+                    }
+                }
+            }
+            fieldValues.remove(this)
+            fieldValues.remove(ChronoField.YEAR)
+            fieldValues.remove(ChronoField.DAY_OF_WEEK)
+            return date
+        }
+
+        private fun resolveWeekBasedYear(
+            fieldValues: MutableMap<TemporalField, Long>,
+            chronology: Chronology,
+            localDayOfWeek: Int,
+            resolverStyle: ResolverStyle,
+        ): ChronoLocalDate {
+            val weekBasedYear = weekDefinition.weekBasedYear.range.checkValidIntValue(
+                requireNotNull(fieldValues[weekDefinition.weekBasedYear]),
+                weekDefinition.weekBasedYear,
+            )
+            val date = if (resolverStyle == ResolverStyle.LENIENT) {
+                val first = ofWeekBasedYear(chronology, weekBasedYear, 1, localDayOfWeek)
+                val weeks = subtractExact(
+                    requireNotNull(fieldValues[weekDefinition.weekOfWeekBasedYear]),
+                    1,
+                )
+                first.plus(weeks, ChronoUnit.WEEKS)
+            } else {
+                val validWeek = weekDefinition.weekOfWeekBasedYear
+                    .rangeRefinedBy(LocalDate.of(weekBasedYear, 7, 2))
+                    .checkValidIntValue(
+                        requireNotNull(fieldValues[weekDefinition.weekOfWeekBasedYear]),
+                        weekDefinition.weekOfWeekBasedYear,
+                    )
+                ofWeekBasedYear(
+                    chronology,
+                    weekBasedYear,
+                    validWeek,
+                    localDayOfWeek,
+                ).also { resolved ->
+                    if (
+                        resolverStyle == ResolverStyle.STRICT &&
+                        localizedWeekBasedYear(resolved) != weekBasedYear
+                    ) {
+                        throw DateTimeException(
+                            "Strict mode rejected resolved date as it is in a different week-based-year",
+                        )
+                    }
+                }
+            }
+            fieldValues.remove(this)
+            fieldValues.remove(weekDefinition.weekBasedYear)
+            fieldValues.remove(weekDefinition.weekOfWeekBasedYear)
+            fieldValues.remove(ChronoField.DAY_OF_WEEK)
+            return date
         }
 
         private fun ofWeekBasedYear(
@@ -299,6 +493,10 @@ public class WeekFields private constructor(
         private fun floorMod(value: Int, divisor: Int): Int {
             val remainder = value % divisor
             return if (remainder < 0) remainder + divisor else remainder
+        }
+
+        private fun toIntExact(value: Long): Int = value.toInt().also { converted ->
+            if (converted.toLong() != value) throw ArithmeticException("integer overflow")
         }
     }
 }

@@ -56,6 +56,9 @@ Implemented foundations:
   locale-backed era `G`, format/standalone month `M`/`L`, weekday `E`, AM/PM
   `a`, and format/standalone quarter `Q`/`q` text in full, short, and narrow
   styles, with locale-sensitive parsing and immutable `withLocale` behavior;
+  locale-defined week-based year `Y`, week `w`/`W`, and numeric or textual
+  day-of-week `e`/`c` patterns, including reduced years, adjacent parsing, and
+  strict/smart/lenient date resolution;
   Java-compatible aggregate and partial time-field
   normalization for nano/micro/milli, second/minute-of-day, and AM/PM clocks;
   `DateTimeFormatterBuilder` pattern/literal and generic numeric-value
@@ -206,15 +209,15 @@ Implemented foundations:
   lenient quarter and week-date resolution
 - `WeekFields` canonical explicit week definitions for every first-day and
   minimal-days combination, locale-backed rule selection through JVM,
-  Android, and iOS locale data, and all five localized computed fields
+  Android, and iOS locale data, all five localized computed fields, and
+  strict/smart/lenient parsed-field resolution
 - `ValueRange`
 - `ChronoUnit`
 - `ChronoField`
 
 Remaining work includes formatters and parsers beyond the implemented ISO
-defaults and amount parsers, localized formatter factories, localized week
-pattern letters, day-period and zone-name text, and complete cross-type
-conformance coverage.
+defaults and amount parsers, localized formatter factories, day-period and
+zone-name text, and complete cross-type conformance coverage.
 
 The bundled TZDB source is generated reproducibly from the OpenJDK 21
 `lib/tzdb.dat` file by `tools/generate-tzdb-data.rb`.

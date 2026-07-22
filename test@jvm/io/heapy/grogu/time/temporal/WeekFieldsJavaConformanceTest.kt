@@ -3,12 +3,15 @@ package io.heapy.grogu.time.temporal
 import io.heapy.grogu.time.DayOfWeek
 import io.heapy.grogu.time.LocalDate
 import io.heapy.grogu.time.Locale
-import java.util.Locale as JavaLocale
+import io.heapy.grogu.time.format.ResolverStyle
 import java.time.DayOfWeek as JavaDayOfWeek
 import java.time.LocalDate as JavaLocalDate
+import java.time.format.ResolverStyle as JavaResolverStyle
 import java.time.temporal.WeekFields as JavaWeekFields
+import java.util.Locale as JavaLocale
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 class WeekFieldsJavaConformanceTest {
     @Test
@@ -78,6 +81,97 @@ class WeekFieldsJavaConformanceTest {
         }
     }
 
+    @Test
+    fun fieldResolutionMatchesJavaTimeAcrossResolverStyles() {
+        val javaFields = JavaWeekFields.ISO
+        val fields = WeekFields.ISO
+        val styles = listOf(
+            JavaResolverStyle.STRICT to ResolverStyle.STRICT,
+            JavaResolverStyle.SMART to ResolverStyle.SMART,
+            JavaResolverStyle.LENIENT to ResolverStyle.LENIENT,
+        )
+
+        styles.forEach { (javaStyle, style) ->
+            val javaDayValues = mutableMapOf<java.time.temporal.TemporalField, Long>(
+                javaFields.dayOfWeek() to 5,
+            )
+            val dayValues = mutableMapOf<TemporalField, Long>(fields.dayOfWeek to 5)
+            assertNull(javaFields.dayOfWeek().resolve(javaDayValues, JavaLocalDate.EPOCH, javaStyle))
+            assertNull(fields.dayOfWeek.resolve(dayValues, LocalDate.EPOCH, style))
+            assertFieldValues(javaDayValues, dayValues)
+
+            val month = if (style == ResolverStyle.LENIENT) 14L else 1L
+            val weekOfMonth = if (style == ResolverStyle.LENIENT) 7L else 0L
+            val javaMonthValues = mutableMapOf<java.time.temporal.TemporalField, Long>(
+                java.time.temporal.ChronoField.YEAR to 2021,
+                java.time.temporal.ChronoField.MONTH_OF_YEAR to month,
+                java.time.temporal.ChronoField.DAY_OF_WEEK to 5,
+                javaFields.weekOfMonth() to weekOfMonth,
+            )
+            val monthValues = mutableMapOf<TemporalField, Long>(
+                ChronoField.YEAR to 2021,
+                ChronoField.MONTH_OF_YEAR to month,
+                ChronoField.DAY_OF_WEEK to 5,
+                fields.weekOfMonth to weekOfMonth,
+            )
+            val javaMonthDate = javaFields.weekOfMonth().resolve(
+                javaMonthValues,
+                JavaLocalDate.EPOCH,
+                javaStyle,
+            )
+            val monthDate = fields.weekOfMonth.resolve(monthValues, LocalDate.EPOCH, style)
+            assertEquals(JavaLocalDate.from(javaMonthDate).toString(), LocalDate.from(requireNotNull(monthDate)).toString())
+            assertFieldValues(javaMonthValues, monthValues)
+
+            val weekOfYear = if (style == ResolverStyle.LENIENT) 54L else 0L
+            val javaYearValues = mutableMapOf<java.time.temporal.TemporalField, Long>(
+                java.time.temporal.ChronoField.YEAR to 2021,
+                java.time.temporal.ChronoField.DAY_OF_WEEK to 5,
+                javaFields.weekOfYear() to weekOfYear,
+            )
+            val yearValues = mutableMapOf<TemporalField, Long>(
+                ChronoField.YEAR to 2021,
+                ChronoField.DAY_OF_WEEK to 5,
+                fields.weekOfYear to weekOfYear,
+            )
+            val javaYearDate = javaFields.weekOfYear().resolve(
+                javaYearValues,
+                JavaLocalDate.EPOCH,
+                javaStyle,
+            )
+            val yearDate = fields.weekOfYear.resolve(yearValues, LocalDate.EPOCH, style)
+            assertEquals(JavaLocalDate.from(javaYearDate).toString(), LocalDate.from(requireNotNull(yearDate)).toString())
+            assertFieldValues(javaYearValues, yearValues)
+
+            val weekOfWeekBasedYear = if (style == ResolverStyle.LENIENT) 54L else 53L
+            val javaWeekBasedValues = mutableMapOf<java.time.temporal.TemporalField, Long>(
+                javaFields.weekBasedYear() to 2020,
+                javaFields.weekOfWeekBasedYear() to weekOfWeekBasedYear,
+                java.time.temporal.ChronoField.DAY_OF_WEEK to 5,
+            )
+            val weekBasedValues = mutableMapOf<TemporalField, Long>(
+                fields.weekBasedYear to 2020,
+                fields.weekOfWeekBasedYear to weekOfWeekBasedYear,
+                ChronoField.DAY_OF_WEEK to 5,
+            )
+            val javaWeekBasedDate = javaFields.weekOfWeekBasedYear().resolve(
+                javaWeekBasedValues,
+                JavaLocalDate.EPOCH,
+                javaStyle,
+            )
+            val weekBasedDate = fields.weekOfWeekBasedYear.resolve(
+                weekBasedValues,
+                LocalDate.EPOCH,
+                style,
+            )
+            assertEquals(
+                JavaLocalDate.from(javaWeekBasedDate).toString(),
+                LocalDate.from(requireNotNull(weekBasedDate)).toString(),
+            )
+            assertFieldValues(javaWeekBasedValues, weekBasedValues)
+        }
+    }
+
     private fun assertDefinition(javaFields: JavaWeekFields, fields: WeekFields) {
         assertEquals(javaFields.firstDayOfWeek.value, fields.firstDayOfWeek.value)
         assertEquals(javaFields.minimalDaysInFirstWeek, fields.minimalDaysInFirstWeek)
@@ -105,5 +199,15 @@ class WeekFieldsJavaConformanceTest {
             assertEquals(javaDate.getLong(javaField), date.getLong(field))
             assertEquals(javaDate.range(javaField).toString(), date.range(field).toString())
         }
+    }
+
+    private fun assertFieldValues(
+        javaValues: Map<java.time.temporal.TemporalField, Long>,
+        values: Map<TemporalField, Long>,
+    ) {
+        assertEquals(
+            javaValues.mapKeys { (field) -> field.toString() },
+            values.mapKeys { (field) -> field.toString() },
+        )
     }
 }
