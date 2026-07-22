@@ -260,6 +260,18 @@ public class DateTimeFormatter private constructor(
     override fun toString(): String = description
 
     public companion object {
+        /** Creates a formatter from a date-time pattern. */
+        public fun ofPattern(pattern: String): DateTimeFormatter {
+            val tokens = compilePattern(pattern)
+            return DateTimeFormatter(
+                printer = { temporal -> formatPattern(tokens, temporal) },
+                parser = { text -> parsePattern(tokens, text.toString(), ResolverStyle.SMART) },
+                description = describePattern(tokens),
+                resolverParser = { text, style -> parsePattern(tokens, text, style) },
+                resolverStyle = ResolverStyle.SMART,
+            )
+        }
+
         /** The strict ISO formatter for a date without a time or offset. */
         public val ISO_LOCAL_DATE: DateTimeFormatter = DateTimeFormatter(
             printer = ::formatIsoDateFields,
@@ -592,6 +604,327 @@ public class DateTimeFormatter private constructor(
 
         private val PARSED_LEAP_SECOND: TemporalQuery<Boolean> = TemporalQuery { temporal ->
             (temporal as? ParsedState)?.leapSecond ?: false
+        }
+    }
+}
+
+private sealed interface PatternToken {
+    data class Literal(val text: String) : PatternToken
+
+    data class Field(
+        val symbol: Char,
+        val count: Int,
+    ) : PatternToken
+}
+
+private fun compilePattern(pattern: String): List<PatternToken> {
+    val tokens = mutableListOf<PatternToken>()
+    var index = 0
+    while (index < pattern.length) {
+        val character = pattern[index]
+        when {
+            character == '\'' -> {
+                if (pattern.getOrNull(index + 1) == '\'') {
+                    tokens.appendPatternLiteral("'")
+                    index += 2
+                    continue
+                }
+                val literal = StringBuilder()
+                var closed = false
+                index++
+                while (index < pattern.length) {
+                    if (pattern[index] == '\'') {
+                        if (pattern.getOrNull(index + 1) == '\'') {
+                            literal.append('\'')
+                            index += 2
+                        } else {
+                            closed = true
+                            index++
+                            break
+                        }
+                    } else {
+                        literal.append(pattern[index])
+                        index++
+                    }
+                }
+                require(closed) { "Pattern ends with an incomplete string literal: $pattern" }
+                tokens.appendPatternLiteral(literal.toString())
+            }
+            character.isAsciiLetter() -> {
+                var end = index + 1
+                while (end < pattern.length && pattern[end] == character) end++
+                val count = end - index
+                validatePatternField(character, count)
+                tokens += PatternToken.Field(character, count)
+                index = end
+            }
+            else -> {
+                tokens.appendPatternLiteral(character.toString())
+                index++
+            }
+        }
+    }
+    return tokens
+}
+
+private fun MutableList<PatternToken>.appendPatternLiteral(text: String) {
+    if (text.isEmpty()) return
+    val previous = lastOrNull()
+    if (previous is PatternToken.Literal) {
+        this[lastIndex] = PatternToken.Literal(previous.text + text)
+    } else {
+        add(PatternToken.Literal(text))
+    }
+}
+
+private fun Char.isAsciiLetter(): Boolean = this in 'A'..'Z' || this in 'a'..'z'
+
+private fun validatePatternField(symbol: Char, count: Int) {
+    when (symbol) {
+        'u', 'y' -> require(count <= 19) { "The count of pattern letters must not exceed 19: $symbol" }
+        'M', 'd', 'H', 'm', 's' -> require(count <= 2) {
+            "Too many pattern letters: $symbol"
+        }
+        'S' -> require(count <= 9) { "Minimum width must be from 0 to 9 inclusive but was $count" }
+        else -> throw IllegalArgumentException("Unknown pattern letter: $symbol")
+    }
+}
+
+private fun formatPattern(
+    tokens: List<PatternToken>,
+    temporal: TemporalAccessor,
+): String = buildString {
+    tokens.forEach { token ->
+        when (token) {
+            is PatternToken.Literal -> append(token.text)
+            is PatternToken.Field -> append(formatPatternField(token, temporal))
+        }
+    }
+}
+
+private fun formatPatternField(
+    token: PatternToken.Field,
+    temporal: TemporalAccessor,
+): String = when (token.symbol) {
+    'u' -> formatPatternYear(temporal.get(ChronoField.YEAR), token.count, signed = true)
+    'y' -> formatPatternYear(temporal.get(ChronoField.YEAR_OF_ERA), token.count, signed = false)
+    'M' -> formatPatternNumber(temporal.get(ChronoField.MONTH_OF_YEAR), token.count)
+    'd' -> formatPatternNumber(temporal.get(ChronoField.DAY_OF_MONTH), token.count)
+    'H' -> formatPatternNumber(temporal.get(ChronoField.HOUR_OF_DAY), token.count)
+    'm' -> formatPatternNumber(temporal.get(ChronoField.MINUTE_OF_HOUR), token.count)
+    's' -> formatPatternNumber(temporal.get(ChronoField.SECOND_OF_MINUTE), token.count)
+    'S' -> temporal.get(ChronoField.NANO_OF_SECOND)
+        .toString()
+        .padStart(9, '0')
+        .take(token.count)
+    else -> error("Unsupported pattern field: ${token.symbol}")
+}
+
+private fun formatPatternNumber(value: Int, count: Int): String =
+    if (count == 1) value.toString() else value.toString().padStart(count, '0')
+
+private fun formatPatternYear(
+    value: Int,
+    count: Int,
+    signed: Boolean,
+): String {
+    val absolute = if (value < 0) -value.toLong() else value.toLong()
+    if (count == 2) return (absolute % 100).toString().padStart(2, '0')
+    if (count == 1) return if (signed) value.toString() else absolute.toString()
+
+    val digits = absolute.toString().padStart(count, '0')
+    return when {
+        signed && value < 0 -> "-$digits"
+        signed && count >= 4 && digits.length > count -> "+$digits"
+        else -> digits
+    }
+}
+
+private fun parsePattern(
+    tokens: List<PatternToken>,
+    text: String,
+    resolverStyle: ResolverStyle,
+): TemporalAccessor {
+    val values = mutableMapOf<Char, Long>()
+    var index = 0
+    tokens.forEach { token ->
+        when (token) {
+            is PatternToken.Literal -> {
+                if (!text.startsWith(token.text, index)) {
+                    throw DateTimeParseException(
+                        "Text could not be parsed at index $index",
+                        text,
+                        index,
+                    )
+                }
+                index += token.text.length
+            }
+            is PatternToken.Field -> {
+                val parsed = parsePatternField(token, text, index)
+                val previous = values.put(token.symbol, parsed.value)
+                if (previous != null && previous != parsed.value) {
+                    throw DateTimeParseException(
+                        "Conflict found for pattern field ${token.symbol}",
+                        text,
+                        index,
+                    )
+                }
+                index = parsed.endIndex
+            }
+        }
+    }
+    if (index != text.length) {
+        throw DateTimeParseException("Text could not be parsed, unparsed text found", text, index)
+    }
+    return resolvePatternValues(values, text, resolverStyle)
+}
+
+private data class ParsedPatternField(
+    val value: Long,
+    val endIndex: Int,
+)
+
+private fun parsePatternField(
+    token: PatternToken.Field,
+    text: String,
+    startIndex: Int,
+): ParsedPatternField {
+    var index = startIndex
+    var negative = false
+    val sign = text.getOrNull(index)
+    if (token.symbol == 'u' && token.count != 2 && (sign == '+' || sign == '-')) {
+        negative = sign == '-'
+        index++
+    }
+
+    val fixedWidth = token.symbol == 'S' ||
+        token.count > 1 && !(token.symbol == 'u' && token.count >= 3 && index > startIndex)
+    val minimumDigits = if (fixedWidth) token.count else 1
+    val maximumDigits = when {
+        fixedWidth -> token.count
+        token.symbol in listOf('u', 'y') -> 19
+        else -> 2
+    }
+    val digitsStart = index
+    while (index < text.length && text[index] in '0'..'9' && index - digitsStart < maximumDigits) {
+        index++
+    }
+    val digitCount = index - digitsStart
+    if (digitCount < minimumDigits) {
+        throw DateTimeParseException("Text could not be parsed at index $startIndex", text, startIndex)
+    }
+
+    var value = text.substring(digitsStart, index).toLongOrNull()
+        ?: throw DateTimeParseException("Invalid numeric value", text, startIndex)
+    if (token.count == 2 && token.symbol in listOf('u', 'y')) value += 2_000
+    if (token.symbol == 'S') value *= POWERS_OF_TEN[9 - token.count]
+    if (negative) value = -value
+    return ParsedPatternField(value, index)
+}
+
+private fun resolvePatternValues(
+    values: Map<Char, Long>,
+    text: String,
+    resolverStyle: ResolverStyle,
+): TemporalAccessor {
+    val year = values['u'] ?: values['y']
+    val month = values['M']
+    val day = values['d']
+    val hasDateFields = year != null || month != null || day != null
+    val date = if (year != null && month != null && day != null) {
+        resolveIsoDateFields(
+            year = year.toPatternInt('u', text),
+            month = month.toPatternInt('M', text),
+            day = day.toPatternInt('d', text),
+            resolverStyle = resolverStyle,
+            input = text,
+            target = "date",
+        )
+    } else {
+        if (hasDateFields) throw DateTimeParseException("Unable to resolve date fields", text, 0)
+        null
+    }
+
+    val hour = values['H']
+    val minute = values['m']
+    val second = values['s']
+    val fraction = values['S']
+    val hasTimeFields = hour != null || minute != null || second != null || fraction != null
+    val resolvedTime = if (hour != null && minute != null) {
+        resolvePatternTime(
+            hour = hour.toPatternInt('H', text),
+            minute = minute.toPatternInt('m', text),
+            second = (second ?: 0).toPatternInt('s', text),
+            nano = (fraction ?: 0).toPatternInt('S', text),
+            resolverStyle = resolverStyle,
+            text = text,
+        )
+    } else {
+        if (hasTimeFields) throw DateTimeParseException("Unable to resolve time fields", text, 0)
+        null
+    }
+
+    val resolvedDate = if (date != null && resolvedTime != null) {
+        date.plusDays(resolvedTime.excessDays.days.toLong())
+    } else {
+        date
+    }
+    return ParsedTemporalAccessor(
+        date = resolvedDate,
+        time = resolvedTime?.time,
+        excessDays = if (date == null) resolvedTime?.excessDays ?: Period.ZERO else Period.ZERO,
+    )
+}
+
+private fun Long.toPatternInt(field: Char, text: String): Int =
+    toInt().takeIf { it.toLong() == this }
+        ?: throw DateTimeParseException("Invalid value for pattern field $field: $this", text, 0)
+
+private val POWERS_OF_TEN: IntArray = intArrayOf(
+    1,
+    10,
+    100,
+    1_000,
+    10_000,
+    100_000,
+    1_000_000,
+    10_000_000,
+    100_000_000,
+    1_000_000_000,
+)
+
+private fun resolvePatternTime(
+    hour: Int,
+    minute: Int,
+    second: Int,
+    nano: Int,
+    resolverStyle: ResolverStyle,
+    text: String,
+): ResolvedTime = try {
+    when (resolverStyle) {
+        ResolverStyle.STRICT -> ResolvedTime(LocalTime.of(hour, minute, second, nano), Period.ZERO)
+        ResolverStyle.SMART -> if (hour == 24 && minute == 0 && second == 0 && nano == 0) {
+            ResolvedTime(LocalTime.MIDNIGHT, Period.ofDays(1))
+        } else {
+            ResolvedTime(LocalTime.of(hour, minute, second, nano), Period.ZERO)
+        }
+        ResolverStyle.LENIENT -> {
+            val totalNanos = (hour * 3_600L + minute * 60L + second) * 1_000_000_000L + nano
+            ResolvedTime(
+                time = LocalTime.ofNanoOfDay(totalNanos % 86_400_000_000_000L),
+                excessDays = Period.ofDays((totalNanos / 86_400_000_000_000L).toInt()),
+            )
+        }
+    }
+} catch (exception: RuntimeException) {
+    throw DateTimeParseException("Text cannot be parsed to a time", text, 0, exception)
+}
+
+private fun describePattern(tokens: List<PatternToken>): String = buildString {
+    tokens.forEach { token ->
+        when (token) {
+            is PatternToken.Literal -> append('\'').append(token.text).append('\'')
+            is PatternToken.Field -> append("Value(").append(token.symbol).append(',').append(token.count).append(')')
         }
     }
 }
