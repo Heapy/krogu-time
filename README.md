@@ -68,8 +68,8 @@ Implemented foundations:
 - `Instant` value and boundary constants, normalized epoch factories,
   temporal fields, replacement, truncation, checked precise-unit arithmetic,
   complete-unit and duration differences, epoch-millisecond conversion,
-  adjustment, ordering, and hashing (clock factories, ISO parsing and text,
-  queries, and offset/zone composition remain)
+  adjustment, ordering, hashing, strict ISO parsing, and ISO text output (clock
+  factories, queries, and offset/zone composition remain)
 - temporal interfaces and exceptions
 - `TemporalAdjusters` complete date-adjuster utility surface
 - `ValueRange`

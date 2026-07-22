@@ -1,5 +1,6 @@
 package io.heapy.grogu.time
 
+import io.heapy.grogu.time.format.DateTimeParseException
 import io.heapy.grogu.time.internal.addExact
 import io.heapy.grogu.time.internal.floorDiv
 import io.heapy.grogu.time.internal.floorMod
@@ -207,6 +208,60 @@ public class Instant private constructor(
 
     override fun hashCode(): Int = epochSecond.hashCode() + 51 * nano
 
+    /** Formats this instant using the ISO-8601 instant representation. */
+    override fun toString(): String {
+        val epochDay = floorDiv(epochSecond, SECONDS_PER_DAY)
+        val secondOfDay = floorMod(epochSecond, SECONDS_PER_DAY).toInt()
+        val date = dateFromEpochDay(epochDay)
+        val hour = secondOfDay / SECONDS_PER_HOUR.toInt()
+        val minute = secondOfDay / SECONDS_PER_MINUTE.toInt() % 60
+        val second = secondOfDay % 60
+        return buildString {
+            appendYear(date.year)
+            append('-')
+            appendTwoDigits(date.month)
+            append('-')
+            appendTwoDigits(date.day)
+            append('T')
+            appendTwoDigits(hour)
+            append(':')
+            appendTwoDigits(minute)
+            append(':')
+            appendTwoDigits(second)
+            if (nano != 0) {
+                append('.')
+                when {
+                    nano % NANOS_PER_MILLI == 0 ->
+                        append((nano / NANOS_PER_MILLI).toString().padStart(3, '0'))
+                    nano % NANOS_PER_MICRO == 0 ->
+                        append((nano / NANOS_PER_MICRO).toString().padStart(6, '0'))
+                    else -> append(nano.toString().padStart(9, '0'))
+                }
+            }
+            append('Z')
+        }
+    }
+
+    private fun StringBuilder.appendYear(year: Int) {
+        when {
+            year in 0..999 -> append(year.toString().padStart(4, '0'))
+            year in -999..-1 -> {
+                append('-')
+                append((-year).toString().padStart(4, '0'))
+            }
+            year > 9_999 -> {
+                append('+')
+                append(year)
+            }
+            else -> append(year)
+        }
+    }
+
+    private fun StringBuilder.appendTwoDigits(value: Int) {
+        if (value < 10) append('0')
+        append(value)
+    }
+
     private fun plusComponents(secondsToAdd: Long, nanosToAdd: Long): Instant {
         if (secondsToAdd == 0L && nanosToAdd == 0L) return this
         var newEpochSecond = addExact(epochSecond, secondsToAdd)
@@ -259,6 +314,9 @@ public class Instant private constructor(
     }
 
     public companion object {
+        private const val DAYS_PER_CYCLE: Long = 146_097
+        private const val DAYS_0000_TO_1970: Long = 719_528
+        private const val MAX_PARSE_YEAR: Long = 1_000_000_000
         private const val MIN_SECOND: Long = -31_557_014_167_219_200
         private const val MAX_SECOND: Long = 31_556_889_864_403_199
         private const val NANOS_PER_MICRO: Int = 1_000
@@ -307,6 +365,228 @@ public class Instant private constructor(
             }
         }
 
+        /** Parses an instant using the ISO-8601 instant representation. */
+        public fun parse(text: CharSequence): Instant {
+            val input = text.toString()
+            if (input.isEmpty()) throw parseFailure(input, 0)
+
+            var index = 0
+            val sign = when (input[0]) {
+                '+' -> {
+                    index++
+                    1
+                }
+                '-' -> {
+                    index++
+                    -1
+                }
+                else -> 1
+            }
+            val signed = index == 1
+            val yearStart = index
+            var yearValue = 0L
+            while (index < input.length && input[index].isAsciiDigit()) {
+                if (index - yearStart < 10) {
+                    yearValue = yearValue * 10 + (input[index] - '0')
+                }
+                index++
+            }
+            val yearDigits = index - yearStart
+            if (yearDigits > 10) throw parseFailure(input, yearStart + 10)
+            val validYearWidth = when {
+                !signed -> yearDigits == 4
+                sign < 0 -> yearDigits in 4..10
+                else -> yearDigits in 5..10 && yearValue >= 10_000
+            }
+            if (
+                !validYearWidth ||
+                sign < 0 && yearValue == 0L ||
+                yearValue > MAX_PARSE_YEAR
+            ) {
+                throw parseFailure(input, 0)
+            }
+            if (index >= input.length || input[index] != '-') {
+                throw parseFailure(input, index.coerceAtMost(yearStart + 10))
+            }
+
+            val monthStart = ++index
+            if (!hasTwoDigits(input, monthStart)) throw parseFailure(input, monthStart)
+            val month = parseTwoDigits(input, monthStart)
+            index += 2
+            if (index >= input.length || input[index] != '-') throw parseFailure(input, index)
+
+            val dayStart = ++index
+            if (!hasTwoDigits(input, dayStart)) throw parseFailure(input, dayStart)
+            val day = parseTwoDigits(input, dayStart)
+            index += 2
+            if (index >= input.length || input[index] != 'T' && input[index] != 't') {
+                throw parseFailure(input, index)
+            }
+
+            val hourStart = ++index
+            if (!hasTwoDigits(input, hourStart)) throw parseFailure(input, hourStart)
+            val hour = parseTwoDigits(input, hourStart)
+            index += 2
+            if (index >= input.length || input[index] != ':') throw parseFailure(input, index)
+
+            val minuteStart = ++index
+            if (!hasTwoDigits(input, minuteStart)) throw parseFailure(input, minuteStart)
+            val minute = parseTwoDigits(input, minuteStart)
+            index += 2
+            if (index >= input.length || input[index] != ':') throw parseFailure(input, index)
+
+            val secondStart = ++index
+            if (!hasTwoDigits(input, secondStart)) throw parseFailure(input, secondStart)
+            val second = parseTwoDigits(input, secondStart)
+            index += 2
+
+            var nano = 0
+            if (index < input.length && input[index] == '.') {
+                index++
+                var digits = 0
+                while (index < input.length && digits < 9 && input[index].isAsciiDigit()) {
+                    nano = nano * 10 + (input[index] - '0')
+                    index++
+                    digits++
+                }
+                if (index < input.length && input[index].isAsciiDigit()) {
+                    throw parseFailure(input, index)
+                }
+                repeat(9 - digits) { nano *= 10 }
+            }
+
+            val offsetStart = index
+            val offsetSeconds = when {
+                index < input.length && (input[index] == 'Z' || input[index] == 'z') -> {
+                    index++
+                    0
+                }
+                index < input.length && (input[index] == '+' || input[index] == '-') -> {
+                    val offsetSign = if (input[index] == '-') -1 else 1
+                    index++
+                    if (!hasTwoDigits(input, index)) throw parseFailure(input, offsetStart)
+                    val offsetHour = parseTwoDigits(input, index)
+                    index += 2
+                    if (index >= input.length || input[index] != ':') {
+                        throw parseFailure(input, offsetStart)
+                    }
+                    index++
+                    if (!hasTwoDigits(input, index)) throw parseFailure(input, offsetStart)
+                    val offsetMinute = parseTwoDigits(input, index)
+                    index += 2
+                    var offsetSecond = 0
+                    if (index < input.length && input[index] == ':') {
+                        index++
+                        if (!hasTwoDigits(input, index)) throw parseFailure(input, offsetStart)
+                        offsetSecond = parseTwoDigits(input, index)
+                        index += 2
+                    }
+                    if (
+                        offsetHour > 18 ||
+                        offsetMinute > 59 ||
+                        offsetSecond > 59 ||
+                        offsetHour == 18 && (offsetMinute != 0 || offsetSecond != 0)
+                    ) {
+                        throw parseFailure(input, 0)
+                    }
+                    offsetSign * (offsetHour * 3_600 + offsetMinute * 60 + offsetSecond)
+                }
+                else -> throw parseFailure(input, offsetStart)
+            }
+            if (index != input.length) throw parseFailure(input, index)
+
+            val year = (if (sign < 0) -yearValue else yearValue).toInt()
+            return try {
+                if (month !in 1..12) throw DateTimeException("Invalid month")
+                val leapYear = Year.isLeap(year.toLong())
+                val monthLength = Month.of(month).length(leapYear)
+                if (day !in 1..monthLength) throw DateTimeException("Invalid date")
+                if (hour !in 0..24 || minute !in 0..59 || second !in 0..60) {
+                    throw DateTimeException("Invalid time")
+                }
+                if (hour == 24 && (minute != 0 || second != 0 || nano != 0)) {
+                    throw DateTimeException("Invalid time")
+                }
+                if (second == 60 && (hour != 23 || minute != 59)) {
+                    throw DateTimeException("Invalid leap second")
+                }
+
+                val epochDay = toEpochDay(year, month, day)
+                val secondOfDay = if (hour == 24) {
+                    SECONDS_PER_DAY
+                } else {
+                    hour * SECONDS_PER_HOUR +
+                        minute * SECONDS_PER_MINUTE +
+                        minOf(second, 59)
+                }
+                ofEpochSecond(
+                    epochDay * SECONDS_PER_DAY + secondOfDay - offsetSeconds,
+                    nano.toLong(),
+                )
+            } catch (exception: DateTimeException) {
+                throw DateTimeParseException(
+                    "Text cannot be parsed to an Instant",
+                    input,
+                    0,
+                    exception,
+                )
+            }
+        }
+
+        private fun toEpochDay(year: Int, month: Int, day: Int): Long {
+            val prolepticYear = year.toLong()
+            var total = 365L * prolepticYear
+            total += if (prolepticYear >= 0) {
+                (prolepticYear + 3) / 4 -
+                    (prolepticYear + 99) / 100 +
+                    (prolepticYear + 399) / 400
+            } else {
+                -(prolepticYear / -4 - prolepticYear / -100 + prolepticYear / -400)
+            }
+            total += (367L * month - 362) / 12
+            total += day - 1
+            if (month > 2) total -= if (Year.isLeap(prolepticYear)) 1 else 2
+            return total - DAYS_0000_TO_1970
+        }
+
+        private fun dateFromEpochDay(epochDay: Long): InstantDate {
+            var zeroDay = epochDay + DAYS_0000_TO_1970 - 60
+            var adjust = 0L
+            if (zeroDay < 0) {
+                val adjustCycles = (zeroDay + 1) / DAYS_PER_CYCLE - 1
+                adjust = adjustCycles * 400
+                zeroDay += -adjustCycles * DAYS_PER_CYCLE
+            }
+            var yearEstimate = (400 * zeroDay + 591) / DAYS_PER_CYCLE
+            var dayEstimate = zeroDay -
+                (365 * yearEstimate + yearEstimate / 4 - yearEstimate / 100 + yearEstimate / 400)
+            if (dayEstimate < 0) {
+                yearEstimate--
+                dayEstimate = zeroDay -
+                    (365 * yearEstimate + yearEstimate / 4 - yearEstimate / 100 + yearEstimate / 400)
+            }
+            yearEstimate += adjust
+            val marchDay = dayEstimate.toInt()
+            val marchMonth = (marchDay * 5 + 2) / 153
+            val month = (marchMonth + 2) % 12 + 1
+            val day = marchDay - (marchMonth * 306 + 5) / 10 + 1
+            yearEstimate += (marchMonth / 10).toLong()
+            return InstantDate(yearEstimate.toInt(), month, day)
+        }
+
+        private fun hasTwoDigits(input: String, index: Int): Boolean =
+            index + 1 < input.length &&
+                input[index].isAsciiDigit() &&
+                input[index + 1].isAsciiDigit()
+
+        private fun parseTwoDigits(input: String, index: Int): Int =
+            (input[index] - '0') * 10 + (input[index + 1] - '0')
+
+        private fun Char.isAsciiDigit(): Boolean = this in '0'..'9'
+
+        private fun parseFailure(input: String, errorIndex: Int): DateTimeParseException =
+            DateTimeParseException("Text cannot be parsed to an Instant", input, errorIndex)
+
         private fun create(epochSecond: Long, nano: Int): Instant {
             if (epochSecond !in MIN_SECOND..MAX_SECOND) {
                 throw DateTimeException("Instant exceeds minimum or maximum instant")
@@ -314,4 +594,10 @@ public class Instant private constructor(
             return if (epochSecond == 0L && nano == 0) EPOCH else Instant(epochSecond, nano)
         }
     }
+
+    private data class InstantDate(
+        val year: Int,
+        val month: Int,
+        val day: Int,
+    )
 }

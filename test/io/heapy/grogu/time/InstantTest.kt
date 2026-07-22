@@ -1,5 +1,6 @@
 package io.heapy.grogu.time
 
+import io.heapy.grogu.time.format.DateTimeParseException
 import io.heapy.grogu.time.temporal.ChronoField
 import io.heapy.grogu.time.temporal.ChronoUnit
 import io.heapy.grogu.time.temporal.Temporal
@@ -14,6 +15,57 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class InstantTest {
+    @Test
+    fun parsesAndFormatsIsoInstants() {
+        val cases = mapOf(
+            "1970-01-01T00:00:00Z" to Instant.EPOCH,
+            "1970-01-01t00:00:00z" to Instant.EPOCH,
+            "1969-12-31T23:59:59.999999999Z" to Instant.ofEpochSecond(-1, 999_999_999),
+            "2024-02-29T12:34:56.1234Z" to Instant.ofEpochSecond(1_709_210_096, 123_400_000),
+            "1970-01-01T01:00:00+01:00" to Instant.EPOCH,
+            "1970-01-01T00:00:00+01:00:30" to Instant.ofEpochSecond(-3_630),
+            "1970-01-01T24:00:00Z" to Instant.ofEpochSecond(86_400),
+            "1970-01-01T23:59:60Z" to Instant.ofEpochSecond(86_399),
+            "-1000000000-01-01T00:00:00Z" to Instant.MIN,
+            "+1000000000-12-31T23:59:59.999999999Z" to Instant.MAX,
+        )
+        cases.forEach { (text, expected) ->
+            assertEquals(expected, Instant.parse(text), text)
+        }
+
+        assertEquals("1970-01-01T00:00:00Z", Instant.EPOCH.toString())
+        assertEquals("1969-12-31T23:59:59.999Z", Instant.ofEpochMilli(-1).toString())
+        assertEquals("2024-02-29T12:34:56.123400Z", cases.getValue("2024-02-29T12:34:56.1234Z").toString())
+        assertEquals("-1000000000-01-01T00:00:00Z", Instant.MIN.toString())
+        assertEquals("+1000000000-12-31T23:59:59.999999999Z", Instant.MAX.toString())
+
+        cases.values.forEach { instant -> assertEquals(instant, Instant.parse(instant.toString())) }
+    }
+
+    @Test
+    fun rejectsMalformedOrOutOfRangeIsoInstants() {
+        val invalidInputs = mapOf(
+            "" to 0,
+            "1970-01-01" to 10,
+            "1970-01-01T00:00Z" to 16,
+            "1970-01-01 00:00:00Z" to 10,
+            "1970-01-01T00:00:00,1Z" to 19,
+            "1970-01-01T00:00:00.1234567890Z" to 29,
+            "1970-01-01T00:00:00+00" to 19,
+            "1970-01-01T00:00:00+0000" to 19,
+            "1970-01-01T24:00:00.1Z" to 0,
+            "1970-01-01T22:59:60Z" to 0,
+            "+9999-01-01T00:00:00Z" to 0,
+            "+1000000001-01-01T00:00:00Z" to 0,
+            "２０２４-０２-２９T１２:３４:５６Z" to 0,
+        )
+        invalidInputs.forEach { (input, expectedIndex) ->
+            val error = assertFailsWith<DateTimeParseException>(input) { Instant.parse(input) }
+            assertEquals(input, error.parsedString)
+            assertEquals(expectedIndex, error.errorIndex, input)
+        }
+    }
+
     @Test
     fun createsNormalizedInstantsFromEpochValues() {
         assertEquals(Instant.ofEpochSecond(0), Instant.EPOCH)

@@ -1,14 +1,80 @@
 package io.heapy.grogu.time
 
 import java.time.Instant as JavaInstant
+import java.time.format.DateTimeParseException as JavaDateTimeParseException
 import java.time.temporal.ChronoField as JavaChronoField
 import java.time.temporal.ChronoUnit as JavaChronoUnit
 import io.heapy.grogu.time.temporal.ChronoField
 import io.heapy.grogu.time.temporal.ChronoUnit
+import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class InstantJavaConformanceTest {
+    @Test
+    fun defaultIsoParsingAndFormattingMatchJavaTime() {
+        val inputs = listOf(
+            "",
+            "1970-01-01",
+            "1970-01-01T00:00Z",
+            "1970-01-01T00:00:00Z",
+            "1970-01-01t00:00:00z",
+            "1970-01-01T00:00:00.Z",
+            "1970-01-01T00:00:00.1Z",
+            "1970-01-01T00:00:00.123456789Z",
+            "1970-01-01T00:00:00.1234567890Z",
+            "1970-01-01T00:00:00,1Z",
+            "1970-01-01T01:00:00+01:00",
+            "1970-01-01T00:00:00+01:00:30",
+            "1970-01-01T00:00:00+18:00",
+            "1970-01-01T00:00:00+18:01",
+            "1970-01-01T24:00:00Z",
+            "1970-01-01T24:00:00.1Z",
+            "1970-01-01T23:59:60Z",
+            "1970-01-01T22:59:60Z",
+            "-0001-01-01T00:00:00Z",
+            "+010000-01-01T00:00:00Z",
+            "-1000000000-01-01T00:00:00Z",
+            "+1000000000-12-31T23:59:59.999999999Z",
+            "+1000000001-01-01T00:00:00Z",
+            "2024-02-29T12:34:56.123400000Z",
+            "2023-02-29T12:34:56Z",
+            "２０２４-０２-２９T１２:３４:５６Z",
+        )
+        inputs.forEach { input ->
+            val javaResult = runCatching { JavaInstant.parse(input).toString() }
+            val kotlinResult = runCatching { Instant.parse(input).toString() }
+            assertEquals(javaResult.getOrNull(), kotlinResult.getOrNull(), input)
+            assertEquals(
+                javaResult.exceptionOrNull()?.javaClass?.simpleName,
+                kotlinResult.exceptionOrNull()?.javaClass?.simpleName,
+                input,
+            )
+            assertEquals(
+                (javaResult.exceptionOrNull() as? JavaDateTimeParseException)?.errorIndex,
+                (kotlinResult.exceptionOrNull()
+                    as? io.heapy.grogu.time.format.DateTimeParseException)?.errorIndex,
+                input,
+            )
+        }
+
+        instants().forEach { instant -> assertEquals(instant.toJava().toString(), instant.toString()) }
+    }
+
+    @Test
+    fun formattingMatchesJavaTimeAcrossTheSupportedTimeline() {
+        val random = Random(0)
+        repeat(2_000) {
+            val instant = Instant.ofEpochSecond(
+                random.nextLong(Instant.MIN.epochSecond, Instant.MAX.epochSecond),
+                random.nextInt(1_000_000_000).toLong(),
+            )
+            val expected = instant.toJava().toString()
+            assertEquals(expected, instant.toString())
+            assertEquals(instant.snapshot(), Instant.parse(expected).snapshot())
+        }
+    }
+
     @Test
     fun factoriesFieldsAndOrderingMatchJavaTime() {
         val factoryInputs = listOf(
