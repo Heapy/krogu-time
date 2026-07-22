@@ -1,7 +1,11 @@
 package io.heapy.grogu.time.temporal
 
 import io.heapy.grogu.time.Duration
+import io.heapy.grogu.time.LocalTime
 import io.heapy.grogu.time.Locale
+import io.heapy.grogu.time.chrono.ChronoLocalDate
+import io.heapy.grogu.time.chrono.ChronoLocalDateTime
+import io.heapy.grogu.time.chrono.ChronoZonedDateTime
 import io.heapy.grogu.time.format.ResolverStyle
 
 /** A strategy for querying information from a [TemporalAccessor]. */
@@ -60,6 +64,11 @@ public interface TemporalUnit {
 
     /** Probes whether [temporal] can add this unit. */
     public fun isSupportedBy(temporal: Temporal): Boolean {
+        when (temporal) {
+            is LocalTime -> return isTimeBased
+            is ChronoLocalDate -> return isDateBased
+            is ChronoLocalDateTime<*>, is ChronoZonedDateTime<*> -> return true
+        }
         try {
             temporal.plus(1, this)
             return true

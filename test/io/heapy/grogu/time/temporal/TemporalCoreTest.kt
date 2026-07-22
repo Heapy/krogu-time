@@ -1,5 +1,11 @@
 package io.heapy.grogu.time.temporal
 
+import io.heapy.grogu.time.Duration
+import io.heapy.grogu.time.LocalDate
+import io.heapy.grogu.time.LocalDateTime
+import io.heapy.grogu.time.LocalTime
+import io.heapy.grogu.time.ZoneOffset
+import io.heapy.grogu.time.ZonedDateTime
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -50,6 +56,21 @@ class TemporalCoreTest {
     fun temporalUnitSupportProbeHandlesUnsupportedUnits() {
         assertTrue(ChronoUnit.DAYS.isSupportedBy(SampleTemporal(1)))
         assertFalse(ChronoUnit.HOURS.isSupportedBy(SampleTemporal(1)))
+    }
+
+    @Test
+    fun temporalUnitSupportUsesJavaTimeTypeGuaranteesBeforeProbingArithmetic() {
+        val dateUnit = RejectingUnit(isDateBased = true, isTimeBased = false)
+        val timeUnit = RejectingUnit(isDateBased = false, isTimeBased = true)
+        val neitherUnit = RejectingUnit(isDateBased = false, isTimeBased = false)
+        val dateTime = LocalDateTime.of(2024, 6, 1, 12, 30)
+
+        assertTrue(timeUnit.isSupportedBy(LocalTime.NOON))
+        assertFalse(dateUnit.isSupportedBy(LocalTime.NOON))
+        assertTrue(dateUnit.isSupportedBy(LocalDate.EPOCH))
+        assertFalse(timeUnit.isSupportedBy(LocalDate.EPOCH))
+        assertTrue(neitherUnit.isSupportedBy(dateTime))
+        assertTrue(neitherUnit.isSupportedBy(ZonedDateTime.of(dateTime, ZoneOffset.UTC)))
     }
 
     private data class SampleTemporal(val value: Long) : Temporal {
@@ -113,6 +134,22 @@ class TemporalCoreTest {
         override fun addTo(temporal: Temporal): Temporal = temporal.plus(days, ChronoUnit.DAYS)
 
         override fun subtractFrom(temporal: Temporal): Temporal = temporal.minus(days, ChronoUnit.DAYS)
+    }
+
+    private class RejectingUnit(
+        override val isDateBased: Boolean,
+        override val isTimeBased: Boolean,
+    ) : TemporalUnit {
+        override val duration: Duration = Duration.ZERO
+        override val isDurationEstimated: Boolean = false
+
+        override fun <R : Temporal> addTo(temporal: R, amount: Long): R =
+            throw UnsupportedTemporalTypeException("Rejected")
+
+        override fun between(
+            temporal1Inclusive: Temporal,
+            temporal2Exclusive: Temporal,
+        ): Long = throw UnsupportedTemporalTypeException("Rejected")
     }
 
     private companion object {
