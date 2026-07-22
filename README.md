@@ -46,7 +46,9 @@ Implemented foundations:
   and parsed default-zone behavior, and strict/smart/lenient ISO, non-ISO
   calendar, and RFC 1123 resolution (including excess-day handling); numeric
   `ofPattern` date/time fields, exact fractions, reduced years, adjacent
-  fields, quoted literals, ISO/RFC-style offsets, and region zone IDs; plus
+  fields, quoted literals, ISO/RFC-style offsets, and region zone IDs;
+  `DateTimeFormatterBuilder` pattern/literal composition with immutable
+  formatter snapshots; plus
   Java-compatible `ISO_LOCAL_DATE`, `ISO_LOCAL_TIME`,
   `ISO_LOCAL_DATE_TIME`, `ISO_INSTANT`, `ISO_OFFSET_DATE`, `ISO_DATE`,
   `ISO_TIME`, `ISO_DATE_TIME`, `ISO_OFFSET_TIME`, `ISO_OFFSET_DATE_TIME`, and

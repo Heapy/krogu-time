@@ -261,13 +261,16 @@ public class DateTimeFormatter private constructor(
 
     public companion object {
         /** Creates a formatter from a date-time pattern. */
-        public fun ofPattern(pattern: String): DateTimeFormatter {
-            val tokens = compilePattern(pattern)
+        public fun ofPattern(pattern: String): DateTimeFormatter =
+            fromPatternTokens(compilePattern(pattern))
+
+        internal fun fromPatternTokens(tokens: List<PatternToken>): DateTimeFormatter {
+            val snapshot = tokens.toList()
             return DateTimeFormatter(
-                printer = { temporal -> formatPattern(tokens, temporal) },
-                parser = { text -> parsePattern(tokens, text.toString(), ResolverStyle.SMART) },
-                description = describePattern(tokens),
-                resolverParser = { text, style -> parsePattern(tokens, text, style) },
+                printer = { temporal -> formatPattern(snapshot, temporal) },
+                parser = { text -> parsePattern(snapshot, text.toString(), ResolverStyle.SMART) },
+                description = describePattern(snapshot),
+                resolverParser = { text, style -> parsePattern(snapshot, text, style) },
                 resolverStyle = ResolverStyle.SMART,
             )
         }
@@ -608,7 +611,7 @@ public class DateTimeFormatter private constructor(
     }
 }
 
-private sealed interface PatternToken {
+internal sealed interface PatternToken {
     data class Literal(val text: String) : PatternToken
 
     data class Field(
@@ -617,7 +620,7 @@ private sealed interface PatternToken {
     ) : PatternToken
 }
 
-private fun compilePattern(pattern: String): List<PatternToken> {
+internal fun compilePattern(pattern: String): List<PatternToken> {
     val tokens = mutableListOf<PatternToken>()
     var index = 0
     while (index < pattern.length) {
@@ -667,7 +670,7 @@ private fun compilePattern(pattern: String): List<PatternToken> {
     return tokens
 }
 
-private fun MutableList<PatternToken>.appendPatternLiteral(text: String) {
+internal fun MutableList<PatternToken>.appendPatternLiteral(text: String) {
     if (text.isEmpty()) return
     val previous = lastOrNull()
     if (previous is PatternToken.Literal) {
