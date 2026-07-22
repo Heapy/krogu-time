@@ -9,12 +9,16 @@ import io.heapy.grogu.time.ZonedDateTime
 import io.heapy.grogu.time.temporal.ChronoField
 import io.heapy.grogu.time.temporal.ChronoUnit
 import io.heapy.grogu.time.temporal.TemporalAccessor
+import io.heapy.grogu.time.temporal.TemporalAdjuster
+import io.heapy.grogu.time.temporal.TemporalAmount
 import io.heapy.grogu.time.temporal.TemporalField
 import io.heapy.grogu.time.temporal.TemporalQueries
 import io.heapy.grogu.time.temporal.TemporalQuery
+import io.heapy.grogu.time.temporal.TemporalUnit
 import io.heapy.grogu.time.temporal.UnsupportedTemporalTypeException
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -80,6 +84,53 @@ class ChronoZonedDateTimeTest {
             ),
         )
         assertEquals(expected, ChronoZonedDateTime.from(expected))
+    }
+
+    @Test
+    fun covariantDefaultsReturnZonedDateTimesFromTheSameChronology() {
+        val delegate = MinguoDate.of(113, 1, 31)
+            .atTime(LocalTime.NOON)
+            .atZone(ZoneOffset.ofHours(2))
+        val dateTime = DefaultMethodZonedDateTime(delegate)
+        val period = MinguoChronology.period(0, 1, 1)
+        val dayFifteen = TemporalAdjuster { temporal ->
+            temporal.with(ChronoField.DAY_OF_MONTH, 15)
+        }
+
+        assertEquals(MinguoDate.of(113, 1, 15), dateTime.with(dayFifteen).date)
+        assertEquals(MinguoDate.of(113, 3, 1), dateTime.plus(period).date)
+        assertEquals(MinguoDate.of(112, 12, 30), dateTime.minus(period).date)
+        assertEquals(
+            MinguoDate.of(113, 1, 30),
+            dateTime.minus(1, ChronoUnit.DAYS).date,
+        )
+        assertFailsWith<ClassCastException> {
+            dateTime.with(TemporalAdjuster {
+                ZonedDateTime.of(
+                    LocalDateTime.of(2024, 1, 15, 12, 0),
+                    ZoneOffset.UTC,
+                )
+            })
+        }
+    }
+
+    private class DefaultMethodZonedDateTime(
+        private val delegate: ChronoZonedDateTime<MinguoDate>,
+    ) : ChronoZonedDateTime<MinguoDate> by delegate {
+        override fun with(adjuster: TemporalAdjuster): ChronoZonedDateTime<MinguoDate> =
+            super<ChronoZonedDateTime>.with(adjuster)
+
+        override fun plus(amount: TemporalAmount): ChronoZonedDateTime<MinguoDate> =
+            super<ChronoZonedDateTime>.plus(amount)
+
+        override fun minus(amount: TemporalAmount): ChronoZonedDateTime<MinguoDate> =
+            super<ChronoZonedDateTime>.minus(amount)
+
+        override fun minus(
+            amountToSubtract: Long,
+            unit: TemporalUnit,
+        ): ChronoZonedDateTime<MinguoDate> =
+            super<ChronoZonedDateTime>.minus(amountToSubtract, unit)
     }
 
     private class LocalZonedAccessor(

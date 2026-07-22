@@ -129,17 +129,20 @@ Implemented foundations:
   Japanese era transitions and short transition years and the bundled OpenJDK
   Umm al-Qura month table for 1300 through 1600 AH
 - `ChronoLocalDate` chronology, era, leap-year and length contracts, generic
-  conversion, covariant date arithmetic, standard queries, epoch-day adjustment,
-  formatter-based output, Java-compatible default local-time composition,
-  chronology-aware and timeline ordering, with `LocalDate` integration
+  conversion, chronology-validating covariant adjustment and arithmetic
+  defaults, standard queries, epoch-day adjustment, formatter-based output,
+  Java-compatible default local-time composition, chronology-aware and
+  timeline ordering, with `LocalDate` integration
 - `ChronoLocalDateTime` chronology/date/time contracts, generic conversion and
-  chronology factories, covariant arithmetic, standard queries, epoch/instant
-  conversion, adjustment, formatter-based output, chronology-aware and
-  local-timeline ordering, with `LocalDateTime` integration
+  chronology factories, chronology-validating covariant adjustment and amount
+  arithmetic defaults, standard queries, epoch/instant conversion, adjustment,
+  formatter-based output, chronology-aware and local-timeline ordering, with
+  `LocalDateTime` integration
 - `ChronoZonedDateTime` chronology/local/offset/zone contracts, generic
-  conversion and chronology factories, covariant arithmetic and zone changes,
-  standard queries, instant conversion, formatter-based output, structural and
-  instant-timeline ordering, with `ZonedDateTime` integration
+  conversion and chronology factories, chronology-validating covariant
+  adjustment and amount arithmetic defaults, zone changes, standard queries,
+  instant conversion, formatter-based output, structural and instant-timeline
+  ordering, with `ZonedDateTime` integration
 - `ChronoPeriod` chronology, unit, sign, arithmetic, normalization, application,
   and generic date-difference contracts, with `Period` integration
 - `Year` core value, leap-year, temporal-field, year-scale arithmetic, and

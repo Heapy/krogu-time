@@ -6,9 +6,13 @@ import io.heapy.grogu.time.LocalTime
 import io.heapy.grogu.time.ZoneOffset
 import io.heapy.grogu.time.temporal.ChronoField
 import io.heapy.grogu.time.temporal.ChronoUnit
+import io.heapy.grogu.time.temporal.TemporalAdjuster
+import io.heapy.grogu.time.temporal.TemporalAmount
 import io.heapy.grogu.time.temporal.TemporalQueries
+import io.heapy.grogu.time.temporal.TemporalUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -66,5 +70,47 @@ class ChronoLocalDateTimeTest {
 
         assertEquals(source, chronology.localDateTime(source))
         assertEquals(source, ChronoLocalDateTime.from(source))
+    }
+
+    @Test
+    fun covariantDefaultsReturnLocalDateTimesFromTheSameChronology() {
+        val delegate = MinguoDate.of(113, 1, 31).atTime(LocalTime.NOON)
+        val dateTime = DefaultMethodDateTime(delegate)
+        val period = MinguoChronology.period(0, 1, 1)
+        val dayFifteen = TemporalAdjuster { temporal ->
+            temporal.with(ChronoField.DAY_OF_MONTH, 15)
+        }
+
+        assertEquals(MinguoDate.of(113, 1, 15), dateTime.with(dayFifteen).date)
+        assertEquals(MinguoDate.of(113, 3, 1), dateTime.plus(period).date)
+        assertEquals(MinguoDate.of(112, 12, 30), dateTime.minus(period).date)
+        assertEquals(
+            MinguoDate.of(113, 1, 30),
+            dateTime.minus(1, ChronoUnit.DAYS).date,
+        )
+        assertFailsWith<ClassCastException> {
+            dateTime.with(TemporalAdjuster {
+                LocalDateTime.of(2024, 1, 15, 12, 0)
+            })
+        }
+    }
+
+    private class DefaultMethodDateTime(
+        private val delegate: ChronoLocalDateTime<MinguoDate>,
+    ) : ChronoLocalDateTime<MinguoDate> by delegate {
+        override fun with(adjuster: TemporalAdjuster): ChronoLocalDateTime<MinguoDate> =
+            super<ChronoLocalDateTime>.with(adjuster)
+
+        override fun plus(amount: TemporalAmount): ChronoLocalDateTime<MinguoDate> =
+            super<ChronoLocalDateTime>.plus(amount)
+
+        override fun minus(amount: TemporalAmount): ChronoLocalDateTime<MinguoDate> =
+            super<ChronoLocalDateTime>.minus(amount)
+
+        override fun minus(
+            amountToSubtract: Long,
+            unit: TemporalUnit,
+        ): ChronoLocalDateTime<MinguoDate> =
+            super<ChronoLocalDateTime>.minus(amountToSubtract, unit)
     }
 }

@@ -41,17 +41,35 @@ public interface ChronoLocalDateTime<out D : ChronoLocalDate> :
     override fun isSupported(unit: TemporalUnit): Boolean =
         if (unit is ChronoUnit) unit !== ChronoUnit.FOREVER else unit.isSupportedBy(this)
 
-    override fun with(adjuster: TemporalAdjuster): ChronoLocalDateTime<D>
+    override fun with(adjuster: TemporalAdjuster): ChronoLocalDateTime<D> =
+        ChronoLocalDateTimeImpl.ensureValid<D>(
+            chronology,
+            super<Temporal>.with(adjuster),
+        )
 
     override fun with(field: TemporalField, newValue: Long): ChronoLocalDateTime<D>
 
-    override fun plus(amount: TemporalAmount): ChronoLocalDateTime<D>
+    override fun plus(amount: TemporalAmount): ChronoLocalDateTime<D> =
+        ChronoLocalDateTimeImpl.ensureValid<D>(
+            chronology,
+            super<Temporal>.plus(amount),
+        )
 
     override fun plus(amountToAdd: Long, unit: TemporalUnit): ChronoLocalDateTime<D>
 
-    override fun minus(amount: TemporalAmount): ChronoLocalDateTime<D>
+    override fun minus(amount: TemporalAmount): ChronoLocalDateTime<D> =
+        ChronoLocalDateTimeImpl.ensureValid<D>(
+            chronology,
+            super<Temporal>.minus(amount),
+        )
 
-    override fun minus(amountToSubtract: Long, unit: TemporalUnit): ChronoLocalDateTime<D>
+    override fun minus(
+        amountToSubtract: Long,
+        unit: TemporalUnit,
+    ): ChronoLocalDateTime<D> = ChronoLocalDateTimeImpl.ensureValid<D>(
+        chronology,
+        super<Temporal>.minus(amountToSubtract, unit),
+    )
 
     override fun <R> query(query: TemporalQuery<R>): R {
         val result: Any? = when (query) {

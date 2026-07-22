@@ -13,6 +13,7 @@ import io.heapy.grogu.time.temporal.TemporalField
 import io.heapy.grogu.time.temporal.TemporalQueries
 import io.heapy.grogu.time.temporal.TemporalQuery
 import io.heapy.grogu.time.temporal.TemporalUnit
+import io.heapy.grogu.time.temporal.UnsupportedTemporalTypeException
 
 /** A date whose calendar system is supplied by a [Chronology]. */
 public interface ChronoLocalDate : Temporal, TemporalAdjuster, Comparable<ChronoLocalDate> {
@@ -39,17 +40,31 @@ public interface ChronoLocalDate : Temporal, TemporalAdjuster, Comparable<Chrono
     override fun isSupported(unit: TemporalUnit): Boolean =
         if (unit is ChronoUnit) unit.isDateBased else unit.isSupportedBy(this)
 
-    override fun with(adjuster: TemporalAdjuster): ChronoLocalDate
+    override fun with(adjuster: TemporalAdjuster): ChronoLocalDate =
+        ensureValid(chronology, super<Temporal>.with(adjuster))
 
-    override fun with(field: TemporalField, newValue: Long): ChronoLocalDate
+    override fun with(field: TemporalField, newValue: Long): ChronoLocalDate {
+        if (field is ChronoField) {
+            throw UnsupportedTemporalTypeException("Unsupported field: $field")
+        }
+        return ensureValid(chronology, field.adjustInto(this, newValue))
+    }
 
-    override fun plus(amount: TemporalAmount): ChronoLocalDate
+    override fun plus(amount: TemporalAmount): ChronoLocalDate =
+        ensureValid(chronology, super<Temporal>.plus(amount))
 
-    override fun plus(amountToAdd: Long, unit: TemporalUnit): ChronoLocalDate
+    override fun plus(amountToAdd: Long, unit: TemporalUnit): ChronoLocalDate {
+        if (unit is ChronoUnit) {
+            throw UnsupportedTemporalTypeException("Unsupported unit: $unit")
+        }
+        return ensureValid(chronology, unit.addTo(this, amountToAdd))
+    }
 
-    override fun minus(amount: TemporalAmount): ChronoLocalDate
+    override fun minus(amount: TemporalAmount): ChronoLocalDate =
+        ensureValid(chronology, super<Temporal>.minus(amount))
 
-    override fun minus(amountToSubtract: Long, unit: TemporalUnit): ChronoLocalDate
+    override fun minus(amountToSubtract: Long, unit: TemporalUnit): ChronoLocalDate =
+        ensureValid(chronology, super<Temporal>.minus(amountToSubtract, unit))
 
     override fun <R> query(query: TemporalQuery<R>): R {
         val result: Any? = when (query) {
@@ -113,4 +128,18 @@ public interface ChronoLocalDate : Temporal, TemporalAdjuster, Comparable<Chrono
             return chronology.date(temporal)
         }
     }
+}
+
+private fun ensureValid(
+    chronology: Chronology,
+    temporal: Temporal,
+): ChronoLocalDate {
+    val date = temporal as? ChronoLocalDate
+        ?: throw ClassCastException("Temporal is not a ChronoLocalDate: $temporal")
+    if (date.chronology != chronology) {
+        throw ClassCastException(
+            "Chronology mismatch, expected: ${chronology.id}, actual: ${date.chronology.id}",
+        )
+    }
+    return date
 }
