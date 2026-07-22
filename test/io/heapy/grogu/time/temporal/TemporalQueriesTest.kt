@@ -1,0 +1,75 @@
+package io.heapy.grogu.time.temporal
+
+import io.heapy.grogu.time.Instant
+import io.heapy.grogu.time.LocalDate
+import io.heapy.grogu.time.LocalDateTime
+import io.heapy.grogu.time.LocalTime
+import io.heapy.grogu.time.MonthDay
+import io.heapy.grogu.time.OffsetDateTime
+import io.heapy.grogu.time.OffsetTime
+import io.heapy.grogu.time.Year
+import io.heapy.grogu.time.YearMonth
+import io.heapy.grogu.time.ZoneOffset
+import io.heapy.grogu.time.ZonedDateTime
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNull
+import kotlin.test.assertSame
+
+class TemporalQueriesTest {
+    @Test
+    fun extractsLocalDatesAndTimesFromSupportedFields() {
+        val date = LocalDate.of(2024, 6, 1)
+        val time = LocalTime.of(12, 30, 45, 123_456_789)
+        val dateTime = LocalDateTime.of(date, time)
+        val offsetDateTime = OffsetDateTime.of(dateTime, ZoneOffset.ofHours(2))
+        val zonedDateTime = ZonedDateTime.of(dateTime, ZoneOffset.ofHours(2))
+
+        assertSame(date, date.query(TemporalQueries.localDate()))
+        assertSame(time, time.query(TemporalQueries.localTime()))
+        assertSame(date, dateTime.query(TemporalQueries.localDate()))
+        assertSame(time, dateTime.query(TemporalQueries.localTime()))
+        assertSame(date, offsetDateTime.query(TemporalQueries.localDate()))
+        assertSame(time, offsetDateTime.query(TemporalQueries.localTime()))
+        assertSame(date, zonedDateTime.query(TemporalQueries.localDate()))
+        assertSame(time, zonedDateTime.query(TemporalQueries.localTime()))
+        assertNull(date.query(TemporalQueries.localTime()))
+        assertNull(time.query(TemporalQueries.localDate()))
+        assertNull(Instant.EPOCH.query(TemporalQueries.localDate()))
+    }
+
+    @Test
+    fun reportsTheSmallestSupportedStandardUnit() {
+        val date = LocalDate.of(2024, 6, 1)
+        val time = LocalTime.NOON
+        val dateTime = LocalDateTime.of(date, time)
+        assertEquals(ChronoUnit.DAYS, date.query(TemporalQueries.precision()))
+        assertEquals(ChronoUnit.NANOS, time.query(TemporalQueries.precision()))
+        assertEquals(ChronoUnit.NANOS, dateTime.query(TemporalQueries.precision()))
+        assertEquals(ChronoUnit.NANOS, OffsetTime.of(time, ZoneOffset.UTC).query(TemporalQueries.precision()))
+        assertEquals(
+            ChronoUnit.NANOS,
+            OffsetDateTime.of(dateTime, ZoneOffset.UTC).query(TemporalQueries.precision()),
+        )
+        assertEquals(
+            ChronoUnit.NANOS,
+            ZonedDateTime.of(dateTime, ZoneOffset.UTC).query(TemporalQueries.precision()),
+        )
+        assertEquals(ChronoUnit.NANOS, Instant.EPOCH.query(TemporalQueries.precision()))
+        assertEquals(ChronoUnit.YEARS, Year.of(2024).query(TemporalQueries.precision()))
+        assertEquals(ChronoUnit.MONTHS, YearMonth.of(2024, 6).query(TemporalQueries.precision()))
+        assertNull(MonthDay.of(6, 1).query(TemporalQueries.precision()))
+        assertNull(ZoneOffset.UTC.query(TemporalQueries.precision()))
+    }
+
+    @Test
+    fun querySingletonsHaveJavaCompatibleNames() {
+        assertEquals("LocalDate", TemporalQueries.localDate().toString())
+        assertEquals("LocalTime", TemporalQueries.localTime().toString())
+        assertEquals("Precision", TemporalQueries.precision().toString())
+        assertEquals(
+            ChronoUnit.NANOS,
+            TemporalQueries.precision().queryFrom(Instant.EPOCH),
+        )
+    }
+}

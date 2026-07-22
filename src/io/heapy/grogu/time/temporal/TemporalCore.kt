@@ -36,7 +36,13 @@ public interface TemporalAccessor {
     public fun getLong(field: TemporalField): Long
 
     /** Runs [query] against this object. */
-    public fun <R> query(query: TemporalQuery<R>): R = query.queryFrom(this)
+    public fun <R> query(query: TemporalQuery<R>): R {
+        if (query === TemporalQueries.precision()) {
+            @Suppress("UNCHECKED_CAST")
+            return null as R
+        }
+        return query.queryFrom(this)
+    }
 }
 
 /** A unit used to measure a temporal amount. */

@@ -40,7 +40,7 @@ Implemented foundations:
   comparison behavior, including default parsing and `atDay` date production
   plus injected-clock/explicit-zone current-value factories and `MonthDay`
   validation/date production (system-default current values, formatter
-  overloads, and temporal-query integration remain)
+  overloads, and chronology-query integration remain)
 - `MonthDay` value, factories, temporal fields, replacement, year validation,
   date production and adjustment, ordering, strict ISO parsing, and ISO text
   output, including injected-clock/explicit-zone current-value factories
@@ -49,26 +49,27 @@ Implemented foundations:
   month/year-scale arithmetic, complete-unit differences, date production and
   adjustment, ordering, strict ISO parsing, ISO text output, and
   injected-clock/explicit-zone current-value factories (system-default current
-  values, formatter overloads, and temporal-query integration remain)
+  values, formatter overloads, and chronology-query integration remain)
 - `LocalDate` core value, full-range epoch conversion, temporal fields,
   replacement, checked calendar arithmetic, complete-unit differences, and
   timeline and calendar-period comparison, including local time composition,
   earliest-valid zoned start-of-day composition, strict ISO parsing, and ISO
   text output, with injected-clock/explicit-zone current-value factories
-  (system-default current values, formatter overloads, and queries remain)
+  (system-default current values, formatter overloads, and chronology-query
+  integration remain)
 - `Period` factories, parsing, value behavior, temporal integration, checked
   arithmetic, normalization, and `between` (chronology integration remains)
 - `LocalTime` core value, validated factories, day conversions, temporal
   fields, replacement, truncation, wraparound arithmetic, complete-unit
   differences, ordering, strict ISO parsing, ISO text output, offset/date
   composition, and injected-clock/explicit-zone current-value factories
-  (system-default current values, formatter overloads, and queries remain)
+  (system-default current values and formatter overloads remain)
 - `LocalDateTime` immutable composition, factories, local field access,
   epoch/fixed-offset/zone conversion, replacement, truncation, checked date/time
   arithmetic, complete-unit differences, boundaries, ordering, strict ISO
   parsing, ISO text output, and injected-clock/explicit-zone current-value
-  factories (system-default current values, formatter overloads, and queries
-  remain)
+  factories (system-default current values, formatter overloads, and
+  chronology-query integration remain)
 - `Duration` with the complete Java 21 public API surface, including parsing,
   temporal integration, checked arithmetic, conversions, truncation, and
   `between`
@@ -77,7 +78,7 @@ Implemented foundations:
   complete-unit and duration differences, epoch-millisecond conversion,
   adjustment, ordering, hashing, strict ISO parsing, and ISO text output,
   including fixed-offset/region-zone composition and system/injected-clock
-  current values (queries remain)
+  current values
 - `ZoneOffset` factories, validation, normalized ID parsing and formatting,
   quarter-hour canonicalization, `ZoneId` integration, offset-field/query
   integration, adjustment, and Java-compatible ordering
@@ -123,14 +124,15 @@ Implemented foundations:
 - `InstantSource` system, fixed, offset, and tick sources, default millisecond
   conversion, arbitrary-source zone-to-clock bridging, and Java-compatible
   reuse of clock implementations
-- temporal interfaces and exceptions, plus the standard offset query
+- temporal interfaces and exceptions, plus the standard zone, offset,
+  local-date, local-time, and precision queries
 - `TemporalAdjusters` complete date-adjuster utility surface
 - `ValueRange`
 - `ChronoUnit`
 - `ChronoField`
 
-Remaining work includes the other standard temporal queries, no-argument
-system-default current-value factories and system-default-zone lookup,
-chronology integration, a bundled region time-zone database, formatters and
-parsers beyond the implemented ISO defaults and amount parsers, alternate
-chronologies, and complete cross-type conformance coverage.
+Remaining work includes the standard chronology query, no-argument
+system-default current-value factories and system-default-zone lookup, a
+bundled region time-zone database, formatters and parsers beyond the
+implemented ISO defaults and amount parsers, alternate chronologies, and
+complete cross-type conformance coverage.

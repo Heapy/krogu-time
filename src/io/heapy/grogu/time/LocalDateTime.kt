@@ -12,6 +12,8 @@ import io.heapy.grogu.time.temporal.TemporalAccessor
 import io.heapy.grogu.time.temporal.TemporalAdjuster
 import io.heapy.grogu.time.temporal.TemporalAmount
 import io.heapy.grogu.time.temporal.TemporalField
+import io.heapy.grogu.time.temporal.TemporalQueries
+import io.heapy.grogu.time.temporal.TemporalQuery
 import io.heapy.grogu.time.temporal.TemporalUnit
 import io.heapy.grogu.time.temporal.UnsupportedTemporalTypeException
 import io.heapy.grogu.time.temporal.ValueRange
@@ -69,6 +71,17 @@ public class LocalDateTime private constructor(
     override fun getLong(field: TemporalField): Long = when (field) {
         is ChronoField -> if (field.isTimeBased) time.getLong(field) else date.getLong(field)
         else -> field.getFrom(this)
+    }
+
+    override fun <R> query(query: TemporalQuery<R>): R {
+        val result: Any = when (query) {
+            TemporalQueries.localDate() -> date
+            TemporalQueries.localTime() -> time
+            TemporalQueries.precision() -> ChronoUnit.NANOS
+            else -> return super<Temporal>.query(query)
+        }
+        @Suppress("UNCHECKED_CAST")
+        return result as R
     }
 
     /** Returns the local-date part. */

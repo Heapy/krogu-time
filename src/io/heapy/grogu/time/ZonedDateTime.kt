@@ -170,6 +170,14 @@ public class ZonedDateTime private constructor(
         if (nanos == Long.MIN_VALUE) plusNanos(Long.MAX_VALUE).plusNanos(1) else plusNanos(-nanos)
 
     override fun <R> query(query: TemporalQuery<R>): R {
+        if (query === TemporalQueries.localDate()) {
+            @Suppress("UNCHECKED_CAST")
+            return date as R
+        }
+        if (query === TemporalQueries.localTime()) {
+            @Suppress("UNCHECKED_CAST")
+            return time as R
+        }
         if (query === TemporalQueries.zoneId()) {
             @Suppress("UNCHECKED_CAST")
             return zone as R
@@ -177,6 +185,10 @@ public class ZonedDateTime private constructor(
         if (query === TemporalQueries.offset()) {
             @Suppress("UNCHECKED_CAST")
             return offset as R
+        }
+        if (query === TemporalQueries.precision()) {
+            @Suppress("UNCHECKED_CAST")
+            return ChronoUnit.NANOS as R
         }
         return super<Temporal>.query(query)
     }

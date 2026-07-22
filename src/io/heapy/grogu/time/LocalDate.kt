@@ -13,6 +13,8 @@ import io.heapy.grogu.time.temporal.TemporalAccessor
 import io.heapy.grogu.time.temporal.TemporalAdjuster
 import io.heapy.grogu.time.temporal.TemporalAmount
 import io.heapy.grogu.time.temporal.TemporalField
+import io.heapy.grogu.time.temporal.TemporalQueries
+import io.heapy.grogu.time.temporal.TemporalQuery
 import io.heapy.grogu.time.temporal.TemporalUnit
 import io.heapy.grogu.time.temporal.UnsupportedTemporalTypeException
 import io.heapy.grogu.time.temporal.ValueRange
@@ -89,6 +91,18 @@ public class LocalDate private constructor(
         ChronoField.ERA -> if (year >= 1) 1 else 0
         is ChronoField -> throw UnsupportedTemporalTypeException("Unsupported field: $field")
         else -> field.getFrom(this)
+    }
+
+    override fun <R> query(query: TemporalQuery<R>): R {
+        if (query === TemporalQueries.localDate()) {
+            @Suppress("UNCHECKED_CAST")
+            return this as R
+        }
+        if (query === TemporalQueries.precision()) {
+            @Suppress("UNCHECKED_CAST")
+            return ChronoUnit.DAYS as R
+        }
+        return super<Temporal>.query(query)
     }
 
     /** Converts this date to the count of days from 1970-01-01. */

@@ -1,5 +1,7 @@
 package io.heapy.grogu.time.temporal
 
+import io.heapy.grogu.time.LocalDate
+import io.heapy.grogu.time.LocalTime
 import io.heapy.grogu.time.ZoneOffset
 import io.heapy.grogu.time.ZoneId
 
@@ -19,6 +21,36 @@ public object TemporalQueries {
         temporal.query(zoneIdQuery) ?: temporal.query(offsetQuery)
     }
 
+    private val localDateQuery: TemporalQuery<LocalDate?> = object : TemporalQuery<LocalDate?> {
+        override fun queryFrom(temporal: TemporalAccessor): LocalDate? =
+            if (temporal.isSupported(ChronoField.EPOCH_DAY)) {
+                LocalDate.ofEpochDay(temporal.getLong(ChronoField.EPOCH_DAY))
+            } else {
+                null
+            }
+
+        override fun toString(): String = "LocalDate"
+    }
+
+    private val localTimeQuery: TemporalQuery<LocalTime?> = object : TemporalQuery<LocalTime?> {
+        override fun queryFrom(temporal: TemporalAccessor): LocalTime? =
+            if (temporal.isSupported(ChronoField.NANO_OF_DAY)) {
+                LocalTime.ofNanoOfDay(temporal.getLong(ChronoField.NANO_OF_DAY))
+            } else {
+                null
+            }
+
+        override fun toString(): String = "LocalTime"
+    }
+
+    private val precisionQuery: TemporalQuery<TemporalUnit?> =
+        object : TemporalQuery<TemporalUnit?> {
+            override fun queryFrom(temporal: TemporalAccessor): TemporalUnit? =
+                temporal.query(this)
+
+            override fun toString(): String = "Precision"
+        }
+
     /** Returns a query that obtains the zone offset, or `null` when unavailable. */
     public fun offset(): TemporalQuery<ZoneOffset?> = offsetQuery
 
@@ -27,4 +59,13 @@ public object TemporalQueries {
 
     /** Returns a query that obtains a zone ID, falling back to a zone offset. */
     public fun zone(): TemporalQuery<ZoneId?> = zoneQuery
+
+    /** Returns a query that obtains the local date, or `null` when unavailable. */
+    public fun localDate(): TemporalQuery<LocalDate?> = localDateQuery
+
+    /** Returns a query that obtains the local time, or `null` when unavailable. */
+    public fun localTime(): TemporalQuery<LocalTime?> = localTimeQuery
+
+    /** Returns a query that obtains the smallest supported unit. */
+    public fun precision(): TemporalQuery<TemporalUnit?> = precisionQuery
 }

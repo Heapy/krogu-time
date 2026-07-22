@@ -12,6 +12,8 @@ import io.heapy.grogu.time.temporal.TemporalAccessor
 import io.heapy.grogu.time.temporal.TemporalAdjuster
 import io.heapy.grogu.time.temporal.TemporalAmount
 import io.heapy.grogu.time.temporal.TemporalField
+import io.heapy.grogu.time.temporal.TemporalQueries
+import io.heapy.grogu.time.temporal.TemporalQuery
 import io.heapy.grogu.time.temporal.TemporalUnit
 import io.heapy.grogu.time.temporal.UnsupportedTemporalTypeException
 
@@ -43,6 +45,14 @@ public class Instant private constructor(
         ChronoField.INSTANT_SECONDS -> epochSecond
         is ChronoField -> throw UnsupportedTemporalTypeException("Unsupported field: $field")
         else -> field.getFrom(this)
+    }
+
+    override fun <R> query(query: TemporalQuery<R>): R {
+        if (query === TemporalQueries.precision()) {
+            @Suppress("UNCHECKED_CAST")
+            return ChronoUnit.NANOS as R
+        }
+        return super<Temporal>.query(query)
     }
 
     override fun with(adjuster: TemporalAdjuster): Instant =
