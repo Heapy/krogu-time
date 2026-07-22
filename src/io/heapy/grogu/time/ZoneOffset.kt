@@ -25,6 +25,12 @@ public class ZoneOffset private constructor(
     override fun isSupported(field: TemporalField): Boolean =
         if (field is ChronoField) field === ChronoField.OFFSET_SECONDS else field.isSupportedBy(this)
 
+    override fun get(field: TemporalField): Int = when (field) {
+        ChronoField.OFFSET_SECONDS -> totalSeconds
+        is ChronoField -> throw UnsupportedTemporalTypeException("Unsupported field: $field")
+        else -> range(field).checkValidIntValue(getLong(field), field)
+    }
+
     override fun getLong(field: TemporalField): Long = when (field) {
         ChronoField.OFFSET_SECONDS -> totalSeconds.toLong()
         is ChronoField -> throw UnsupportedTemporalTypeException("Unsupported field: $field")

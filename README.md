@@ -195,8 +195,8 @@ Implemented foundations:
   parsing, and ISO text output, including fixed-offset/region-zone composition
   and system/injected-clock current values
 - `ZoneOffset` factories, validation, normalized ID parsing and formatting,
-  quarter-hour canonicalization, `ZoneId` integration, offset-field/query
-  integration, adjustment, and Java-compatible ordering
+  quarter-hour canonicalization, `ZoneId` integration, Java-compatible int/long
+  offset-field and query integration, adjustment, and ordering
 - `ZoneId` fixed-offset and `UTC`/`GMT`/`UT` prefixed identifiers, alias-map
   resolution, provider-backed region IDs, normalization, available-ID access,
   bundled IANA TZDB 2025a resolution, system-default lookup, localized display

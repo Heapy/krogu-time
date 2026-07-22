@@ -1,8 +1,20 @@
 package io.heapy.grogu.time
 
+import io.heapy.grogu.time.temporal.ChronoField
+import io.heapy.grogu.time.temporal.ChronoUnit
+import io.heapy.grogu.time.temporal.Temporal
+import io.heapy.grogu.time.temporal.TemporalAccessor
+import io.heapy.grogu.time.temporal.TemporalField
+import io.heapy.grogu.time.temporal.TemporalUnit
+import io.heapy.grogu.time.temporal.ValueRange
 import java.time.ZoneOffset as JavaZoneOffset
 import java.time.temporal.ChronoField as JavaChronoField
-import io.heapy.grogu.time.temporal.ChronoField
+import java.time.temporal.ChronoUnit as JavaChronoUnit
+import java.time.temporal.Temporal as JavaTemporal
+import java.time.temporal.TemporalAccessor as JavaTemporalAccessor
+import java.time.temporal.TemporalField as JavaTemporalField
+import java.time.temporal.TemporalUnit as JavaTemporalUnit
+import java.time.temporal.ValueRange as JavaValueRange
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -112,6 +124,68 @@ class ZoneOffsetJavaConformanceTest {
                 )
             }
         }
+    }
+
+    @Test
+    fun customFieldIntValidationMatchesJavaTime() {
+        val javaResult = runCatching {
+            JavaZoneOffset.ofHoursMinutesSeconds(1, 2, 3).get(JavaWideRangeField)
+        }
+        val kotlinResult = runCatching {
+            ZoneOffset.ofHoursMinutesSeconds(1, 2, 3).get(WideRangeField)
+        }
+        assertEquals(javaResult.getOrNull(), kotlinResult.getOrNull())
+        assertEquals(
+            javaResult.exceptionOrNull()?.javaClass?.simpleName,
+            kotlinResult.exceptionOrNull()?.javaClass?.simpleName,
+        )
+        assertEquals(
+            javaResult.exceptionOrNull()?.message,
+            kotlinResult.exceptionOrNull()?.message,
+        )
+    }
+
+    private object WideRangeField : TemporalField {
+        override val baseUnit: TemporalUnit = ChronoUnit.SECONDS
+        override val rangeUnit: TemporalUnit = ChronoUnit.FOREVER
+        override val range: ValueRange = ValueRange.of(Long.MIN_VALUE, Long.MAX_VALUE)
+        override val isDateBased: Boolean = false
+        override val isTimeBased: Boolean = false
+
+        override fun isSupportedBy(temporal: TemporalAccessor): Boolean = temporal is ZoneOffset
+
+        override fun rangeRefinedBy(temporal: TemporalAccessor): ValueRange = range
+
+        override fun getFrom(temporal: TemporalAccessor): Long =
+            (temporal as ZoneOffset).totalSeconds.toLong()
+
+        override fun <R : Temporal> adjustInto(temporal: R, newValue: Long): R = temporal
+
+        override fun toString(): String = "WideOffset"
+    }
+
+    private object JavaWideRangeField : JavaTemporalField {
+        override fun getBaseUnit(): JavaTemporalUnit = JavaChronoUnit.SECONDS
+
+        override fun getRangeUnit(): JavaTemporalUnit = JavaChronoUnit.FOREVER
+
+        override fun range(): JavaValueRange = JavaValueRange.of(Long.MIN_VALUE, Long.MAX_VALUE)
+
+        override fun isDateBased(): Boolean = false
+
+        override fun isTimeBased(): Boolean = false
+
+        override fun isSupportedBy(temporal: JavaTemporalAccessor): Boolean =
+            temporal is JavaZoneOffset
+
+        override fun rangeRefinedBy(temporal: JavaTemporalAccessor): JavaValueRange = range()
+
+        override fun getFrom(temporal: JavaTemporalAccessor): Long =
+            (temporal as JavaZoneOffset).totalSeconds.toLong()
+
+        override fun <R : JavaTemporal> adjustInto(temporal: R, newValue: Long): R = temporal
+
+        override fun toString(): String = "WideOffset"
     }
 
     private fun ZoneOffset.snapshot(): Pair<Int, String> = totalSeconds to id

@@ -8,9 +8,11 @@ import io.heapy.grogu.time.temporal.TemporalField
 import io.heapy.grogu.time.temporal.TemporalQueries
 import io.heapy.grogu.time.temporal.TemporalUnit
 import io.heapy.grogu.time.temporal.UnsupportedTemporalTypeException
+import io.heapy.grogu.time.temporal.ValueRange
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -71,6 +73,19 @@ class ZoneOffsetTest {
     }
 
     @Test
+    fun customFieldsUseDirectIntValidation() {
+        val exception = assertFailsWith<DateTimeException> {
+            ZoneOffset.ofHoursMinutesSeconds(1, 2, 3).get(WideRangeField)
+        }
+        assertFalse(exception is UnsupportedTemporalTypeException)
+        assertEquals(
+            "Invalid value for WideOffset " +
+                "(valid values -9223372036854775808 - 9223372036854775807): 3723",
+            exception.message,
+        )
+    }
+
+    @Test
     fun adjustsOrdersAndHashesOffsets() {
         val offset = ZoneOffset.ofHoursMinutes(5, 30)
         assertEquals(
@@ -92,6 +107,25 @@ class ZoneOffsetTest {
         override fun getLong(field: TemporalField): Long =
             if (field === ChronoField.OFFSET_SECONDS && totalSeconds != null) totalSeconds else
                 throw UnsupportedTemporalTypeException("Unsupported field: $field")
+    }
+
+    private object WideRangeField : TemporalField {
+        override val baseUnit: TemporalUnit = ChronoUnit.SECONDS
+        override val rangeUnit: TemporalUnit = ChronoUnit.FOREVER
+        override val range: ValueRange = ValueRange.of(Long.MIN_VALUE, Long.MAX_VALUE)
+        override val isDateBased: Boolean = false
+        override val isTimeBased: Boolean = false
+
+        override fun isSupportedBy(temporal: TemporalAccessor): Boolean = temporal is ZoneOffset
+
+        override fun rangeRefinedBy(temporal: TemporalAccessor): ValueRange = range
+
+        override fun getFrom(temporal: TemporalAccessor): Long =
+            (temporal as ZoneOffset).totalSeconds.toLong()
+
+        override fun <R : Temporal> adjustInto(temporal: R, newValue: Long): R = temporal
+
+        override fun toString(): String = "WideOffset"
     }
 
     private data class OffsetRecordingTemporal(
