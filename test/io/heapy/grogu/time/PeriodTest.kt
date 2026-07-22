@@ -5,6 +5,7 @@ import io.heapy.grogu.time.temporal.Temporal
 import io.heapy.grogu.time.temporal.TemporalAmount
 import io.heapy.grogu.time.temporal.TemporalUnit
 import io.heapy.grogu.time.temporal.UnsupportedTemporalTypeException
+import io.heapy.grogu.time.format.DateTimeParseException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -85,6 +86,43 @@ class PeriodTest {
         assertEquals(LocalDate.of(2022, 12, 30), period.subtractFrom(date))
         assertEquals(LocalDate.of(2025, 3, 1), date.plus(period))
         assertEquals(LocalDate.of(2022, 12, 30), date.minus(period))
+    }
+
+    @Test
+    fun parsesIsoPeriodsAndJavaSignedExtensions() {
+        val cases = mapOf(
+            "P2Y" to Period.ofYears(2),
+            "P3M" to Period.ofMonths(3),
+            "P4W" to Period.ofDays(28),
+            "P5D" to Period.ofDays(5),
+            "P1Y2M3W4D" to Period.of(1, 2, 25),
+            "P-1Y2M" to Period.of(-1, 2, 0),
+            "-P1Y2M" to Period.of(-1, -2, 0),
+            "+p1y-2m+3w-4d" to Period.of(1, -2, 17),
+            "P0D" to Period.ZERO,
+        )
+        cases.forEach { (text, expected) ->
+            assertEquals(expected, Period.parse(text), text)
+        }
+        listOf("", "P", "PT1H", "P1D2Y", "P2147483648Y").forEach { text ->
+            assertFailsWith<DateTimeParseException>(text) { Period.parse(text) }
+        }
+        assertFailsWith<ArithmeticException> { Period.parse("P306783379W") }
+    }
+
+    @Test
+    fun calculatesCalendarPeriodsBetweenLocalDates() {
+        val start = LocalDate.of(2010, 1, 15)
+        val end = LocalDate.of(2011, 3, 18)
+        assertEquals(Period.of(1, 2, 3), Period.between(start, end))
+        assertEquals(Period.of(1, 2, 3), start.until(end))
+        assertEquals(Period.ofDays(28), LocalDate.of(2023, 1, 31).until(LocalDate.of(2023, 2, 28)))
+        assertEquals(Period.ofMonths(2), LocalDate.of(2024, 1, 31).until(LocalDate.of(2024, 3, 31)))
+        assertEquals(Period.ofMonths(-2), LocalDate.of(2024, 3, 31).until(LocalDate.of(2024, 1, 31)))
+        assertEquals(
+            Period.of(-1, -1, -30),
+            LocalDate.of(2024, 3, 30).until(LocalDate.of(2023, 1, 31)),
+        )
     }
 
     private object ThreePartAmount : TemporalAmount {

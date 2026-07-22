@@ -1,5 +1,6 @@
 package io.heapy.grogu.time
 
+import io.heapy.grogu.time.format.DateTimeParseException
 import io.heapy.grogu.time.internal.addExact
 import io.heapy.grogu.time.temporal.ChronoUnit
 import io.heapy.grogu.time.temporal.Temporal
@@ -230,6 +231,27 @@ public class Period private constructor(
             return create(years, months, days)
         }
 
+        /** Parses a Java-compatible ISO-8601 period. */
+        public fun parse(text: CharSequence): Period {
+            val input = text.toString()
+            val match = PERIOD_PATTERN.matchEntire(input) ?: throw parseFailure(input)
+            if ((2..5).all { match.groups[it] == null }) throw parseFailure(input)
+
+            val multiplier = if (match.groups[1]?.value == "-") -1 else 1
+            val years = parseNumber(input, match.groups[2]?.value, multiplier)
+            val months = parseNumber(input, match.groups[3]?.value, multiplier)
+            val weeks = parseNumber(input, match.groups[4]?.value, multiplier)
+            val days = parseNumber(input, match.groups[5]?.value, multiplier)
+            val weekDays = toIntExact(weeks.toLong() * 7)
+            return create(years, months, toIntExact(days.toLong() + weekDays))
+        }
+
+        /** Calculates the calendar period from [startDateInclusive] to [endDateExclusive]. */
+        public fun between(
+            startDateInclusive: LocalDate,
+            endDateExclusive: LocalDate,
+        ): Period = startDateInclusive.until(endDateExclusive)
+
         private fun create(years: Int, months: Int, days: Int): Period =
             if (years == 0 && months == 0 && days == 0) ZERO else Period(years, months, days)
 
@@ -238,5 +260,33 @@ public class Period private constructor(
             if (result.toLong() != value) throw ArithmeticException("integer overflow")
             return result
         }
+
+        private fun parseNumber(input: String, value: String?, multiplier: Int): Int {
+            if (value == null) return 0
+            return try {
+                toIntExact(value.toInt().toLong() * multiplier)
+            } catch (exception: NumberFormatException) {
+                throw DateTimeParseException(
+                    "Text cannot be parsed to a Period",
+                    input,
+                    0,
+                    exception,
+                )
+            } catch (exception: ArithmeticException) {
+                throw DateTimeParseException(
+                    "Text cannot be parsed to a Period",
+                    input,
+                    0,
+                    exception,
+                )
+            }
+        }
+
+        private fun parseFailure(input: String): DateTimeParseException =
+            DateTimeParseException("Text cannot be parsed to a Period", input, 0)
+
+        private val PERIOD_PATTERN: Regex = Regex(
+            """([-+]?)[Pp](?:([-+]?[0-9]+)[Yy])?(?:([-+]?[0-9]+)[Mm])?(?:([-+]?[0-9]+)[Ww])?(?:([-+]?[0-9]+)[Dd])?""",
+        )
     }
 }

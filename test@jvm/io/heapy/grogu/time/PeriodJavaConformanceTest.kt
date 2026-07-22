@@ -143,6 +143,61 @@ class PeriodJavaConformanceTest {
         }
     }
 
+    @Test
+    fun parsingMatchesJavaTime() {
+        val inputs = listOf(
+            "P0D",
+            "P2Y",
+            "p-2y",
+            "+P1Y-2M+3W-4D",
+            "-P1Y2M3W4D",
+            "P2147483647Y",
+            "P-2147483648Y",
+            "P306783378W",
+            "P306783379W",
+            "-P-2147483648Y",
+            "",
+            "P",
+            "PT1H",
+            "P1D2Y",
+            "P2147483648Y",
+        )
+
+        inputs.forEach { input ->
+            assertSameOutcome(
+                javaOperation = { JavaPeriod.parse(input).toString() },
+                kotlinOperation = { Period.parse(input).toString() },
+                context = input,
+            )
+        }
+    }
+
+    @Test
+    fun dateDifferenceMatchesJavaTime() {
+        val epochDays = listOf(
+            -365_243_219_162L,
+            -719_893L,
+            -1L,
+            0L,
+            19_782L,
+            365_241_780_471L,
+        )
+
+        epochDays.forEach { startEpochDay ->
+            val javaStart = JavaLocalDate.ofEpochDay(startEpochDay)
+            val start = LocalDate.ofEpochDay(startEpochDay)
+            epochDays.forEach { endEpochDay ->
+                val javaEnd = JavaLocalDate.ofEpochDay(endEpochDay)
+                val end = LocalDate.ofEpochDay(endEpochDay)
+                assertEquals(javaStart.until(javaEnd).toString(), start.until(end).toString())
+                assertEquals(
+                    JavaPeriod.between(javaStart, javaEnd).toString(),
+                    Period.between(start, end).toString(),
+                )
+            }
+        }
+    }
+
     private fun assertSameOutcome(
         javaOperation: () -> Any?,
         kotlinOperation: () -> Any?,

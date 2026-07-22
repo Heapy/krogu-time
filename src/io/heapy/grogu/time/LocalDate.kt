@@ -252,6 +252,25 @@ public class LocalDate private constructor(
     override fun adjustInto(temporal: Temporal): Temporal =
         temporal.with(ChronoField.EPOCH_DAY, toEpochDay())
 
+    /** Calculates the ISO calendar period until [endDateExclusive]. */
+    public fun until(endDateExclusive: LocalDate): Period {
+        var totalMonths = endDateExclusive.prolepticMonth - prolepticMonth
+        var days = endDateExclusive.dayOfMonth - dayOfMonth
+        if (totalMonths > 0 && days < 0) {
+            totalMonths--
+            val calculatedDate = plusMonths(totalMonths)
+            days = (endDateExclusive.toEpochDay() - calculatedDate.toEpochDay()).toInt()
+        } else if (totalMonths < 0 && days > 0) {
+            totalMonths++
+            days -= endDateExclusive.lengthOfMonth()
+        }
+        return Period.of(
+            years = (totalMonths / 12).toInt(),
+            months = (totalMonths % 12).toInt(),
+            days = days,
+        )
+    }
+
     override fun until(endExclusive: Temporal, unit: TemporalUnit): Long {
         val end = from(endExclusive)
         if (unit !is ChronoUnit) return unit.between(this, end)
