@@ -59,9 +59,10 @@ Implemented foundations:
   differences, ordering, strict ISO parsing, and ISO text output (formatter
   overloads, queries, and offset/zone APIs remain)
 - `LocalDateTime` immutable composition, factories, local field access,
-  conversion, replacement, truncation, checked date/time arithmetic,
-  complete-unit differences, boundaries, ordering, strict ISO parsing, and ISO
-  text output (formatter overloads, queries, and zone APIs remain)
+  epoch/fixed-offset conversion, replacement, truncation, checked date/time
+  arithmetic, complete-unit differences, boundaries, ordering, strict ISO
+  parsing, and ISO text output (formatter overloads, queries, and zone-region
+  APIs remain)
 - `Duration` with the complete Java 21 public API surface, including parsing,
   temporal integration, checked arithmetic, conversions, truncation, and
   `between`
@@ -69,7 +70,7 @@ Implemented foundations:
   temporal fields, replacement, truncation, checked precise-unit arithmetic,
   complete-unit and duration differences, epoch-millisecond conversion,
   adjustment, ordering, hashing, strict ISO parsing, and ISO text output (clock
-  factories, queries, and offset/zone composition remain)
+  factories, queries, and zone-region composition remain)
 - `ZoneOffset` factories, validation, normalized ID parsing and formatting,
   quarter-hour canonicalization, offset-field/query integration, adjustment,
   and Java-compatible ordering (the `ZoneId` hierarchy and rules remain)
@@ -78,14 +79,19 @@ Implemented foundations:
   truncation, wraparound arithmetic, complete-unit differences, timeline and
   structural ordering, epoch-second conversion, strict ISO parsing, and ISO
   text output (clock/zone factories, formatters, and date composition remain)
+- `OffsetDateTime` immutable composition, factories, fixed-offset/instant
+  conversion, all standard fields and units, replacement, truncation, checked
+  local arithmetic, complete-unit differences across offsets, timeline and
+  structural ordering, strict ISO parsing, and ISO text output (clock/zone
+  factories and formatter overloads remain)
 - temporal interfaces and exceptions, plus the standard offset query
 - `TemporalAdjusters` complete date-adjuster utility surface
 - `ValueRange`
 - `ChronoUnit`
 - `ChronoField`
 
-Remaining work includes standard temporal queries, other local and offset
-date/time types, clocks, chronology integration, zones
+Remaining work includes standard temporal queries, zoned date/time types,
+clocks, chronology integration, zones
 and rules, formatters and parsers beyond the implemented ISO defaults and
 amount parsers, alternate chronologies, and complete cross-type conformance
 coverage.

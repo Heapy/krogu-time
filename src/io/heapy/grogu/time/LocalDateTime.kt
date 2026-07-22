@@ -77,6 +77,17 @@ public class LocalDateTime private constructor(
     /** Returns the local-time part. */
     public fun toLocalTime(): LocalTime = time
 
+    /** Converts this local date-time to epoch seconds using [offset]. */
+    public fun toEpochSecond(offset: ZoneOffset): Long =
+        date.toEpochDay() * SECONDS_PER_DAY + time.toSecondOfDay() - offset.totalSeconds
+
+    /** Combines this local date-time with [offset] to create an instant. */
+    public fun toInstant(offset: ZoneOffset): Instant =
+        Instant.ofEpochSecond(toEpochSecond(offset), nano.toLong())
+
+    /** Combines this local date-time with [offset]. */
+    public fun atOffset(offset: ZoneOffset): OffsetDateTime = OffsetDateTime.of(this, offset)
+
     override fun with(adjuster: TemporalAdjuster): LocalDateTime = when (adjuster) {
         is LocalDate -> with(adjuster, time)
         is LocalTime -> with(date, adjuster)
@@ -392,6 +403,22 @@ public class LocalDateTime private constructor(
         /** Combines an existing local date and local time. */
         public fun of(date: LocalDate, time: LocalTime): LocalDateTime =
             LocalDateTime(date, time)
+
+        /** Obtains a local date-time from epoch seconds interpreted with [offset]. */
+        public fun ofEpochSecond(
+            epochSecond: Long,
+            nanoOfSecond: Int,
+            offset: ZoneOffset,
+        ): LocalDateTime {
+            val nano = ChronoField.NANO_OF_SECOND.checkValidIntValue(nanoOfSecond.toLong())
+            val localSecond = epochSecond + offset.totalSeconds
+            val localEpochDay = floorDiv(localSecond, SECONDS_PER_DAY)
+            val secondOfDay = floorMod(localSecond, SECONDS_PER_DAY)
+            return of(
+                LocalDate.ofEpochDay(localEpochDay),
+                LocalTime.ofSecondOfDay(secondOfDay).withNano(nano),
+            )
+        }
 
         /** Obtains a local date-time from a temporal accessor. */
         public fun from(temporal: TemporalAccessor): LocalDateTime {
