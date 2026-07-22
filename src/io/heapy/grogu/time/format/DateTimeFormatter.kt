@@ -1392,9 +1392,10 @@ private fun Char.isAsciiLetter(): Boolean = this in 'A'..'Z' || this in 'a'..'z'
 
 private fun validatePatternField(symbol: Char, count: Int) {
     when (symbol) {
-        'u', 'y', 'Y', 'g' -> require(count <= 19) {
+        'u', 'y', 'g' -> require(count <= 19) {
             "The count of pattern letters must not exceed 19: $symbol"
         }
+        'Y' -> Unit
         'Q', 'q', 'M', 'L' -> require(count <= 5) { "Too many pattern letters: $symbol" }
         'G', 'E', 'e' -> require(count <= 5) { "Too many pattern letters: $symbol" }
         'c' -> require(count != 2 && count <= 5) {
@@ -1433,10 +1434,34 @@ private fun createPatternFieldToken(
     count: Int,
 ): PatternToken = when (symbol) {
     'O' -> PatternToken.LocalizedOffset(if (count == 1) TextStyle.SHORT else TextStyle.FULL)
-    'Z' -> if (count == 4) {
-        PatternToken.LocalizedOffset(TextStyle.FULL)
-    } else {
-        PatternToken.Field(symbol, count)
+    'X' -> PatternToken.Offset(
+        pattern = when (count) {
+            1 -> "+HHmm"
+            2 -> "+HHMM"
+            3 -> "+HH:MM"
+            4 -> "+HHMMss"
+            else -> "+HH:MM:ss"
+        },
+        noOffsetText = "Z",
+    )
+    'x' -> PatternToken.Offset(
+        pattern = when (count) {
+            1 -> "+HHmm"
+            2 -> "+HHMM"
+            3 -> "+HH:MM"
+            4 -> "+HHMMss"
+            else -> "+HH:MM:ss"
+        },
+        noOffsetText = when (count) {
+            1 -> "+00"
+            2, 4 -> "+0000"
+            else -> "+00:00"
+        },
+    )
+    'Z' -> when (count) {
+        1, 2, 3 -> PatternToken.Offset("+HHMM", "+0000")
+        4 -> PatternToken.LocalizedOffset(TextStyle.FULL)
+        else -> PatternToken.Offset("+HH:MM:ss", "Z")
     }
     'z' -> PatternToken.ZoneText(
         style = if (count == 4) TextStyle.FULL else TextStyle.SHORT,

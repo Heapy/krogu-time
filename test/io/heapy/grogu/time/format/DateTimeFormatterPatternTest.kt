@@ -109,6 +109,34 @@ class DateTimeFormatterPatternTest {
     }
 
     @Test
+    fun exposesOffsetAndWideLocalizedWeekPatternDescriptions() {
+        val descriptions = mapOf(
+            "X" to "Offset(+HHmm,'Z')",
+            "XX" to "Offset(+HHMM,'Z')",
+            "XXX" to "Offset(+HH:MM,'Z')",
+            "XXXX" to "Offset(+HHMMss,'Z')",
+            "XXXXX" to "Offset(+HH:MM:ss,'Z')",
+            "x" to "Offset(+HHmm,'+00')",
+            "xx" to "Offset(+HHMM,'+0000')",
+            "xxx" to "Offset(+HH:MM,'+00:00')",
+            "xxxx" to "Offset(+HHMMss,'+0000')",
+            "xxxxx" to "Offset(+HH:MM:ss,'+00:00')",
+            "Z" to "Offset(+HHMM,'+0000')",
+            "ZZ" to "Offset(+HHMM,'+0000')",
+            "ZZZ" to "Offset(+HHMM,'+0000')",
+            "ZZZZZ" to "Offset(+HH:MM:ss,'Z')",
+        )
+        descriptions.forEach { (pattern, description) ->
+            assertEquals(description, DateTimeFormatter.ofPattern(pattern).toString(), pattern)
+        }
+
+        assertEquals(
+            "Localized(WeekBasedYear,20,19,EXCEEDS_PAD)",
+            DateTimeFormatter.ofPattern("Y".repeat(20)).toString(),
+        )
+    }
+
+    @Test
     fun formatsAndParsesRegionZoneIds() {
         val zoned = ZonedDateTime.of(
             LocalDateTime.of(2024, 3, 1, 5, 6),

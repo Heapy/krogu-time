@@ -78,8 +78,12 @@ class DateTimeFormatterLocalizedWeekTest {
             "Localized(WeekBasedYear,4,19,EXCEEDS_PAD)",
             DateTimeFormatter.ofPattern("YYYY").toString(),
         )
+        assertEquals(
+            "Localized(WeekBasedYear,20,19,EXCEEDS_PAD)",
+            DateTimeFormatter.ofPattern("Y".repeat(20)).toString(),
+        )
 
-        listOf("Y".repeat(20), "www", "WW", "eeeeee", "cc", "cccccc").forEach { pattern ->
+        listOf("www", "WW", "eeeeee", "cc", "cccccc").forEach { pattern ->
             assertFailsWith<IllegalArgumentException>(pattern) {
                 DateTimeFormatter.ofPattern(pattern)
             }

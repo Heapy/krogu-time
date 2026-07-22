@@ -54,4 +54,39 @@ class DateTimeFormatterPatternJavaConformanceTest {
             )
         }
     }
+
+    @Test
+    fun everyPatternLetterWidthMatchesJavaTime() {
+        val letters = "GyYuQqMLwWdDFEecabBhHkKmsSAnNgzvVOXxZ"
+        val mismatches = mutableListOf<String>()
+
+        letters.forEach { letter ->
+            (1..20).forEach { width ->
+                val pattern = letter.toString().repeat(width)
+                comparePatternOutcome(pattern)?.let(mismatches::add)
+            }
+        }
+        (1..20).forEach { width ->
+            comparePatternOutcome("p".repeat(width) + "H")?.let(mismatches::add)
+        }
+        assertEquals(emptyList(), mismatches)
+    }
+
+    private fun comparePatternOutcome(pattern: String): String? {
+        val javaResult = runCatching {
+            java.time.format.DateTimeFormatter.ofPattern(pattern).toString()
+        }
+        val kotlinResult = runCatching {
+            DateTimeFormatter.ofPattern(pattern).toString()
+        }
+        val javaOutcome = javaResult.getOrNull() to
+            javaResult.exceptionOrNull()?.javaClass?.simpleName
+        val kotlinOutcome = kotlinResult.getOrNull() to
+            kotlinResult.exceptionOrNull()?.javaClass?.simpleName
+        return if (javaOutcome == kotlinOutcome) {
+            null
+        } else {
+            "$pattern: Java=$javaOutcome, Kotlin=$kotlinOutcome"
+        }
+    }
 }
