@@ -1,12 +1,18 @@
 package io.heapy.grogu.time
 
+import io.heapy.grogu.time.chrono.Chronology
+import io.heapy.grogu.time.chrono.HijrahChronology
 import io.heapy.grogu.time.chrono.HijrahDate
 import io.heapy.grogu.time.chrono.HijrahEra
+import io.heapy.grogu.time.chrono.IsoChronology
 import io.heapy.grogu.time.chrono.IsoEra
+import io.heapy.grogu.time.chrono.JapaneseChronology
 import io.heapy.grogu.time.chrono.JapaneseDate
 import io.heapy.grogu.time.chrono.JapaneseEra
+import io.heapy.grogu.time.chrono.MinguoChronology
 import io.heapy.grogu.time.chrono.MinguoDate
 import io.heapy.grogu.time.chrono.MinguoEra
+import io.heapy.grogu.time.chrono.ThaiBuddhistChronology
 import io.heapy.grogu.time.chrono.ThaiBuddhistDate
 import io.heapy.grogu.time.chrono.ThaiBuddhistEra
 import io.heapy.grogu.time.temporal.ChronoField
@@ -111,6 +117,125 @@ class TemporalAccessorFieldMatrixJavaConformanceTest {
 
         assertEquals(emptyList(), mismatches)
     }
+
+    @Test
+    fun everyChronologyFactoryMatchesJavaTimeAcrossAccessors() {
+        val mismatches = chronologies().flatMap { chronology ->
+            accessors().mapNotNull { accessor ->
+                val javaSnapshot = ChronologyFactorySnapshot(
+                    date = outcome { chronology.java.date(accessor.java) },
+                    localDateTime = outcome { chronology.java.localDateTime(accessor.java) },
+                    zonedDateTime = outcome { chronology.java.zonedDateTime(accessor.java) },
+                )
+                val kotlinSnapshot = ChronologyFactorySnapshot(
+                    date = outcome { chronology.kotlin.date(accessor.kotlin) },
+                    localDateTime = outcome { chronology.kotlin.localDateTime(accessor.kotlin) },
+                    zonedDateTime = outcome { chronology.kotlin.zonedDateTime(accessor.kotlin) },
+                )
+                if (javaSnapshot == kotlinSnapshot) {
+                    null
+                } else {
+                    "${chronology.name} from ${accessor.name}: " +
+                        "Java=$javaSnapshot, Kotlin=$kotlinSnapshot"
+                }
+            }
+        }
+
+        assertEquals(emptyList(), mismatches)
+    }
+
+    @Test
+    fun everyChronologyEpochAndInstantZoneFactoryMatchesJavaTime() {
+        val epochDays = listOf(
+            java.time.LocalDate.MIN.toEpochDay(),
+            -1L,
+            0L,
+            java.time.LocalDate.of(2024, 2, 29).toEpochDay(),
+            java.time.LocalDate.MAX.toEpochDay(),
+        )
+        val instants = listOf(
+            InstantPair("MIN", java.time.Instant.MIN, Instant.MIN),
+            InstantPair("EPOCH", java.time.Instant.EPOCH, Instant.EPOCH),
+            InstantPair(
+                "Paris gap boundary",
+                java.time.Instant.parse("2024-03-31T01:00:00Z"),
+                Instant.parse("2024-03-31T01:00:00Z"),
+            ),
+            InstantPair("MAX", java.time.Instant.MAX, Instant.MAX),
+        )
+        val zones = listOf(
+            ZonePair("UTC", java.time.ZoneOffset.UTC, ZoneOffset.UTC),
+            ZonePair(
+                "+05:45",
+                java.time.ZoneOffset.ofHoursMinutes(5, 45),
+                ZoneOffset.ofHoursMinutes(5, 45),
+            ),
+            ZonePair(
+                "Europe/Paris",
+                java.time.ZoneId.of("Europe/Paris"),
+                ZoneId.of("Europe/Paris"),
+            ),
+        )
+        val mismatches = chronologies().flatMap { chronology ->
+            val epochMismatches = epochDays.mapNotNull { epochDay ->
+                val javaOutcome = outcome { chronology.java.dateEpochDay(epochDay) }
+                val kotlinOutcome = outcome { chronology.kotlin.dateEpochDay(epochDay) }
+                if (javaOutcome == kotlinOutcome) {
+                    null
+                } else {
+                    "${chronology.name} epochDay $epochDay: " +
+                        "Java=$javaOutcome, Kotlin=$kotlinOutcome"
+                }
+            }
+            val instantMismatches = instants.flatMap { instant ->
+                zones.mapNotNull { zone ->
+                    val javaOutcome = outcome {
+                        chronology.java.zonedDateTime(instant.java, zone.java)
+                    }
+                    val kotlinOutcome = outcome {
+                        chronology.kotlin.zonedDateTime(instant.kotlin, zone.kotlin)
+                    }
+                    if (javaOutcome == kotlinOutcome) {
+                        null
+                    } else {
+                        "${chronology.name} ${instant.name} ${zone.name}: " +
+                            "Java=$javaOutcome, Kotlin=$kotlinOutcome"
+                    }
+                }
+            }
+            epochMismatches + instantMismatches
+        }
+
+        assertEquals(emptyList(), mismatches)
+    }
+
+    private fun chronologies(): List<ChronologyPair> = listOf(
+        ChronologyPair(
+            "ISO",
+            java.time.chrono.IsoChronology.INSTANCE,
+            IsoChronology,
+        ),
+        ChronologyPair(
+            "Japanese",
+            java.time.chrono.JapaneseChronology.INSTANCE,
+            JapaneseChronology,
+        ),
+        ChronologyPair(
+            "Hijrah-umalqura",
+            java.time.chrono.HijrahChronology.INSTANCE,
+            HijrahChronology,
+        ),
+        ChronologyPair(
+            "Minguo",
+            java.time.chrono.MinguoChronology.INSTANCE,
+            MinguoChronology,
+        ),
+        ChronologyPair(
+            "ThaiBuddhist",
+            java.time.chrono.ThaiBuddhistChronology.INSTANCE,
+            ThaiBuddhistChronology,
+        ),
+    )
 
     private fun accessors(): List<AccessorPair> {
         val javaDate = java.time.LocalDate.of(2024, 2, 29)
@@ -255,6 +380,30 @@ class TemporalAccessorFieldMatrixJavaConformanceTest {
         val name: String,
         val java: java.time.temporal.TemporalQuery<*>,
         val kotlin: TemporalQuery<*>,
+    )
+
+    private data class ChronologyPair(
+        val name: String,
+        val java: java.time.chrono.Chronology,
+        val kotlin: Chronology,
+    )
+
+    private data class InstantPair(
+        val name: String,
+        val java: java.time.Instant,
+        val kotlin: Instant,
+    )
+
+    private data class ZonePair(
+        val name: String,
+        val java: java.time.ZoneId,
+        val kotlin: ZoneId,
+    )
+
+    private data class ChronologyFactorySnapshot(
+        val date: Outcome,
+        val localDateTime: Outcome,
+        val zonedDateTime: Outcome,
     )
 
     private data class Outcome(
