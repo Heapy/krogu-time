@@ -5,18 +5,18 @@ import io.heapy.grogu.time.internal.floorMod
 import kotlin.time.Clock as KotlinClock
 
 /** A time source that supplies instants using a configured time-zone. */
-public abstract class Clock protected constructor() {
+public abstract class Clock protected constructor() : InstantSource {
     /** The time-zone used when this clock is converted to calendar values. */
     public abstract val zone: ZoneId
 
     /** Returns an equivalent clock using [zone]. */
-    public abstract fun withZone(zone: ZoneId): Clock
+    public abstract override fun withZone(zone: ZoneId): Clock
 
     /** Returns the current millisecond instant measured from the Java epoch. */
-    public open fun millis(): Long = instant().toEpochMilli()
+    public open override fun millis(): Long = instant().toEpochMilli()
 
     /** Returns the current instant supplied by this clock. */
-    public abstract fun instant(): Instant
+    public abstract override fun instant(): Instant
 
     public companion object {
         private const val NANOS_PER_MILLI: Long = 1_000_000

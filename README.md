@@ -120,6 +120,9 @@ Implemented foundations:
 - `Clock` system clocks for explicit zones, fixed and offset clocks, validated
   nanosecond-to-minute tick clocks, millisecond access, zone replacement, and
   Java-compatible value/text semantics (system-default-zone lookup remains)
+- `InstantSource` system, fixed, offset, and tick sources, default millisecond
+  conversion, arbitrary-source zone-to-clock bridging, and Java-compatible
+  reuse of clock implementations
 - temporal interfaces and exceptions, plus the standard offset query
 - `TemporalAdjusters` complete date-adjuster utility surface
 - `ValueRange`
