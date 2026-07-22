@@ -145,11 +145,14 @@ Implemented foundations:
   full-range epoch conversion and adjustment
 - `IsoFields` quarter-of-year and ISO week-based-year fields and units, with
   leap-year ranges, field adjustment, and calendar arithmetic
+- `WeekFields` canonical explicit week definitions for every first-day and
+  minimal-days combination, with all five localized computed fields
 - `ValueRange`
 - `ChronoUnit`
 - `ChronoField`
 
 Remaining work includes no-argument system-default current-value factories and
 system-default-zone lookup, a bundled region time-zone database, formatters and
-parsers beyond the implemented ISO defaults and amount parsers, alternate
-chronologies, and complete cross-type conformance coverage.
+parsers beyond the implemented ISO defaults and amount parsers, locale-backed
+week-rule selection and display names, alternate chronologies, and complete
+cross-type conformance coverage.
