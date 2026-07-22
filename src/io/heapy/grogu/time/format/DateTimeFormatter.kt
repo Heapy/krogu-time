@@ -11,6 +11,8 @@ import io.heapy.grogu.time.Period
 import io.heapy.grogu.time.ZoneId
 import io.heapy.grogu.time.ZoneOffset
 import io.heapy.grogu.time.ZonedDateTime
+import io.heapy.grogu.time.chrono.ChronoLocalDate
+import io.heapy.grogu.time.chrono.Chronology
 import io.heapy.grogu.time.chrono.IsoChronology
 import io.heapy.grogu.time.temporal.ChronoField
 import io.heapy.grogu.time.temporal.IsoFields
@@ -30,6 +32,7 @@ public class DateTimeFormatter private constructor(
     private val resolverParser: ((String, ResolverStyle) -> TemporalAccessor)? = null,
     public val decimalStyle: DecimalStyle = DecimalStyle.STANDARD,
     public val resolverStyle: ResolverStyle = ResolverStyle.STRICT,
+    public val chronology: Chronology? = null,
     public val zone: ZoneId? = null,
 ) {
     /** Formats [temporal] into a string. */
@@ -45,7 +48,7 @@ public class DateTimeFormatter private constructor(
     public fun parse(text: CharSequence): TemporalAccessor {
         val standardized = decimalStyleScope.standardize(text, decimalStyle)
         val parsed = resolverParser?.invoke(standardized, resolverStyle) ?: parser(standardized)
-        return applyZoneOverride(parsed)
+        return applyOverrides(parsed)
     }
 
     /** Returns a formatter using [decimalStyle] for numeric symbols. */
@@ -61,6 +64,7 @@ public class DateTimeFormatter private constructor(
                 resolverParser = resolverParser,
                 decimalStyle = decimalStyle,
                 resolverStyle = resolverStyle,
+                chronology = chronology,
                 zone = zone,
             )
         }
@@ -78,6 +82,25 @@ public class DateTimeFormatter private constructor(
                 resolverParser = resolverParser,
                 decimalStyle = decimalStyle,
                 resolverStyle = resolverStyle,
+                chronology = chronology,
+                zone = zone,
+            )
+        }
+
+    /** Returns a formatter that overrides the chronology while formatting and parsing. */
+    public fun withChronology(chronology: Chronology?): DateTimeFormatter =
+        if (chronology == this.chronology) {
+            this
+        } else {
+            DateTimeFormatter(
+                printer = printer,
+                parser = parser,
+                description = description,
+                decimalStyleScope = decimalStyleScope,
+                resolverParser = resolverParser,
+                decimalStyle = decimalStyle,
+                resolverStyle = resolverStyle,
+                chronology = chronology,
                 zone = zone,
             )
         }
@@ -95,6 +118,7 @@ public class DateTimeFormatter private constructor(
                 resolverParser = resolverParser,
                 decimalStyle = decimalStyle,
                 resolverStyle = resolverStyle,
+                chronology = chronology,
                 zone = zone,
             )
         }
@@ -153,36 +177,77 @@ public class DateTimeFormatter private constructor(
     }
 
     private fun adjustForFormatting(temporal: TemporalAccessor): TemporalAccessor {
-        val overrideZone = zone ?: return temporal
-        if (overrideZone == temporal.query(TemporalQueries.zoneId())) return temporal
-        if (temporal.isSupported(ChronoField.INSTANT_SECONDS)) {
-            return ZonedDateTime.ofInstant(Instant.from(temporal), overrideZone)
+        val temporalChronology = temporal.query(TemporalQueries.chronology())
+        val temporalZone = temporal.query(TemporalQueries.zoneId())
+        val overrideChronology = chronology?.takeUnless { it == temporalChronology }
+        val overrideZone = zone?.takeUnless { it == temporalZone }
+        if (overrideChronology == null && overrideZone == null) return temporal
+
+        val effectiveChronology = overrideChronology ?: temporalChronology
+        if (overrideZone != null && temporal.isSupported(ChronoField.INSTANT_SECONDS)) {
+            val instantChronology = effectiveChronology ?: IsoChronology
+            return instantChronology.zonedDateTime(Instant.from(temporal), overrideZone)
         }
 
-        val normalizedZone = overrideZone.normalized()
-        if (
-            normalizedZone is ZoneOffset &&
-            temporal.isSupported(ChronoField.OFFSET_SECONDS) &&
-            temporal.getLong(ChronoField.OFFSET_SECONDS) != normalizedZone.totalSeconds.toLong()
-        ) {
-            throw DateTimeException(
-                "Unable to apply override zone '$overrideZone' because the temporal object " +
-                    "being formatted has a different offset but does not represent an instant: " +
-                    temporal,
-            )
+        if (overrideZone != null) {
+            val normalizedZone = overrideZone.normalized()
+            if (
+                normalizedZone is ZoneOffset &&
+                temporal.isSupported(ChronoField.OFFSET_SECONDS) &&
+                temporal.getLong(ChronoField.OFFSET_SECONDS) != normalizedZone.totalSeconds.toLong()
+            ) {
+                throw DateTimeException(
+                    "Unable to apply override zone '$overrideZone' because the temporal object " +
+                        "being formatted has a different offset but does not represent an instant: " +
+                        temporal,
+                )
+            }
         }
-        return ZoneOverrideTemporalAccessor(temporal, overrideZone)
+
+        val effectiveDate = if (overrideChronology != null) {
+            if (temporal.isSupported(ChronoField.EPOCH_DAY)) {
+                overrideChronology.date(temporal)
+            } else {
+                if (overrideChronology != IsoChronology || temporalChronology != null) {
+                    ChronoField.entries.firstOrNull { field ->
+                        field.isDateBased && temporal.isSupported(field)
+                    }?.let {
+                        throw DateTimeException(
+                            "Unable to apply override chronology '$overrideChronology' because the temporal " +
+                                "object being formatted contains date fields but does not represent a whole date: " +
+                                temporal,
+                        )
+                    }
+                }
+                null
+            }
+        } else {
+            null
+        }
+
+        return FormatterOverrideTemporalAccessor(
+            delegate = temporal,
+            date = effectiveDate,
+            chronology = effectiveChronology,
+            zone = overrideZone ?: temporalZone,
+        )
     }
 
-    private fun applyZoneOverride(parsed: TemporalAccessor): TemporalAccessor {
-        val overrideZone = zone ?: return parsed
-        return if (parsed is ParsedTemporalAccessor) {
-            parsed.withDefaultZone(overrideZone)
-        } else if (parsed.query(TemporalQueries.zoneId()) == null) {
-            ZoneOverrideTemporalAccessor(parsed, overrideZone)
-        } else {
-            parsed
+    private fun applyOverrides(parsed: TemporalAccessor): TemporalAccessor {
+        if (parsed is ParsedTemporalAccessor) {
+            return parsed
+                .withChronology(chronology ?: IsoChronology)
+                .let { resolved -> zone?.let(resolved::withDefaultZone) ?: resolved }
         }
+
+        val parsedChronology = parsed.query(TemporalQueries.chronology())
+        val parsedZone = parsed.query(TemporalQueries.zoneId())
+        if (chronology == null && (zone == null || parsedZone != null)) return parsed
+        return FormatterOverrideTemporalAccessor(
+            delegate = parsed,
+            chronology = parsedChronology ?: chronology ?: IsoChronology,
+            zone = parsedZone ?: zone,
+        )
     }
 
     override fun toString(): String = description
@@ -190,7 +255,7 @@ public class DateTimeFormatter private constructor(
     public companion object {
         /** The strict ISO formatter for a date without a time or offset. */
         public val ISO_LOCAL_DATE: DateTimeFormatter = DateTimeFormatter(
-            printer = { temporal -> LocalDate.from(temporal).toString() },
+            printer = ::formatIsoDateFields,
             parser = { text -> LocalDate.parse(text) },
             description =
                 "Value(Year,4,10,EXCEEDS_PAD)'-'Value(MonthOfYear,2)'-'Value(DayOfMonth,2)",
@@ -199,12 +264,13 @@ public class DateTimeFormatter private constructor(
                     date = parseResolvedIsoDate(text, style, "ISO local date"),
                 )
             },
+            chronology = IsoChronology,
         )
 
         /** The strict ISO formatter for a date with a required offset. */
         public val ISO_OFFSET_DATE: DateTimeFormatter = DateTimeFormatter(
             printer = { temporal ->
-                LocalDate.from(temporal).toString() + ZoneOffset.from(temporal)
+                formatIsoDateFields(temporal) + ZoneOffset.from(temporal)
             },
             parser = { text -> parseIsoDate(text, offsetRequired = true) },
             description =
@@ -215,13 +281,14 @@ public class DateTimeFormatter private constructor(
             resolverParser = { text, style ->
                 parseIsoDate(text, offsetRequired = true, resolverStyle = style)
             },
+            chronology = IsoChronology,
         )
 
         /** The strict ISO formatter for a date with an optional offset. */
         public val ISO_DATE: DateTimeFormatter = DateTimeFormatter(
             printer = { temporal ->
                 buildString {
-                    append(LocalDate.from(temporal))
+                    append(formatIsoDateFields(temporal))
                     if (temporal.isSupported(ChronoField.OFFSET_SECONDS)) {
                         append(ZoneOffset.from(temporal))
                     }
@@ -236,6 +303,7 @@ public class DateTimeFormatter private constructor(
             resolverParser = { text, style ->
                 parseIsoDate(text, offsetRequired = false, resolverStyle = style)
             },
+            chronology = IsoChronology,
         )
 
         /** The strict ISO formatter for a time without a date or offset. */
@@ -274,9 +342,7 @@ public class DateTimeFormatter private constructor(
 
         /** The strict ISO formatter for a date-time without an offset. */
         public val ISO_LOCAL_DATE_TIME: DateTimeFormatter = DateTimeFormatter(
-            printer = { temporal ->
-                formatIsoLocalDateTime(LocalDateTime.from(temporal))
-            },
+            printer = ::formatIsoLocalDateTime,
             parser = { text -> LocalDateTime.parse(text) },
             description =
                 "ParseCaseSensitive(false)" +
@@ -289,13 +355,14 @@ public class DateTimeFormatter private constructor(
                 val dateTime = parseResolvedIsoDateTime(text, style)
                 ParsedTemporalAccessor(date = dateTime.date, time = dateTime.time)
             },
+            chronology = IsoChronology,
         )
 
         /** The strict ISO formatter for a date-time with an optional offset and region zone. */
         public val ISO_DATE_TIME: DateTimeFormatter = DateTimeFormatter(
             printer = { temporal ->
                 buildString {
-                    append(formatIsoLocalDateTime(LocalDateTime.from(temporal)))
+                    append(formatIsoLocalDateTime(temporal))
                     if (temporal.isSupported(ChronoField.OFFSET_SECONDS)) {
                         append(ZoneOffset.from(temporal))
                         temporal.query(TemporalQueries.zoneId())?.let { zone ->
@@ -325,16 +392,16 @@ public class DateTimeFormatter private constructor(
                     resolverStyle = style,
                 )
             },
+            chronology = IsoChronology,
         )
 
         /** The strict ISO formatter for a year and day-of-year with an optional offset. */
         public val ISO_ORDINAL_DATE: DateTimeFormatter = DateTimeFormatter(
             printer = { temporal ->
-                val date = LocalDate.from(temporal)
                 buildString {
-                    append(formatIsoYear(date.year))
+                    append(formatIsoYear(temporal.get(ChronoField.YEAR)))
                     append('-')
-                    append(date.dayOfYear.toString().padStart(3, '0'))
+                    append(temporal.get(ChronoField.DAY_OF_YEAR).toString().padStart(3, '0'))
                     appendOptionalIsoOffset(temporal)
                 }
             },
@@ -345,18 +412,18 @@ public class DateTimeFormatter private constructor(
                     "[Offset(+HH:MM:ss,'Z')]",
             decimalStyleScope = DecimalStyleScope.BEFORE_ISO_OFFSET,
             resolverParser = { text, style -> parseIsoOrdinalDate(text, style) },
+            chronology = IsoChronology,
         )
 
         /** The strict ISO formatter for a week-based date with an optional offset. */
         public val ISO_WEEK_DATE: DateTimeFormatter = DateTimeFormatter(
             printer = { temporal ->
-                val date = LocalDate.from(temporal)
                 buildString {
-                    append(formatIsoYear(date.get(IsoFields.WEEK_BASED_YEAR)))
+                    append(formatIsoYear(temporal.get(IsoFields.WEEK_BASED_YEAR)))
                     append("-W")
-                    append(date.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR).toString().padStart(2, '0'))
+                    append(temporal.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR).toString().padStart(2, '0'))
                     append('-')
-                    append(date.dayOfWeek.value)
+                    append(temporal.get(ChronoField.DAY_OF_WEEK))
                     appendOptionalIsoOffset(temporal)
                 }
             },
@@ -368,19 +435,20 @@ public class DateTimeFormatter private constructor(
                     "[Offset(+HH:MM:ss,'Z')]",
             decimalStyleScope = DecimalStyleScope.BEFORE_ISO_OFFSET,
             resolverParser = { text, style -> parseIsoWeekDate(text, style) },
+            chronology = IsoChronology,
         )
 
         /** The strict basic ISO date formatter with an optional compact offset. */
         public val BASIC_ISO_DATE: DateTimeFormatter = DateTimeFormatter(
             printer = { temporal ->
-                val date = LocalDate.from(temporal)
-                if (date.year !in 0..9_999) {
-                    throw DateTimeException("Year cannot be printed as four digits: ${date.year}")
+                val year = temporal.get(ChronoField.YEAR)
+                if (year !in 0..9_999) {
+                    throw DateTimeException("Year cannot be printed as four digits: $year")
                 }
                 buildString {
-                    append(date.year.toString().padStart(4, '0'))
-                    append(date.monthValue.toString().padStart(2, '0'))
-                    append(date.dayOfMonth.toString().padStart(2, '0'))
+                    append(year.toString().padStart(4, '0'))
+                    append(temporal.get(ChronoField.MONTH_OF_YEAR).toString().padStart(2, '0'))
+                    append(temporal.get(ChronoField.DAY_OF_MONTH).toString().padStart(2, '0'))
                     if (temporal.isSupported(ChronoField.OFFSET_SECONDS)) {
                         append(formatBasicOffset(ZoneOffset.from(temporal)))
                     }
@@ -393,6 +461,7 @@ public class DateTimeFormatter private constructor(
                     "[ParseStrict(false)Offset(+HHMMss,'Z')ParseStrict(true)]",
             decimalStyleScope = DecimalStyleScope.BASIC_DATE,
             resolverParser = { text, style -> parseBasicIsoDate(text, style) },
+            chronology = IsoChronology,
         )
 
         /** The English RFC 1123 date-time formatter. */
@@ -409,6 +478,7 @@ public class DateTimeFormatter private constructor(
             decimalStyleScope = DecimalStyleScope.BEFORE_RFC_OFFSET,
             resolverParser = { text, style -> parseRfc1123(text, style) },
             resolverStyle = ResolverStyle.SMART,
+            chronology = IsoChronology,
         )
 
         /** The strict ISO formatter for an instant in UTC. */
@@ -441,8 +511,7 @@ public class DateTimeFormatter private constructor(
         /** The strict ISO formatter for a date-time with an offset. */
         public val ISO_OFFSET_DATE_TIME: DateTimeFormatter = DateTimeFormatter(
             printer = { temporal ->
-                val dateTime = OffsetDateTime.from(temporal)
-                formatIsoLocalDateTime(dateTime.dateTime) + dateTime.offset
+                formatIsoLocalDateTime(temporal) + ZoneOffset.from(temporal)
             },
             parser = { text -> OffsetDateTime.parse(text) },
             description =
@@ -463,18 +532,20 @@ public class DateTimeFormatter private constructor(
                     resolverStyle = style,
                 )
             },
+            chronology = IsoChronology,
         )
 
         /** The strict ISO formatter for a date-time with an offset and optional region zone. */
         public val ISO_ZONED_DATE_TIME: DateTimeFormatter = DateTimeFormatter(
             printer = { temporal ->
-                val dateTime = ZonedDateTime.from(temporal)
+                val offset = ZoneOffset.from(temporal)
+                val zone = temporal.query(TemporalQueries.zoneId()) ?: offset
                 buildString {
-                    append(formatIsoLocalDateTime(dateTime.dateTime))
-                    append(dateTime.offset)
-                    if (dateTime.zone != dateTime.offset) {
+                    append(formatIsoLocalDateTime(temporal))
+                    append(offset)
+                    if (zone != offset) {
                         append('[')
-                        append(dateTime.zone)
+                        append(zone)
                         append(']')
                     }
                 }
@@ -499,6 +570,7 @@ public class DateTimeFormatter private constructor(
                     resolverStyle = style,
                 )
             },
+            chronology = IsoChronology,
         )
 
         /** Returns a singleton query for the excess days produced while resolving. */
@@ -580,8 +652,16 @@ private enum class DecimalStyleScope {
     }
 }
 
-private fun formatIsoLocalDateTime(dateTime: LocalDateTime): String =
-    "${dateTime.date}T${formatIsoLocalTime(dateTime.time)}"
+private fun formatIsoDateFields(temporal: TemporalAccessor): String = buildString {
+    append(formatIsoYear(temporal.get(ChronoField.YEAR)))
+    append('-')
+    append(temporal.get(ChronoField.MONTH_OF_YEAR).toString().padStart(2, '0'))
+    append('-')
+    append(temporal.get(ChronoField.DAY_OF_MONTH).toString().padStart(2, '0'))
+}
+
+private fun formatIsoLocalDateTime(temporal: TemporalAccessor): String =
+    "${formatIsoDateFields(temporal)}T${formatIsoLocalTime(LocalTime.from(temporal))}"
 
 private fun formatIsoYear(year: Int): String = when {
     year in 0..999 -> year.toString().padStart(4, '0')
@@ -611,23 +691,23 @@ private fun formatBasicOffset(offset: ZoneOffset): String {
 }
 
 private fun formatRfc1123(temporal: TemporalAccessor): String {
-    val date = LocalDate.from(temporal)
     val time = LocalTime.from(temporal)
     val offset = ZoneOffset.from(temporal)
-    if (date.year !in 0..9_999) {
-        throw DateTimeException("Year cannot be printed as four digits: ${date.year}")
+    val year = temporal.get(ChronoField.YEAR)
+    if (year !in 0..9_999) {
+        throw DateTimeException("Year cannot be printed as four digits: $year")
     }
     if (offset.totalSeconds % 60 != 0) {
         throw DateTimeException("Offset seconds cannot be printed by RFC 1123: $offset")
     }
     return buildString {
-        append(RFC_DAY_NAMES[date.dayOfWeek.value - 1])
+        append(RFC_DAY_NAMES[temporal.get(ChronoField.DAY_OF_WEEK) - 1])
         append(", ")
-        append(date.dayOfMonth)
+        append(temporal.get(ChronoField.DAY_OF_MONTH))
         append(' ')
-        append(RFC_MONTH_NAMES[date.monthValue - 1])
+        append(RFC_MONTH_NAMES[temporal.get(ChronoField.MONTH_OF_YEAR) - 1])
         append(' ')
-        append(date.year.toString().padStart(4, '0'))
+        append(year.toString().padStart(4, '0'))
         append(' ')
         append(time.hour.toString().padStart(2, '0'))
         append(':')
@@ -1246,40 +1326,72 @@ private interface ParsedState {
     val leapSecond: Boolean
 }
 
-private class ZoneOverrideTemporalAccessor(
+private class FormatterOverrideTemporalAccessor(
     private val delegate: TemporalAccessor,
-    private val zone: ZoneId,
+    private val date: ChronoLocalDate? = null,
+    private val chronology: Chronology? = null,
+    private val zone: ZoneId? = null,
 ) : TemporalAccessor {
-    override fun isSupported(field: TemporalField): Boolean = delegate.isSupported(field)
+    override fun isSupported(field: TemporalField): Boolean =
+        if (date != null && field.isDateBased) date.isSupported(field) else delegate.isSupported(field)
 
-    override fun range(field: TemporalField): ValueRange = delegate.range(field)
+    override fun range(field: TemporalField): ValueRange =
+        if (date != null && field.isDateBased) date.range(field) else delegate.range(field)
 
-    override fun getLong(field: TemporalField): Long = delegate.getLong(field)
+    override fun getLong(field: TemporalField): Long =
+        if (date != null && field.isDateBased) date.getLong(field) else delegate.getLong(field)
 
     override fun <R> query(query: TemporalQuery<R>): R {
         val result: Any? = when (query) {
+            TemporalQueries.chronology() -> chronology
             TemporalQueries.zoneId() -> zone
-            TemporalQueries.chronology(),
-            TemporalQueries.precision(),
-            -> return delegate.query(query)
+            TemporalQueries.precision() -> return delegate.query(query)
             else -> return super<TemporalAccessor>.query(query)
         }
         @Suppress("UNCHECKED_CAST")
         return result as R
     }
 
-    override fun toString(): String = "$delegate with zone $zone"
+    override fun toString(): String = buildString {
+        append(delegate)
+        chronology?.let { append(" with chronology ").append(it) }
+        zone?.let { append(" with zone ").append(it) }
+    }
 }
 
 private class ParsedTemporalAccessor(
-    private val date: LocalDate? = null,
+    private val date: ChronoLocalDate? = null,
     private val time: LocalTime? = null,
     private val offset: ZoneOffset? = null,
     private val zone: ZoneId? = null,
     private val instant: Instant? = null,
+    private val chronology: Chronology = date?.chronology ?: IsoChronology,
     override val excessDays: Period = Period.ZERO,
     override val leapSecond: Boolean = false,
 ) : TemporalAccessor, ParsedState {
+    fun withChronology(chronology: Chronology): ParsedTemporalAccessor {
+        val resolvedDate = when {
+            date == null -> null
+            date.chronology == chronology -> date
+            else -> chronology.date(
+                date.get(ChronoField.YEAR),
+                date.get(ChronoField.MONTH_OF_YEAR),
+                date.get(ChronoField.DAY_OF_MONTH),
+            )
+        }
+        if (this.chronology == chronology && resolvedDate === date) return this
+        return ParsedTemporalAccessor(
+            date = resolvedDate,
+            time = time,
+            offset = offset,
+            zone = zone,
+            instant = instant,
+            chronology = chronology,
+            excessDays = excessDays,
+            leapSecond = leapSecond,
+        )
+    }
+
     fun withDefaultZone(defaultZone: ZoneId): ParsedTemporalAccessor =
         if (zone != null) {
             this
@@ -1290,6 +1402,7 @@ private class ParsedTemporalAccessor(
                 offset = offset,
                 zone = defaultZone,
                 instant = instant,
+                chronology = chronology,
                 excessDays = excessDays,
                 leapSecond = leapSecond,
             )
@@ -1320,7 +1433,8 @@ private class ParsedTemporalAccessor(
     override fun getLong(field: TemporalField): Long = when (field) {
         ChronoField.INSTANT_SECONDS -> {
             instant?.let { return it.epochSecond }
-            val dateTime = LocalDateTime.of(date ?: unsupported(field), time ?: unsupported(field))
+            val isoDate = LocalDate.ofEpochDay(date?.toEpochDay() ?: unsupported(field))
+            val dateTime = LocalDateTime.of(isoDate, time ?: unsupported(field))
             val resolvedOffset = offset ?: zone?.rules?.getOffset(dateTime) ?: unsupported(field)
             dateTime.toEpochSecond(resolvedOffset)
         }
@@ -1334,8 +1448,8 @@ private class ParsedTemporalAccessor(
 
     override fun <R> query(query: TemporalQuery<R>): R {
         val result: Any? = when (query) {
-            TemporalQueries.chronology() -> if (date == null) null else IsoChronology
-            TemporalQueries.localDate() -> date
+            TemporalQueries.chronology() -> chronology
+            TemporalQueries.localDate() -> date?.let { LocalDate.ofEpochDay(it.toEpochDay()) }
             TemporalQueries.localTime() -> time
             TemporalQueries.offset() -> offset
             TemporalQueries.zoneId() -> zone

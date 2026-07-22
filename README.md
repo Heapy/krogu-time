@@ -41,7 +41,8 @@ Implemented foundations:
   (locale factories remain)
 - `DateTimeFormatter` core formatting, appendable output, parsing, temporal
   queries, ordered `parseBest` conversion, and query-failure wrapping, with
-  immutable resolver-style and zone overrides, including instant conversion
+  immutable resolver-style, chronology, and zone overrides, including
+  chronology-aware date conversion, instant conversion, parsed chronology,
   and parsed default-zone behavior, and strict/smart/lenient ISO calendar and
   RFC 1123 resolution (including excess-day handling), plus
   Java-compatible `ISO_LOCAL_DATE`, `ISO_LOCAL_TIME`,
