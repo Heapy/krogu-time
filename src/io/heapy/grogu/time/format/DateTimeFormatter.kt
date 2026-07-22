@@ -1089,6 +1089,8 @@ internal sealed interface PatternToken {
 
     data object ChronologyId : PatternToken
 
+    data class ChronologyText(val style: TextStyle) : PatternToken
+
     data class ParseSetting(val setting: ParserSetting) : PatternToken
 
     data class DefaultValue(
@@ -1419,6 +1421,9 @@ private fun formatPattern(
             is PatternToken.ZoneText -> append(formatPatternZoneText(token, temporal, locale))
             is PatternToken.ZoneId -> append(formatBuilderZoneId(token, temporal))
             PatternToken.ChronologyId -> append(formatBuilderChronologyId(temporal))
+            is PatternToken.ChronologyText -> append(
+                formatBuilderChronologyText(token, temporal, locale),
+            )
             is PatternToken.Optional -> try {
                 append(formatPattern(token.tokens, temporal, locale))
             } catch (_: DateTimeException) {
@@ -1537,6 +1542,16 @@ private fun TemporalAccessor.chronologyId(): String =
 private fun formatBuilderChronologyId(temporal: TemporalAccessor): String =
     temporal.query(TemporalQueries.chronology())?.id
         ?: throw DateTimeException("Unable to extract chronology from temporal $temporal")
+
+private fun formatBuilderChronologyText(
+    token: PatternToken.ChronologyText,
+    temporal: TemporalAccessor,
+    locale: Locale,
+): String {
+    val chronology = temporal.query(TemporalQueries.chronology())
+        ?: throw DateTimeException("Unable to extract chronology from temporal $temporal")
+    return chronology.getDisplayName(token.style, locale)
+}
 
 private fun formatPatternZoneText(
     token: PatternToken.ZoneText,
@@ -2120,6 +2135,18 @@ private fun parsePattern(
                     refreshChronologySensitiveReducedValues()
                     index = parsed.endIndex
                 }
+                is PatternToken.ChronologyText -> {
+                    val parsed = parsePatternChronologyText(
+                        token = token,
+                        text = input,
+                        startIndex = index,
+                        locale = locale,
+                        caseSensitive = caseSensitive,
+                    )
+                    parsedChronology = parsed.chronology
+                    refreshChronologySensitiveReducedValues()
+                    index = parsed.endIndex
+                }
                 is PatternToken.Optional -> {
                     val previousValues = values.toMap()
                     val previousOffset = offset
@@ -2233,6 +2260,25 @@ private fun parsePatternChronology(
             startIndex,
         )
     return ParsedPatternChronology(chronology, startIndex + chronology.id.length)
+}
+
+private fun parsePatternChronologyText(
+    token: PatternToken.ChronologyText,
+    text: String,
+    startIndex: Int,
+    locale: Locale,
+    caseSensitive: Boolean,
+): ParsedPatternChronology {
+    val match = Chronology.getAvailableChronologies()
+        .map { chronology -> chronology to chronology.getDisplayName(token.style, locale) }
+        .filter { (_, name) -> text.matchesAt(startIndex, name, caseSensitive) }
+        .maxByOrNull { (_, name) -> name.length }
+        ?: throw DateTimeParseException(
+            "Text could not be parsed at index $startIndex",
+            text,
+            startIndex,
+        )
+    return ParsedPatternChronology(match.first, startIndex + match.second.length)
 }
 
 private data class ParsedPatternInstant(
@@ -2833,6 +2879,7 @@ private fun PatternToken.adjacentFixedNumericWidth(): Int? = when (this) {
     is PatternToken.ZoneText,
     is PatternToken.ZoneId,
     PatternToken.ChronologyId,
+    is PatternToken.ChronologyText,
     is PatternToken.ParseSetting,
     is PatternToken.DefaultValue,
     is PatternToken.Optional,
@@ -3588,6 +3635,9 @@ private fun describePattern(tokens: List<PatternToken>): String = buildString {
                 },
             )
             PatternToken.ChronologyId -> append("ChronologyId()")
+            is PatternToken.ChronologyText -> append("ChronologyText(")
+                .append(token.style)
+                .append(')')
             is PatternToken.ParseSetting -> append(
                 when (token.setting) {
                     ParserSetting.CASE_SENSITIVE -> "ParseCaseSensitive(true)"

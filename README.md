@@ -77,8 +77,9 @@ Implemented foundations:
   patterns, FULL/SHORT `GMT` localized offsets and `O` patterns, explicit
   localized date/time style composition and pattern lookup, specific and
   generic localized zone-name text with preferred-zone parsing,
-  region/zone/offset query modes, chronology-ID formatting/parsing with
-  chronology-aware date and reduced-value resolution, adjacent fixed-width
+  region/zone/offset query modes, chronology-ID and localized chronology-name
+  formatting/parsing with chronology-aware date and reduced-value resolution,
+  adjacent fixed-width
   parsing, one-shot custom-character padding and `p` pattern modifiers, nested
   optional sections through builder methods and bracket patterns, required and
   optional reuse of complete formatter graphs through `append` and `appendOptional`
@@ -103,8 +104,8 @@ Implemented foundations:
 - `Chronology` identity, lookup, ordering, era/leap/range contracts, plus the
   `IsoChronology`, `JapaneseChronology`, `HijrahChronology`,
   `MinguoChronology`, and `ThaiBuddhistChronology` singletons with generic
-  date/date-time factories, clock injection, period creation, and epoch-second
-  conversion
+  date/date-time factories, localized display names, clock injection, period
+  creation, and epoch-second conversion
 - `JapaneseDate`, `HijrahDate`, `MinguoDate`, and `ThaiBuddhistDate` factories,
   fields and refined ranges, calendar arithmetic, periods, generic local/zoned
   date-time composition, and Java-compatible value semantics, including

@@ -311,6 +311,11 @@ public class DateTimeFormatterBuilder {
         activeSection.appendToken(PatternToken.ChronologyId)
     }
 
+    /** Appends the localized name of the queried or parsed chronology. */
+    public fun appendChronologyText(textStyle: TextStyle): DateTimeFormatterBuilder = apply {
+        activeSection.appendToken(PatternToken.ChronologyText(textStyle))
+    }
+
     /** Pads the next appended element to [padWidth] characters using spaces. */
     public fun padNext(padWidth: Int): DateTimeFormatterBuilder = padNext(padWidth, ' ')
 

@@ -3,6 +3,7 @@ package io.heapy.grogu.time.format
 import io.heapy.grogu.time.DateTimeException
 import io.heapy.grogu.time.LocalDate
 import io.heapy.grogu.time.LocalTime
+import io.heapy.grogu.time.Locale
 import io.heapy.grogu.time.chrono.Chronology
 import io.heapy.grogu.time.chrono.HijrahDate
 import io.heapy.grogu.time.chrono.IsoChronology
@@ -18,6 +19,51 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertSame
 
 class DateTimeFormatterBuilderChronologyIdTest {
+    @Test
+    fun formatsAndParsesLocalizedChronologyText() {
+        val dates = listOf(
+            LocalDate.of(2024, 2, 29),
+            JapaneseDate.of(2024, 2, 29),
+            HijrahDate.of(1_445, 8, 19),
+            MinguoDate.of(113, 2, 29),
+            ThaiBuddhistDate.of(2_567, 2, 29),
+        )
+
+        listOf(Locale.US, Locale.forLanguageTag("fr-FR")).forEach { locale ->
+            TextStyle.entries.forEach { style ->
+                val builder = DateTimeFormatterBuilder()
+                assertSame(builder, builder.appendChronologyText(style))
+                val formatter = builder.toFormatter(locale)
+
+                dates.forEach { date ->
+                    val chronology = Chronology.from(date)
+                    val text = formatter.format(date)
+                    assertEquals(chronology.getDisplayName(style, locale), text)
+                    assertSame(chronology, Chronology.from(formatter.parse(text)))
+                }
+                assertEquals("ChronologyText($style)", formatter.toString())
+            }
+        }
+    }
+
+    @Test
+    fun localizedChronologyTextUsesSequentialCaseSettings() {
+        val sensitive = DateTimeFormatterBuilder()
+            .appendChronologyText(TextStyle.FULL)
+            .toFormatter(Locale.US)
+        val text = sensitive.format(ThaiBuddhistDate.of(2_567, 2, 29))
+        assertFailsWith<DateTimeParseException> { sensitive.parse(text.lowercase()) }
+
+        val insensitive = DateTimeFormatterBuilder()
+            .parseCaseInsensitive()
+            .appendChronologyText(TextStyle.FULL)
+            .toFormatter(Locale.US)
+        assertSame(
+            ThaiBuddhistChronology,
+            Chronology.from(insensitive.parse(text.lowercase())),
+        )
+    }
+
     @Test
     fun formatsEveryAvailableChronologyId() {
         val builder = DateTimeFormatterBuilder()

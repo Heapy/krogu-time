@@ -5,8 +5,11 @@ import io.heapy.grogu.time.DateTimeException
 import io.heapy.grogu.time.Instant
 import io.heapy.grogu.time.LocalDate
 import io.heapy.grogu.time.LocalTime
+import io.heapy.grogu.time.Locale
 import io.heapy.grogu.time.ZoneId
 import io.heapy.grogu.time.ZoneOffset
+import io.heapy.grogu.time.format.TextStyle
+import io.heapy.grogu.time.format.localizedChronologyText
 import io.heapy.grogu.time.internal.addExact
 import io.heapy.grogu.time.internal.multiplyExact
 import io.heapy.grogu.time.temporal.ChronoField
@@ -149,6 +152,10 @@ public interface Chronology : Comparable<Chronology> {
 
     /** Returns this chronology's range for [field]. */
     public fun range(field: ChronoField): ValueRange
+
+    /** Returns this chronology's localized calendar-system name. */
+    public fun getDisplayName(style: TextStyle, locale: Locale): String =
+        localizedChronologyText(locale.toLanguageTag(), id, calendarType)
 
     /** Obtains a period defined by this chronology. */
     public fun period(years: Int, months: Int, days: Int): ChronoPeriod

@@ -5,6 +5,69 @@ import kotlin.test.assertEquals
 
 class DateTimeFormatterBuilderChronologyIdJavaConformanceTest {
     @Test
+    fun localizedChronologyTextAndDisplayNamesMatchJavaTime() {
+        val javaChronologies = listOf(
+            java.time.chrono.IsoChronology.INSTANCE,
+            java.time.chrono.JapaneseChronology.INSTANCE,
+            java.time.chrono.HijrahChronology.INSTANCE,
+            java.time.chrono.MinguoChronology.INSTANCE,
+            java.time.chrono.ThaiBuddhistChronology.INSTANCE,
+        )
+        val groguChronologies = listOf(
+            io.heapy.grogu.time.chrono.IsoChronology,
+            io.heapy.grogu.time.chrono.JapaneseChronology,
+            io.heapy.grogu.time.chrono.HijrahChronology,
+            io.heapy.grogu.time.chrono.MinguoChronology,
+            io.heapy.grogu.time.chrono.ThaiBuddhistChronology,
+        )
+        val javaDates = listOf(
+            java.time.LocalDate.of(2024, 2, 29),
+            java.time.chrono.JapaneseDate.of(2024, 2, 29),
+            java.time.chrono.HijrahDate.of(1_445, 8, 19),
+            java.time.chrono.MinguoDate.of(113, 2, 29),
+            java.time.chrono.ThaiBuddhistDate.of(2_567, 2, 29),
+        )
+        val groguDates = listOf(
+            io.heapy.grogu.time.LocalDate.of(2024, 2, 29),
+            io.heapy.grogu.time.chrono.JapaneseDate.of(2024, 2, 29),
+            io.heapy.grogu.time.chrono.HijrahDate.of(1_445, 8, 19),
+            io.heapy.grogu.time.chrono.MinguoDate.of(113, 2, 29),
+            io.heapy.grogu.time.chrono.ThaiBuddhistDate.of(2_567, 2, 29),
+        )
+
+        listOf("en-US", "fr-FR", "de-DE", "zh-CN", "ar-SA").forEach { languageTag ->
+            val javaLocale = java.util.Locale.forLanguageTag(languageTag)
+            val locale = io.heapy.grogu.time.Locale.forLanguageTag(languageTag)
+            TextStyle.entries.forEach { style ->
+                val javaStyle = java.time.format.TextStyle.valueOf(style.name)
+                val javaFormatter = java.time.format.DateTimeFormatterBuilder()
+                    .appendChronologyText(javaStyle)
+                    .toFormatter(javaLocale)
+                val formatter = DateTimeFormatterBuilder()
+                    .appendChronologyText(style)
+                    .toFormatter(locale)
+
+                javaChronologies.zip(groguChronologies).forEach { (javaChronology, chronology) ->
+                    assertEquals(
+                        javaChronology.getDisplayName(javaStyle, javaLocale),
+                        chronology.getDisplayName(style, locale),
+                        "$languageTag $style ${chronology.id}",
+                    )
+                }
+                javaDates.zip(groguDates).forEach { (javaDate, date) ->
+                    val text = javaFormatter.format(javaDate)
+                    assertEquals(text, formatter.format(date), "$languageTag $style $date")
+                    assertEquals(
+                        java.time.chrono.Chronology.from(javaFormatter.parse(text)).id,
+                        io.heapy.grogu.time.chrono.Chronology.from(formatter.parse(text)).id,
+                        "$languageTag $style parsing $text",
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
     fun formattingAndChronologySpecificResolutionMatchJavaTime() {
         val javaFormatter = java.time.format.DateTimeFormatterBuilder()
             .appendChronologyId()
