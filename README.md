@@ -58,7 +58,8 @@ Implemented foundations:
   `ofPattern` date/time fields with Java-compatible width validation and
   descriptions, including ordinal day `D`, aligned week `F`,
   clock-hour `k`/`K`/`h`, milli/nano-of-day `A`/`N`, raw nano `n`, exact
-  fractions, modified-Julian day `g`, numeric quarter `Q`/`q`, reduced years,
+  fractions, modified-Julian day `g`, numeric quarter `Q`/`q`, reduced and
+  variable-width years,
   adjacent fields, quoted literals, ISO/RFC-style offsets, and region zone IDs;
   locale-backed era `G`, format/standalone month `M`/`L`, weekday `E`, AM/PM
   `a`, and format/standalone quarter `Q`/`q` text in full, short, and narrow

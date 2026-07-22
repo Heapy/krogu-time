@@ -4,6 +4,7 @@ import io.heapy.grogu.time.LocalDate
 import io.heapy.grogu.time.LocalDateTime
 import io.heapy.grogu.time.LocalTime
 import io.heapy.grogu.time.OffsetDateTime
+import io.heapy.grogu.time.Year
 import io.heapy.grogu.time.ZoneId
 import io.heapy.grogu.time.ZoneOffset
 import io.heapy.grogu.time.ZonedDateTime
@@ -62,6 +63,26 @@ class DateTimeFormatterPatternTest {
             LocalDate.of(2023, 2, 28),
             DateTimeFormatter.ofPattern("uuuu-MM-dd")
                 .parse("2023-02-30", LocalDate::from),
+        )
+    }
+
+    @Test
+    fun parsesVariableWidthYearPatterns() {
+        assertEquals(
+            Year.of(2024),
+            DateTimeFormatter.ofPattern("uuu").parse("2024", Year::from),
+        )
+        assertEquals(
+            Year.of(2024),
+            DateTimeFormatter.ofPattern("yyy").parse("2024", Year::from),
+        )
+        assertEquals(
+            LocalDate.of(2024, 2, 29),
+            DateTimeFormatter.ofPattern("uuuMMdd").parse("20240229", LocalDate::from),
+        )
+        assertEquals(
+            LocalDate.of(2024, 2, 29),
+            DateTimeFormatter.ofPattern("yyyMMdd").parse("20240229", LocalDate::from),
         )
     }
 

@@ -1,8 +1,12 @@
 package io.heapy.grogu.time.format
 
 import io.heapy.grogu.time.LocalDateTime
+import io.heapy.grogu.time.Locale
 import io.heapy.grogu.time.OffsetDateTime
+import io.heapy.grogu.time.Year
+import io.heapy.grogu.time.ZoneId
 import io.heapy.grogu.time.ZoneOffset
+import io.heapy.grogu.time.ZonedDateTime
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -72,6 +76,54 @@ class DateTimeFormatterPatternJavaConformanceTest {
         assertEquals(emptyList(), mismatches)
     }
 
+    @Test
+    fun everyValidPatternLetterWidthFormatsLikeJavaTime() {
+        val mismatches = everyPatternAndWidth().mapNotNull { pattern ->
+            val javaResult = runCatching {
+                java.time.format.DateTimeFormatter.ofPattern(pattern, java.util.Locale.US)
+                    .format(JAVA_DATE_TIME)
+            }
+            val kotlinResult = runCatching {
+                DateTimeFormatter.ofPattern(pattern, Locale.US).format(KOTLIN_DATE_TIME)
+            }
+            val javaOutcome = javaResult.getOrNull() to
+                javaResult.exceptionOrNull()?.javaClass?.simpleName
+            val kotlinOutcome = kotlinResult.getOrNull() to
+                kotlinResult.exceptionOrNull()?.javaClass?.simpleName
+            if (javaOutcome == kotlinOutcome) {
+                null
+            } else {
+                "$pattern: Java=$javaOutcome, Kotlin=$kotlinOutcome"
+            }
+        }
+
+        assertEquals(emptyList(), mismatches)
+    }
+
+    @Test
+    fun variableWidthYearParsingMatchesJavaTime() {
+        listOf("uuu" to "2024", "yyy" to "2024").forEach { (pattern, text) ->
+            assertEquals(
+                java.time.Year.parse(text, java.time.format.DateTimeFormatter.ofPattern(pattern)).toString(),
+                Year.parse(text, DateTimeFormatter.ofPattern(pattern)).toString(),
+                pattern,
+            )
+        }
+        listOf("uuuMMdd", "yyyMMdd").forEach { pattern ->
+            assertEquals(
+                java.time.LocalDate.parse(
+                    "20240229",
+                    java.time.format.DateTimeFormatter.ofPattern(pattern),
+                ).toString(),
+                io.heapy.grogu.time.LocalDate.parse(
+                    "20240229",
+                    DateTimeFormatter.ofPattern(pattern),
+                ).toString(),
+                pattern,
+            )
+        }
+    }
+
     private fun comparePatternOutcome(pattern: String): String? {
         val javaResult = runCatching {
             java.time.format.DateTimeFormatter.ofPattern(pattern).toString()
@@ -88,5 +140,29 @@ class DateTimeFormatterPatternJavaConformanceTest {
         } else {
             "$pattern: Java=$javaOutcome, Kotlin=$kotlinOutcome"
         }
+    }
+
+    private fun everyPatternAndWidth(): List<String> = buildList {
+        "GyYuQqMLwWdDFEecabBhHkKmsSAnNgzvVOXxZ".forEach { letter ->
+            (1..20).forEach { width -> add(letter.toString().repeat(width)) }
+        }
+        (1..20).forEach { width -> add("p".repeat(width) + "H") }
+    }
+
+    private companion object {
+        val JAVA_DATE_TIME: java.time.ZonedDateTime = java.time.ZonedDateTime.of(
+            2024,
+            2,
+            29,
+            23,
+            58,
+            59,
+            123_456_789,
+            java.time.ZoneId.of("Europe/Paris"),
+        )
+        val KOTLIN_DATE_TIME: ZonedDateTime = ZonedDateTime.of(
+            LocalDateTime.of(2024, 2, 29, 23, 58, 59, 123_456_789),
+            ZoneId.of("Europe/Paris"),
+        )
     }
 }

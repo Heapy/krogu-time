@@ -1433,6 +1433,24 @@ private fun createPatternFieldToken(
     symbol: Char,
     count: Int,
 ): PatternToken = when (symbol) {
+    'u', 'y' -> {
+        val field = if (symbol == 'u') ChronoField.YEAR else ChronoField.YEAR_OF_ERA
+        if (count == 2) {
+            PatternToken.ReducedValue(
+                field = field,
+                minWidth = 2,
+                maxWidth = 2,
+                base = ReducedValueBase.Date(LocalDate.of(2000, 1, 1)),
+            )
+        } else {
+            PatternToken.Value(
+                field = field,
+                minWidth = count,
+                maxWidth = 19,
+                signStyle = if (count < 4) SignStyle.NORMAL else SignStyle.EXCEEDS_PAD,
+            )
+        }
+    }
     'O' -> PatternToken.LocalizedOffset(if (count == 1) TextStyle.SHORT else TextStyle.FULL)
     'X' -> PatternToken.Offset(
         pattern = when (count) {
