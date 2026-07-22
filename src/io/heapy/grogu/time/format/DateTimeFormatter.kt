@@ -15,6 +15,7 @@ import io.heapy.grogu.time.chrono.ChronoLocalDate
 import io.heapy.grogu.time.chrono.Chronology
 import io.heapy.grogu.time.chrono.IsoChronology
 import io.heapy.grogu.time.temporal.ChronoField
+import io.heapy.grogu.time.temporal.ChronoUnit
 import io.heapy.grogu.time.temporal.IsoFields
 import io.heapy.grogu.time.temporal.TemporalAccessor
 import io.heapy.grogu.time.temporal.TemporalField
@@ -48,7 +49,13 @@ public class DateTimeFormatter private constructor(
     public fun parse(text: CharSequence): TemporalAccessor {
         val standardized = decimalStyleScope.standardize(text, decimalStyle)
         val parsed = resolverParser?.invoke(standardized, resolverStyle) ?: parser(standardized)
-        return applyOverrides(parsed)
+        return try {
+            applyOverrides(parsed)
+        } catch (exception: DateTimeParseException) {
+            throw exception
+        } catch (exception: RuntimeException) {
+            throw createParseError(text, exception)
+        }
     }
 
     /** Returns a formatter using [decimalStyle] for numeric symbols. */
@@ -236,7 +243,7 @@ public class DateTimeFormatter private constructor(
     private fun applyOverrides(parsed: TemporalAccessor): TemporalAccessor {
         if (parsed is ParsedTemporalAccessor) {
             return parsed
-                .withChronology(chronology ?: IsoChronology)
+                .withChronology(chronology ?: IsoChronology, resolverStyle)
                 .let { resolved -> zone?.let(resolved::withDefaultZone) ?: resolved }
         }
 
@@ -1359,6 +1366,30 @@ private class FormatterOverrideTemporalAccessor(
     }
 }
 
+private fun resolveDateInChronology(
+    parsedDate: ChronoLocalDate,
+    chronology: Chronology,
+    resolverStyle: ResolverStyle,
+): ChronoLocalDate {
+    val year = parsedDate.get(ChronoField.YEAR)
+    val month = parsedDate.get(ChronoField.MONTH_OF_YEAR)
+    val day = parsedDate.get(ChronoField.DAY_OF_MONTH)
+    return when (resolverStyle) {
+        ResolverStyle.STRICT -> chronology.date(year, month, day)
+        ResolverStyle.SMART -> {
+            chronology.range(ChronoField.YEAR).checkValidValue(year.toLong(), ChronoField.YEAR)
+            chronology.range(ChronoField.MONTH_OF_YEAR)
+                .checkValidValue(month.toLong(), ChronoField.MONTH_OF_YEAR)
+            ChronoField.DAY_OF_MONTH.checkValidValue(day.toLong())
+            val firstOfMonth = chronology.date(year, month, 1)
+            chronology.date(year, month, minOf(day, firstOfMonth.lengthOfMonth()))
+        }
+        ResolverStyle.LENIENT -> chronology.date(year, 1, 1)
+            .plus(month.toLong() - 1, ChronoUnit.MONTHS)
+            .plus(day.toLong() - 1, ChronoUnit.DAYS)
+    }
+}
+
 private class ParsedTemporalAccessor(
     private val date: ChronoLocalDate? = null,
     private val time: LocalTime? = null,
@@ -1369,15 +1400,14 @@ private class ParsedTemporalAccessor(
     override val excessDays: Period = Period.ZERO,
     override val leapSecond: Boolean = false,
 ) : TemporalAccessor, ParsedState {
-    fun withChronology(chronology: Chronology): ParsedTemporalAccessor {
+    fun withChronology(
+        chronology: Chronology,
+        resolverStyle: ResolverStyle,
+    ): ParsedTemporalAccessor {
         val resolvedDate = when {
             date == null -> null
             date.chronology == chronology -> date
-            else -> chronology.date(
-                date.get(ChronoField.YEAR),
-                date.get(ChronoField.MONTH_OF_YEAR),
-                date.get(ChronoField.DAY_OF_MONTH),
-            )
+            else -> resolveDateInChronology(date, chronology, resolverStyle)
         }
         if (this.chronology == chronology && resolvedDate === date) return this
         return ParsedTemporalAccessor(
@@ -1396,10 +1426,11 @@ private class ParsedTemporalAccessor(
         if (zone != null) {
             this
         } else {
+            val resolvedInstant = instant?.let { chronology.zonedDateTime(it, defaultZone) }
             ParsedTemporalAccessor(
-                date = date,
-                time = time,
-                offset = offset,
+                date = resolvedInstant?.date ?: date,
+                time = resolvedInstant?.time ?: time,
+                offset = resolvedInstant?.offset ?: offset,
                 zone = defaultZone,
                 instant = instant,
                 chronology = chronology,
@@ -1412,9 +1443,9 @@ private class ParsedTemporalAccessor(
         ChronoField.INSTANT_SECONDS ->
             instant != null || date != null && time != null && (offset != null || zone != null)
         ChronoField.OFFSET_SECONDS -> offset != null
+        is ChronoField if date != null && field.isDateBased -> date.isSupported(field)
+        is ChronoField if time != null && field.isTimeBased -> time.isSupported(field)
         is ChronoField if instant != null -> instant.isSupported(field)
-        is ChronoField if field.isDateBased -> date?.isSupported(field) == true
-        is ChronoField if field.isTimeBased -> time?.isSupported(field) == true
         is ChronoField -> false
         else -> field.isSupportedBy(this)
     }
@@ -1423,9 +1454,9 @@ private class ParsedTemporalAccessor(
         ChronoField.INSTANT_SECONDS,
         ChronoField.OFFSET_SECONDS,
         -> field.range
+        is ChronoField if date != null && field.isDateBased -> date.range(field)
+        is ChronoField if time != null && field.isTimeBased -> time.range(field)
         is ChronoField if instant != null -> instant.range(field)
-        is ChronoField if field.isDateBased -> date?.range(field) ?: unsupported(field)
-        is ChronoField if field.isTimeBased -> time?.range(field) ?: unsupported(field)
         is ChronoField -> unsupported(field)
         else -> field.rangeRefinedBy(this)
     }
@@ -1439,9 +1470,9 @@ private class ParsedTemporalAccessor(
             dateTime.toEpochSecond(resolvedOffset)
         }
         ChronoField.OFFSET_SECONDS -> offset?.totalSeconds?.toLong() ?: unsupported(field)
+        is ChronoField if date != null && field.isDateBased -> date.getLong(field)
+        is ChronoField if time != null && field.isTimeBased -> time.getLong(field)
         is ChronoField if instant != null -> instant.getLong(field)
-        is ChronoField if field.isDateBased -> date?.getLong(field) ?: unsupported(field)
-        is ChronoField if field.isTimeBased -> time?.getLong(field) ?: unsupported(field)
         is ChronoField -> unsupported(field)
         else -> field.getFrom(this)
     }

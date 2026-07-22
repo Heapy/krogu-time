@@ -5,6 +5,8 @@ import io.heapy.grogu.time.Instant
 import io.heapy.grogu.time.LocalDate
 import io.heapy.grogu.time.YearMonth
 import io.heapy.grogu.time.ZoneOffset
+import io.heapy.grogu.time.chrono.HijrahChronology
+import io.heapy.grogu.time.chrono.HijrahDate
 import io.heapy.grogu.time.chrono.IsoChronology
 import io.heapy.grogu.time.chrono.ThaiBuddhistChronology
 import io.heapy.grogu.time.chrono.ThaiBuddhistDate
@@ -97,5 +99,42 @@ class DateTimeFormatterChronologyOverrideTest {
                 .parse("12:30")
                 .query(TemporalQueries.chronology()),
         )
+    }
+
+    @Test
+    fun resolvesNonIsoCalendarDatesWithTheConfiguredStyle() {
+        val formatter = DateTimeFormatter.ISO_LOCAL_DATE
+            .withChronology(HijrahChronology)
+
+        assertFailsWith<DateTimeParseException> {
+            formatter.parse("1445-08-30")
+        }
+        assertEquals(
+            HijrahDate.of(1445, 8, 29),
+            HijrahDate.from(
+                formatter
+                    .withResolverStyle(ResolverStyle.SMART)
+                    .parse("1445-08-30"),
+            ),
+        )
+        assertEquals(
+            HijrahDate.of(1445, 9, 1),
+            HijrahDate.from(
+                formatter
+                    .withResolverStyle(ResolverStyle.LENIENT)
+                    .parse("1445-08-30"),
+            ),
+        )
+    }
+
+    @Test
+    fun resolvesAnOverriddenChronologyFromParsedInstantsAndZones() {
+        val parsed = DateTimeFormatter.ISO_INSTANT
+            .withChronology(ThaiBuddhistChronology)
+            .withZone(ZoneOffset.UTC)
+            .parse("2024-03-01T00:30:00Z")
+
+        assertSame(ThaiBuddhistChronology, parsed.query(TemporalQueries.chronology()))
+        assertEquals(ThaiBuddhistDate.of(2567, 3, 1), ThaiBuddhistDate.from(parsed))
     }
 }

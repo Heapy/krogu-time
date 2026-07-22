@@ -43,8 +43,8 @@ Implemented foundations:
   queries, ordered `parseBest` conversion, and query-failure wrapping, with
   immutable resolver-style, chronology, and zone overrides, including
   chronology-aware date conversion, instant conversion, parsed chronology,
-  and parsed default-zone behavior, and strict/smart/lenient ISO calendar and
-  RFC 1123 resolution (including excess-day handling), plus
+  and parsed default-zone behavior, and strict/smart/lenient ISO, non-ISO
+  calendar, and RFC 1123 resolution (including excess-day handling), plus
   Java-compatible `ISO_LOCAL_DATE`, `ISO_LOCAL_TIME`,
   `ISO_LOCAL_DATE_TIME`, `ISO_INSTANT`, `ISO_OFFSET_DATE`, `ISO_DATE`,
   `ISO_TIME`, `ISO_DATE_TIME`, `ISO_OFFSET_TIME`, `ISO_OFFSET_DATE_TIME`, and

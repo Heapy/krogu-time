@@ -41,6 +41,29 @@ class DateTimeFormatterChronologyOverrideJavaConformanceTest {
         }
     }
 
+    @Test
+    fun nonIsoResolutionStylesMatchJavaTime() {
+        ResolverStyle.entries.forEach { style ->
+            val javaFormatter = java.time.format.DateTimeFormatter.ISO_LOCAL_DATE
+                .withChronology(java.time.chrono.HijrahChronology.INSTANCE)
+                .withResolverStyle(java.time.format.ResolverStyle.valueOf(style.name))
+            val groguFormatter = DateTimeFormatter.ISO_LOCAL_DATE
+                .withChronology(io.heapy.grogu.time.chrono.HijrahChronology)
+                .withResolverStyle(style)
+
+            val javaResult = runCatching {
+                java.time.LocalDate.from(javaFormatter.parse("1445-08-30")).toString()
+            }
+            val groguResult = runCatching {
+                LocalDate.from(groguFormatter.parse("1445-08-30")).toString()
+            }
+            assertEquals(javaResult.isSuccess, groguResult.isSuccess, style.name)
+            if (javaResult.isSuccess) {
+                assertEquals(javaResult.getOrThrow(), groguResult.getOrThrow(), style.name)
+            }
+        }
+    }
+
     private data class ChronologyCase(
         val javaChronology: java.time.chrono.Chronology,
         val groguChronology: io.heapy.grogu.time.chrono.Chronology,
