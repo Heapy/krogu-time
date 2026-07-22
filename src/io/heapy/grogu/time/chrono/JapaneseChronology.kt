@@ -5,8 +5,13 @@ import io.heapy.grogu.time.DateTimeException
 import io.heapy.grogu.time.Instant
 import io.heapy.grogu.time.LocalDate
 import io.heapy.grogu.time.ZoneId
+import io.heapy.grogu.time.format.ResolverStyle
+import io.heapy.grogu.time.internal.subtractExact
 import io.heapy.grogu.time.temporal.ChronoField
+import io.heapy.grogu.time.temporal.ChronoUnit
 import io.heapy.grogu.time.temporal.TemporalAccessor
+import io.heapy.grogu.time.temporal.TemporalAdjusters
+import io.heapy.grogu.time.temporal.TemporalField
 import io.heapy.grogu.time.temporal.UnsupportedTemporalTypeException
 import io.heapy.grogu.time.temporal.ValueRange
 
@@ -101,10 +106,115 @@ public object JapaneseChronology : Chronology {
         else -> field.range
     }
 
+    override fun resolveDate(
+        fieldValues: MutableMap<TemporalField, Long>,
+        resolverStyle: ResolverStyle,
+    ): JapaneseDate? = resolveChronologyDate(
+        chronology = this,
+        fieldValues = fieldValues,
+        resolverStyle = resolverStyle,
+        yearOfEraResolver = ::resolveJapaneseYearOfEra,
+    ) as JapaneseDate?
+
     override fun period(years: Int, months: Int, days: Int): ChronoPeriod =
         ChronoPeriodImpl(this, years, months, days)
 
     override fun toString(): String = id
+
+    private fun resolveJapaneseYearOfEra(
+        fieldValues: MutableMap<TemporalField, Long>,
+        resolverStyle: ResolverStyle,
+    ): ChronoLocalDate? {
+        var era = fieldValues[ChronoField.ERA]?.let { eraValue ->
+            eraOf(range(ChronoField.ERA).checkValidIntValue(eraValue, ChronoField.ERA))
+        }
+        val yearOfEraValue = fieldValues[ChronoField.YEAR_OF_ERA]
+        val yearOfEra = yearOfEraValue?.let { value ->
+            range(ChronoField.YEAR_OF_ERA).checkValidIntValue(value, ChronoField.YEAR_OF_ERA)
+        } ?: 0
+        if (
+            era == null &&
+            yearOfEraValue != null &&
+            ChronoField.YEAR !in fieldValues &&
+            resolverStyle != ResolverStyle.STRICT
+        ) {
+            era = JapaneseEra.values().last()
+        }
+        if (yearOfEraValue != null && era != null) {
+            if (
+                ChronoField.MONTH_OF_YEAR in fieldValues &&
+                ChronoField.DAY_OF_MONTH in fieldValues
+            ) {
+                return resolveJapaneseYmd(era, yearOfEra, fieldValues, resolverStyle)
+            }
+            if (ChronoField.DAY_OF_YEAR in fieldValues) {
+                return resolveJapaneseYearDay(era, yearOfEra, fieldValues, resolverStyle)
+            }
+        }
+        return null
+    }
+
+    private fun resolveJapaneseYmd(
+        era: JapaneseEra,
+        yearOfEra: Int,
+        fieldValues: MutableMap<TemporalField, Long>,
+        resolverStyle: ResolverStyle,
+    ): ChronoLocalDate {
+        fieldValues.remove(ChronoField.ERA)
+        fieldValues.remove(ChronoField.YEAR_OF_ERA)
+        if (resolverStyle == ResolverStyle.LENIENT) {
+            val months = subtractExact(requireNotNull(fieldValues.remove(ChronoField.MONTH_OF_YEAR)), 1)
+            val days = subtractExact(requireNotNull(fieldValues.remove(ChronoField.DAY_OF_MONTH)), 1)
+            return date(prolepticYearLenient(era, yearOfEra), 1, 1)
+                .plus(months, ChronoUnit.MONTHS)
+                .plus(days, ChronoUnit.DAYS)
+        }
+        val month = range(ChronoField.MONTH_OF_YEAR).checkValidIntValue(
+            requireNotNull(fieldValues.remove(ChronoField.MONTH_OF_YEAR)),
+            ChronoField.MONTH_OF_YEAR,
+        )
+        val day = range(ChronoField.DAY_OF_MONTH).checkValidIntValue(
+            requireNotNull(fieldValues.remove(ChronoField.DAY_OF_MONTH)),
+            ChronoField.DAY_OF_MONTH,
+        )
+        if (resolverStyle == ResolverStyle.SMART) {
+            if (yearOfEra < 1) throw DateTimeException("Invalid YearOfEra: $yearOfEra")
+            val result = try {
+                date(prolepticYearLenient(era, yearOfEra), month, day)
+            } catch (_: DateTimeException) {
+                date(prolepticYearLenient(era, yearOfEra), month, 1)
+                    .with(TemporalAdjusters.lastDayOfMonth())
+            }
+            if (result.era != era && result.get(ChronoField.YEAR_OF_ERA) > 1 && yearOfEra > 1) {
+                throw DateTimeException("Invalid YearOfEra for Era: $era $yearOfEra")
+            }
+            return result
+        }
+        return date(era, yearOfEra, month, day)
+    }
+
+    private fun resolveJapaneseYearDay(
+        era: JapaneseEra,
+        yearOfEra: Int,
+        fieldValues: MutableMap<TemporalField, Long>,
+        resolverStyle: ResolverStyle,
+    ): ChronoLocalDate {
+        fieldValues.remove(ChronoField.ERA)
+        fieldValues.remove(ChronoField.YEAR_OF_ERA)
+        if (resolverStyle == ResolverStyle.LENIENT) {
+            val days = subtractExact(requireNotNull(fieldValues.remove(ChronoField.DAY_OF_YEAR)), 1)
+            return dateYearDay(prolepticYearLenient(era, yearOfEra), 1)
+                .plus(days, ChronoUnit.DAYS)
+        }
+        val dayOfYear = range(ChronoField.DAY_OF_YEAR).checkValidIntValue(
+            requireNotNull(fieldValues.remove(ChronoField.DAY_OF_YEAR)),
+            ChronoField.DAY_OF_YEAR,
+        )
+        return dateYearDay(era, yearOfEra, dayOfYear)
+    }
+
+    private fun prolepticYearLenient(era: JapaneseEra, yearOfEra: Int): Int =
+        era.since.year + yearOfEra - 1
 
     private const val MIN_YEAR: Int = 1_873
     private const val ISO_MIN_YEAR: Int = -999_999_999

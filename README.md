@@ -113,7 +113,8 @@ Implemented foundations:
   `IsoChronology`, `JapaneseChronology`, `HijrahChronology`,
   `MinguoChronology`, and `ThaiBuddhistChronology` singletons with generic
   date/date-time factories, locale calendar lookup, localized display names,
-  clock injection, period creation, and epoch-second conversion
+  strict/smart/lenient field-map date resolution, clock injection, period
+  creation, and epoch-second conversion
 - `JapaneseDate`, `HijrahDate`, `MinguoDate`, and `ThaiBuddhistDate` factories,
   fields and refined ranges, calendar arithmetic, periods, generic local/zoned
   date-time composition, and Java-compatible value semantics, including

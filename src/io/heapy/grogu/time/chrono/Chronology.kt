@@ -8,12 +8,14 @@ import io.heapy.grogu.time.LocalTime
 import io.heapy.grogu.time.Locale
 import io.heapy.grogu.time.ZoneId
 import io.heapy.grogu.time.ZoneOffset
+import io.heapy.grogu.time.format.ResolverStyle
 import io.heapy.grogu.time.format.TextStyle
 import io.heapy.grogu.time.format.localizedChronologyText
 import io.heapy.grogu.time.internal.addExact
 import io.heapy.grogu.time.internal.multiplyExact
 import io.heapy.grogu.time.temporal.ChronoField
 import io.heapy.grogu.time.temporal.TemporalAccessor
+import io.heapy.grogu.time.temporal.TemporalField
 import io.heapy.grogu.time.temporal.TemporalQueries
 import io.heapy.grogu.time.temporal.ValueRange
 
@@ -156,6 +158,12 @@ public interface Chronology : Comparable<Chronology> {
     /** Returns this chronology's localized calendar-system name. */
     public fun getDisplayName(style: TextStyle, locale: Locale): String =
         localizedChronologyText(locale.toLanguageTag(), id, calendarType)
+
+    /** Resolves chronology-sensitive date fields, consuming resolved entries from [fieldValues]. */
+    public fun resolveDate(
+        fieldValues: MutableMap<TemporalField, Long>,
+        resolverStyle: ResolverStyle,
+    ): ChronoLocalDate? = resolveChronologyDate(this, fieldValues, resolverStyle)
 
     /** Obtains a period defined by this chronology. */
     public fun period(years: Int, months: Int, days: Int): ChronoPeriod
