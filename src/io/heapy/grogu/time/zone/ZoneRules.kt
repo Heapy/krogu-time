@@ -57,6 +57,9 @@ public class ZoneRules private constructor(
     /** Returns the complete historic transition list. */
     public fun getTransitions(): List<ZoneOffsetTransition> = emptyList()
 
+    /** Returns the recurring transition rules used beyond the historic list. */
+    public fun getTransitionRules(): List<ZoneOffsetTransitionRule> = emptyList()
+
     override fun equals(other: Any?): Boolean =
         this === other || other is ZoneRules && offset == other.offset
 

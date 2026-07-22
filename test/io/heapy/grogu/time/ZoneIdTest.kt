@@ -56,6 +56,7 @@ class ZoneIdTest {
         assertNull(rules.nextTransition(instant))
         assertNull(rules.previousTransition(instant))
         assertEquals(emptyList(), rules.getTransitions())
+        assertEquals(emptyList(), rules.getTransitionRules())
         assertEquals("ZoneRules[currentStandardOffset=+02:30]", rules.toString())
         assertEquals(ZoneRules.of(offset), rules)
         assertEquals(1, rules.hashCode())

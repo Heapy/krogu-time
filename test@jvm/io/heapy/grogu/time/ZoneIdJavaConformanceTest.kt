@@ -112,6 +112,10 @@ class ZoneIdJavaConformanceTest {
                     rules.previousTransition(instant)?.toString(),
                 )
                 assertEquals(javaRules.transitions.map(Any::toString), rules.getTransitions().map(Any::toString))
+                assertEquals(
+                    javaRules.transitionRules.map(Any::toString),
+                    rules.getTransitionRules().map(Any::toString),
+                )
                 assertEquals(javaRules.hashCode(), rules.hashCode())
                 assertEquals(javaRules.toString(), rules.toString())
             }

@@ -81,6 +81,9 @@ Implemented foundations:
 - `ZoneOffsetTransition` gap/overlap values, validated factories, instant and
   local timeline conversion, duration, offset validation, ordering, hashing,
   and Java-compatible text output
+- `ZoneOffsetTransitionRule` recurring month/day/weekday rules, UTC/standard/
+  wall-time definitions, end-of-day handling, annual transition creation,
+  validation, value semantics, and Java-compatible text output
 - `OffsetTime` immutable composition, factories, local and offset fields,
   offset conversion with same-local and same-instant semantics, replacement,
   truncation, wraparound arithmetic, complete-unit differences, timeline and

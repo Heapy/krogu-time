@@ -6,7 +6,7 @@ import io.heapy.grogu.time.LocalDateTime
 import io.heapy.grogu.time.ZoneOffset
 
 /** A discontinuity in a local timeline caused by an offset change. */
-public class ZoneOffsetTransition private constructor(
+public class ZoneOffsetTransition internal constructor(
     public val dateTimeBefore: LocalDateTime,
     public val offsetBefore: ZoneOffset,
     public val offsetAfter: ZoneOffset,
