@@ -62,9 +62,10 @@ Implemented foundations:
   locale-backed flexible day-period `B` text in full, short, and narrow
   styles, with midpoint resolution, 12-hour disambiguation, and resolver-style
   conflict handling;
-  lazy `ofLocalizedDate`, `ofLocalizedTime`, and `ofLocalizedDateTime`
-  factories backed by platform locale patterns and chronology-aware style
-  lookup; localized specific and generic zone-name patterns `z`/`v`, including
+  lazy `ofLocalizedDate`, `ofLocalizedTime`, `ofLocalizedDateTime`, and
+  CLDR-template `ofLocalizedPattern` factories backed by platform locale
+  patterns and chronology-aware style/template lookup; localized specific and
+  generic zone-name patterns `z`/`v`, including
   daylight-aware formatting, localized parsing, and preferred-zone
   disambiguation;
   Java-compatible aggregate and partial time-field
@@ -75,8 +76,8 @@ Implemented foundations:
   locale-backed `appendText` overloads,
   default and explicit-width instant formatting/parsing, all custom offset-ID
   patterns, FULL/SHORT `GMT` localized offsets and `O` patterns, explicit
-  localized date/time style composition and pattern lookup, specific and
-  generic localized zone-name text with preferred-zone parsing,
+  localized date/time style and template composition and pattern lookup,
+  specific and generic localized zone-name text with preferred-zone parsing,
   region/zone/offset query modes, chronology-ID and localized chronology-name
   formatting/parsing with chronology-aware date and reduced-value resolution,
   adjacent fixed-width

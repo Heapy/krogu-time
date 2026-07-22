@@ -1,5 +1,6 @@
 package io.heapy.grogu.time.format
 
+import android.os.Build
 import java.text.DateFormat
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -25,6 +26,33 @@ internal actual fun localizedDateTimePattern(
     }
     return (formatter as? SimpleDateFormat)?.toPattern()
         ?: error("Platform date formatter does not expose a pattern")
+}
+
+internal actual fun localizedDateTimePattern(
+    languageTag: String,
+    chronologyId: String,
+    requestedTemplate: String,
+): String {
+    val locale = chronologyLocale(languageTag, chronologyId)
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
+        android.text.format.DateFormat.getBestDateTimePattern(locale, requestedTemplate)
+    } else {
+        fallbackLocalizedTemplatePattern(requestedTemplate)
+    }
+}
+
+private fun fallbackLocalizedTemplatePattern(requestedTemplate: String): String {
+    val fields = mutableListOf<String>()
+    var index = 0
+    while (index < requestedTemplate.length) {
+        val inputSymbol = requestedTemplate[index]
+        var end = index + 1
+        while (end < requestedTemplate.length && requestedTemplate[end] == inputSymbol) end++
+        val patternSymbol = if (inputSymbol == 'j' || inputSymbol == 'C') 'H' else inputSymbol
+        fields += patternSymbol.toString().repeat(end - index)
+        index = end
+    }
+    return fields.joinToString(" ")
 }
 
 private fun FormatStyle.toDateFormatStyle(): Int = when (this) {

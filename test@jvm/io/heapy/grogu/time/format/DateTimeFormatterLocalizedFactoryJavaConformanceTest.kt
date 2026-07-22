@@ -21,6 +21,107 @@ import kotlin.test.assertEquals
 
 class DateTimeFormatterLocalizedFactoryJavaConformanceTest {
     @Test
+    fun localizedTemplatePatternsMatchJavaTime() {
+        val locales = listOf("en-US", "en-GB", "fr-FR", "de-DE", "ja-JP", "ar-SA")
+        val templates = listOf(
+            "yMMM",
+            "yMMMd",
+            "yMd",
+            "Hm",
+            "hm",
+            "Hms",
+            "yMMMEdHm",
+            "GyMMMMd",
+            "yQQQ",
+            "yMMMEd",
+            "Bhm",
+            "jm",
+            "jms",
+            "yMMMdHmsv",
+        )
+
+        locales.forEach { tag ->
+            templates.forEach { template ->
+                assertEquals(
+                    JavaDateTimeFormatterBuilder.getLocalizedDateTimePattern(
+                        template,
+                        JavaIsoChronology.INSTANCE,
+                        JavaLocale.forLanguageTag(tag),
+                    ),
+                    DateTimeFormatterBuilder.getLocalizedDateTimePattern(
+                        template,
+                        IsoChronology,
+                        Locale.forLanguageTag(tag),
+                    ),
+                    "$tag $template",
+                )
+            }
+        }
+    }
+
+    @Test
+    fun localizedTemplateFactoriesAndBuildersMatchJavaTime() {
+        val javaDateTime = JavaLocalDateTime.of(2024, 2, 29, 15, 7, 9)
+        val dateTime = LocalDateTime.of(2024, 2, 29, 15, 7, 9)
+
+        listOf("en-US", "fr-FR", "de-DE", "ja-JP").forEach { tag ->
+            val javaLocale = JavaLocale.forLanguageTag(tag)
+            val locale = Locale.forLanguageTag(tag)
+            listOf("yMMM", "yMd", "Hm", "Hms", "yMMMEdHm").forEach { template ->
+                assertFormatter(
+                    JavaDateTimeFormatter.ofLocalizedPattern(template).withLocale(javaLocale),
+                    DateTimeFormatter.ofLocalizedPattern(template).withLocale(locale),
+                    javaDateTime,
+                    dateTime,
+                    "$tag $template factory",
+                )
+            }
+
+            val javaFormatter = JavaDateTimeFormatterBuilder()
+                .appendLocalized("yMd")
+                .appendLiteral(" | ")
+                .appendLocalized("Hms")
+                .toFormatter(javaLocale)
+            val formatter = DateTimeFormatterBuilder()
+                .appendLocalized("yMd")
+                .appendLiteral(" | ")
+                .appendLocalized("Hms")
+                .toFormatter(locale)
+            assertFormatter(
+                javaFormatter,
+                formatter,
+                javaDateTime,
+                dateTime,
+                "$tag builder",
+            )
+        }
+    }
+
+    @Test
+    fun localizedTemplateValidationMatchesJavaTime() {
+        val templates = listOf(
+            "",
+            "yMMM",
+            "GyQMMMMMwwEEEEddBBBBBhHmsvvzz",
+            "uuuu",
+            "Mdyyyy",
+            "yyyy-MM",
+            "MMMMMM",
+            "ddd",
+            "ajm",
+            "y M d",
+            "foo",
+        )
+        templates.forEach { template ->
+            assertEquals(
+                runCatching { JavaDateTimeFormatterBuilder().appendLocalized(template) }.isSuccess,
+                runCatching { DateTimeFormatterBuilder().appendLocalized(template) }.isSuccess,
+                template,
+            )
+        }
+    }
+
+    @Test
     fun localizedPatternsMatchJavaTimeAcrossLocalesAndStyles() {
         val locales = listOf("en-US", "en-GB", "fr-FR", "de-DE", "ja-JP", "ar-SA")
 

@@ -222,6 +222,18 @@ public class DateTimeFormatterBuilder {
         activeSection.appendToken(PatternToken.Localized(dateStyle, timeStyle))
     }
 
+    /** Appends a locale- and chronology-specific pattern selected from [requestedTemplate]. */
+    public fun appendLocalized(requestedTemplate: String): DateTimeFormatterBuilder = apply {
+        validateLocalizedTemplate(requestedTemplate)
+        activeSection.appendToken(
+            PatternToken.Localized(
+                dateStyle = null,
+                timeStyle = null,
+                requestedTemplate = requestedTemplate,
+            ),
+        )
+    }
+
     /** Appends an instant using zero, three, six, or nine fractional digits as needed. */
     public fun appendInstant(): DateTimeFormatterBuilder = apply {
         activeSection.appendToken(PatternToken.Instant(-2))
@@ -372,6 +384,30 @@ public class DateTimeFormatterBuilder {
                 timeStyle = timeStyle,
             )
         }
+
+        /** Returns the localized pattern selected for [requestedTemplate], chronology, and locale. */
+        public fun getLocalizedDateTimePattern(
+            requestedTemplate: String,
+            chronology: Chronology,
+            locale: Locale,
+        ): String {
+            validateLocalizedTemplate(requestedTemplate)
+            return localizedDateTimePattern(
+                languageTag = locale.toLanguageTag(),
+                chronologyId = chronology.id,
+                requestedTemplate = requestedTemplate,
+            )
+        }
+    }
+}
+
+private val VALID_LOCALIZED_TEMPLATE: Regex = Regex(
+    "G{0,5}y*Q{0,5}M{0,5}w*E{0,5}d{0,2}B{0,5}[hHjC]{0,2}m{0,2}s{0,2}[vz]{0,4}",
+)
+
+private fun validateLocalizedTemplate(requestedTemplate: String) {
+    require(VALID_LOCALIZED_TEMPLATE.matches(requestedTemplate)) {
+        "Requested template is invalid: $requestedTemplate"
     }
 }
 

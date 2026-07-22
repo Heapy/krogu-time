@@ -11,3 +11,13 @@ internal actual fun localizedDateTimePattern(
     java.time.chrono.Chronology.of(chronologyId),
     java.util.Locale.forLanguageTag(languageTag),
 )
+
+internal actual fun localizedDateTimePattern(
+    languageTag: String,
+    chronologyId: String,
+    requestedTemplate: String,
+): String = java.time.format.DateTimeFormatterBuilder.getLocalizedDateTimePattern(
+    requestedTemplate,
+    java.time.chrono.Chronology.of(chronologyId),
+    java.util.Locale.forLanguageTag(languageTag),
+)

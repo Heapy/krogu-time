@@ -7,12 +7,100 @@ import io.heapy.grogu.time.Locale
 import io.heapy.grogu.time.ZoneId
 import io.heapy.grogu.time.ZonedDateTime
 import io.heapy.grogu.time.chrono.IsoChronology
+import io.heapy.grogu.time.temporal.ChronoField
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNotEquals
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 
 class DateTimeFormatterLocalizedFactoryTest {
+    @Test
+    fun localizedPatternFactoriesResolveTemplatesLazily() {
+        val date = LocalDate.of(2024, 2, 29)
+        val american = DateTimeFormatter.ofLocalizedPattern("yMMM").withLocale(Locale.US)
+        val french = american.withLocale(Locale.forLanguageTag("fr-FR"))
+
+        assertEquals(ResolverStyle.SMART, american.resolverStyle)
+        assertSame(IsoChronology, american.chronology)
+        assertEquals("Localized(yMMM)", american.toString())
+        assertNotEquals(american.format(date), french.format(date))
+
+        listOf(american, french).forEach { formatter ->
+            val pattern = DateTimeFormatterBuilder.getLocalizedDateTimePattern(
+                "yMMM",
+                IsoChronology,
+                formatter.locale,
+            )
+            val explicit = DateTimeFormatter.ofPattern(pattern, formatter.locale)
+            val text = formatter.format(date)
+            assertEquals(explicit.format(date), text)
+            assertEquals(2024, formatter.parse(text).get(ChronoField.YEAR))
+            assertEquals(2, formatter.parse(text).get(ChronoField.MONTH_OF_YEAR))
+        }
+    }
+
+    @Test
+    fun builderComposesLocalizedTemplates() {
+        val dateTime = LocalDateTime.of(LocalDate.of(2024, 2, 29), LocalTime.of(15, 7))
+        val formatter = DateTimeFormatterBuilder()
+            .appendLocalized("yMd")
+            .appendLiteral(" | ")
+            .appendLocalized("Hm")
+            .toFormatter(Locale.US)
+        val text = formatter.format(dateTime)
+
+        assertEquals(dateTime, LocalDateTime.from(formatter.parse(text)))
+        assertEquals("Localized(yMd)' | 'Localized(Hm)", formatter.toString())
+    }
+
+    @Test
+    fun localizedTemplatesCoverEverySupportedFieldFamily() {
+        val temporal = ZonedDateTime.of(
+            LocalDateTime.of(2024, 7, 1, 15, 7, 9),
+            ZoneId.of("Europe/Paris"),
+        )
+        listOf(
+            "GyMMMMd",
+            "yQQQ",
+            "yMMMEd",
+            "Bhm",
+            "jm",
+            "jms",
+            "yMMMdHmsv",
+        ).forEach { template ->
+            val pattern = DateTimeFormatterBuilder.getLocalizedDateTimePattern(
+                template,
+                IsoChronology,
+                Locale.US,
+            )
+            assertTrue(pattern.isNotEmpty(), template)
+            assertTrue(DateTimeFormatter.ofPattern(pattern, Locale.US).format(temporal).isNotEmpty(), template)
+            assertTrue(DateTimeFormatter.ofLocalizedPattern(template).withLocale(Locale.US)
+                .format(temporal).isNotEmpty(), template)
+        }
+    }
+
+    @Test
+    fun rejectsInvalidLocalizedTemplates() {
+        listOf("uuuu", "Mdyyyy", "yyyy-MM", "MMMMMM", "ddd", "ajm", "y M d", "foo").forEach { template ->
+            assertFailsWith<IllegalArgumentException>(template) {
+                DateTimeFormatterBuilder().appendLocalized(template)
+            }
+            assertFailsWith<IllegalArgumentException>(template) {
+                DateTimeFormatter.ofLocalizedPattern(template)
+            }
+            assertFailsWith<IllegalArgumentException>(template) {
+                DateTimeFormatterBuilder.getLocalizedDateTimePattern(
+                    template,
+                    IsoChronology,
+                    Locale.US,
+                )
+            }
+        }
+    }
+
     @Test
     fun localizedFactoriesExposeJavaCompatibleConfiguration() {
         val date = DateTimeFormatter.ofLocalizedDate(FormatStyle.FULL)

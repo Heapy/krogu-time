@@ -6,3 +6,9 @@ internal expect fun localizedDateTimePattern(
     dateStyle: FormatStyle?,
     timeStyle: FormatStyle?,
 ): String
+
+internal expect fun localizedDateTimePattern(
+    languageTag: String,
+    chronologyId: String,
+    requestedTemplate: String,
+): String

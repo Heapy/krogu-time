@@ -24,6 +24,16 @@ internal actual fun localizedDateTimePattern(
     return formatter.dateFormat()
 }
 
+internal actual fun localizedDateTimePattern(
+    languageTag: String,
+    chronologyId: String,
+    requestedTemplate: String,
+): String = NSDateFormatter.dateFormatFromTemplate(
+    requestedTemplate,
+    options = 0u,
+    locale = NSLocale(localeIdentifier = chronologyLocaleIdentifier(languageTag, chronologyId)),
+) ?: error("Platform date formatter does not expose a pattern for $requestedTemplate")
+
 private fun FormatStyle.toNSDateFormatterStyle(): ULong = when (this) {
     FormatStyle.FULL -> NSDateFormatterFullStyle
     FormatStyle.LONG -> NSDateFormatterLongStyle

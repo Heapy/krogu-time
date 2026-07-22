@@ -382,6 +382,13 @@ public class DateTimeFormatter private constructor(
             timeStyle: FormatStyle,
         ): DateTimeFormatter = localizedFormatter(dateStyle, timeStyle)
 
+        /** Returns a locale-specific formatter selected from [requestedTemplate]. */
+        public fun ofLocalizedPattern(requestedTemplate: String): DateTimeFormatter =
+            DateTimeFormatterBuilder()
+                .appendLocalized(requestedTemplate)
+                .toFormatter()
+                .withChronology(IsoChronology)
+
         private fun localizedFormatter(
             dateStyle: FormatStyle?,
             timeStyle: FormatStyle?,
@@ -1063,6 +1070,7 @@ internal sealed interface PatternToken {
     data class Localized(
         val dateStyle: FormatStyle?,
         val timeStyle: FormatStyle?,
+        val requestedTemplate: String? = null,
     ) : PatternToken
 
     data class Instant(val fractionalDigits: Int) : PatternToken
@@ -1528,7 +1536,13 @@ private fun PatternToken.Localized.patternTokens(
     locale: Locale,
     chronologyId: String,
 ): List<PatternToken> = compilePattern(
-    localizedDateTimePattern(
+    requestedTemplate?.let { template ->
+        localizedDateTimePattern(
+            languageTag = locale.toLanguageTag(),
+            chronologyId = chronologyId,
+            requestedTemplate = template,
+        )
+    } ?: localizedDateTimePattern(
         languageTag = locale.toLanguageTag(),
         chronologyId = chronologyId,
         dateStyle = dateStyle,
@@ -3424,7 +3438,7 @@ private fun MutableMap<TemporalField, Long>.updateTimeField(
 }
 
 private fun resolvePatternYear(
-    values: Map<TemporalField, Long>,
+    values: MutableMap<TemporalField, Long>,
     chronology: Chronology,
     resolverStyle: ResolverStyle,
 ): Long? {
@@ -3466,6 +3480,9 @@ private fun resolvePatternYear(
             "Conflict found: Year $prolepticYear differs from YearOfEra $yearOfEraValue",
         )
     }
+    values.remove(ChronoField.YEAR_OF_ERA)
+    values.remove(ChronoField.ERA)
+    values[ChronoField.YEAR] = resolvedYear
     return resolvedYear
 }
 
@@ -3608,9 +3625,15 @@ private fun describePattern(tokens: List<PatternToken>): String = buildString {
                 .append(')')
             is PatternToken.LocalizedWeek -> append(describeLocalizedWeek(token))
             is PatternToken.Localized -> append("Localized(")
-                .append(token.dateStyle ?: "")
-                .append(',')
-                .append(token.timeStyle ?: "")
+                .apply {
+                    if (token.requestedTemplate != null) {
+                        append(token.requestedTemplate)
+                    } else {
+                        append(token.dateStyle ?: "")
+                        append(',')
+                        append(token.timeStyle ?: "")
+                    }
+                }
                 .append(')')
             is PatternToken.Instant -> append("Instant()")
             is PatternToken.Composite -> append('(')
