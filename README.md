@@ -78,6 +78,9 @@ Implemented foundations:
   resolution, normalization, fixed `ZoneRules`, and zone/zone-offset temporal
   queries (region IDs, system defaults, display names, and rule providers
   remain)
+- `ZoneOffsetTransition` gap/overlap values, validated factories, instant and
+  local timeline conversion, duration, offset validation, ordering, hashing,
+  and Java-compatible text output
 - `OffsetTime` immutable composition, factories, local and offset fields,
   offset conversion with same-local and same-instant semantics, replacement,
   truncation, wraparound arithmetic, complete-unit differences, timeline and

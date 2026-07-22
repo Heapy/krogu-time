@@ -99,6 +99,19 @@ class ZoneIdJavaConformanceTest {
                     javaRules.getDaylightSavings(javaInstant).toString(),
                     rules.getDaylightSavings(instant).toString(),
                 )
+                assertEquals(
+                    javaRules.getTransition(javaLocalDateTime)?.toString(),
+                    rules.getTransition(localDateTime)?.toString(),
+                )
+                assertEquals(
+                    javaRules.nextTransition(javaInstant)?.toString(),
+                    rules.nextTransition(instant)?.toString(),
+                )
+                assertEquals(
+                    javaRules.previousTransition(javaInstant)?.toString(),
+                    rules.previousTransition(instant)?.toString(),
+                )
+                assertEquals(javaRules.transitions.map(Any::toString), rules.getTransitions().map(Any::toString))
                 assertEquals(javaRules.hashCode(), rules.hashCode())
                 assertEquals(javaRules.toString(), rules.toString())
             }

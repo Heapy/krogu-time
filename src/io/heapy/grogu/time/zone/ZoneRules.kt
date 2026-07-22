@@ -25,6 +25,10 @@ public class ZoneRules private constructor(
     @Suppress("UNUSED_PARAMETER")
     public fun getValidOffsets(localDateTime: LocalDateTime): List<ZoneOffset> = listOf(offset)
 
+    /** Returns a transition affecting [localDateTime], or `null` for fixed rules. */
+    @Suppress("UNUSED_PARAMETER")
+    public fun getTransition(localDateTime: LocalDateTime): ZoneOffsetTransition? = null
+
     /** Returns the standard offset applicable at [instant]. */
     @Suppress("UNUSED_PARAMETER")
     public fun getStandardOffset(instant: Instant): ZoneOffset = offset
@@ -41,6 +45,17 @@ public class ZoneRules private constructor(
     @Suppress("UNUSED_PARAMETER")
     public fun isValidOffset(localDateTime: LocalDateTime, offset: ZoneOffset): Boolean =
         this.offset == offset
+
+    /** Returns the next transition after [instant], or `null` for fixed rules. */
+    @Suppress("UNUSED_PARAMETER")
+    public fun nextTransition(instant: Instant): ZoneOffsetTransition? = null
+
+    /** Returns the previous transition before [instant], or `null` for fixed rules. */
+    @Suppress("UNUSED_PARAMETER")
+    public fun previousTransition(instant: Instant): ZoneOffsetTransition? = null
+
+    /** Returns the complete historic transition list. */
+    public fun getTransitions(): List<ZoneOffsetTransition> = emptyList()
 
     override fun equals(other: Any?): Boolean =
         this === other || other is ZoneRules && offset == other.offset
