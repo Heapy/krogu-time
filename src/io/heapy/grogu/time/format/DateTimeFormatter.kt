@@ -14,6 +14,10 @@ import io.heapy.grogu.time.ZonedDateTime
 import io.heapy.grogu.time.chrono.ChronoLocalDate
 import io.heapy.grogu.time.chrono.Chronology
 import io.heapy.grogu.time.chrono.IsoChronology
+import io.heapy.grogu.time.internal.addExact
+import io.heapy.grogu.time.internal.floorDiv
+import io.heapy.grogu.time.internal.floorMod
+import io.heapy.grogu.time.internal.multiplyExact
 import io.heapy.grogu.time.temporal.ChronoField
 import io.heapy.grogu.time.temporal.ChronoUnit
 import io.heapy.grogu.time.temporal.IsoFields
@@ -1127,14 +1131,7 @@ internal fun visitPattern(
                 }
                 validatePatternField(character, count)
                 appendToken(
-                    when {
-                        character == 'O' -> PatternToken.LocalizedOffset(
-                            if (count == 1) TextStyle.SHORT else TextStyle.FULL,
-                        )
-                        character == 'Z' && count == 4 ->
-                            PatternToken.LocalizedOffset(TextStyle.FULL)
-                        else -> PatternToken.Field(character, count)
-                    },
+                    createPatternFieldToken(character, count),
                 )
                 index = end
             }
@@ -1166,8 +1163,13 @@ private fun Char.isAsciiLetter(): Boolean = this in 'A'..'Z' || this in 'a'..'z'
 private fun validatePatternField(symbol: Char, count: Int) {
     when (symbol) {
         'u', 'y' -> require(count <= 19) { "The count of pattern letters must not exceed 19: $symbol" }
-        'M', 'd', 'H', 'm', 's' -> require(count <= 2) {
+        'M', 'd', 'H', 'k', 'K', 'h', 'm', 's' -> require(count <= 2) {
             "Too many pattern letters: $symbol"
+        }
+        'D' -> require(count <= 3) { "Too many pattern letters: $symbol" }
+        'F' -> require(count == 1) { "Too many pattern letters: $symbol" }
+        'A', 'n', 'N' -> require(count <= 19) {
+            "The count of pattern letters must not exceed 19: $symbol"
         }
         'S' -> require(count <= 9) { "Minimum width must be from 0 to 9 inclusive but was $count" }
         'O' -> require(count == 1 || count == 4) {
@@ -1178,6 +1180,44 @@ private fun validatePatternField(symbol: Char, count: Int) {
         else -> throw IllegalArgumentException("Unknown pattern letter: $symbol")
     }
 }
+
+private fun createPatternFieldToken(
+    symbol: Char,
+    count: Int,
+): PatternToken = when (symbol) {
+    'O' -> PatternToken.LocalizedOffset(if (count == 1) TextStyle.SHORT else TextStyle.FULL)
+    'Z' -> if (count == 4) {
+        PatternToken.LocalizedOffset(TextStyle.FULL)
+    } else {
+        PatternToken.Field(symbol, count)
+    }
+    'D' -> when (count) {
+        1 -> variablePatternValue(ChronoField.DAY_OF_YEAR)
+        2 -> PatternToken.Value(ChronoField.DAY_OF_YEAR, 2, 3, SignStyle.NOT_NEGATIVE)
+        else -> fixedPatternValue(ChronoField.DAY_OF_YEAR, 3)
+    }
+    'F' -> variablePatternValue(ChronoField.ALIGNED_WEEK_OF_MONTH)
+    'k' -> timePatternValue(ChronoField.CLOCK_HOUR_OF_DAY, count)
+    'K' -> timePatternValue(ChronoField.HOUR_OF_AMPM, count)
+    'h' -> timePatternValue(ChronoField.CLOCK_HOUR_OF_AMPM, count)
+    'A' -> PatternToken.Value(ChronoField.MILLI_OF_DAY, count, 19, SignStyle.NOT_NEGATIVE)
+    'n' -> PatternToken.Value(ChronoField.NANO_OF_SECOND, count, 19, SignStyle.NOT_NEGATIVE)
+    'N' -> PatternToken.Value(ChronoField.NANO_OF_DAY, count, 19, SignStyle.NOT_NEGATIVE)
+    else -> PatternToken.Field(symbol, count)
+}
+
+private fun variablePatternValue(field: TemporalField): PatternToken.Value =
+    PatternToken.Value(field, 1, 19, SignStyle.NORMAL)
+
+private fun fixedPatternValue(
+    field: TemporalField,
+    width: Int,
+): PatternToken.Value = PatternToken.Value(field, width, width, SignStyle.NOT_NEGATIVE)
+
+private fun timePatternValue(
+    field: TemporalField,
+    count: Int,
+): PatternToken.Value = if (count == 1) variablePatternValue(field) else fixedPatternValue(field, count)
 
 private fun formatPattern(
     tokens: List<PatternToken>,
@@ -2402,28 +2442,35 @@ private fun resolvePatternValues(
     zone: ZoneId?,
     leapSecond: Boolean,
 ): TemporalAccessor {
-    val resolvedOffset = offset ?: values[ChronoField.OFFSET_SECONDS]?.let { totalSeconds ->
+    val fieldValues = values.toMutableMap()
+    try {
+        resolveTimeFields(fieldValues, resolverStyle)
+    } catch (exception: RuntimeException) {
+        throw DateTimeParseException("Text cannot be parsed to a time", text, 0, exception)
+    }
+    val resolvedOffset = offset ?: fieldValues[ChronoField.OFFSET_SECONDS]?.let { totalSeconds ->
         try {
             ZoneOffset.ofTotalSeconds(ChronoField.OFFSET_SECONDS.checkValidIntValue(totalSeconds))
         } catch (exception: RuntimeException) {
             throw DateTimeParseException("Invalid value for OffsetSeconds: $totalSeconds", text, 0, exception)
         }
     }
-    val instant = values[ChronoField.INSTANT_SECONDS]?.let { epochSecond ->
+    val instant = fieldValues[ChronoField.INSTANT_SECONDS]?.let { epochSecond ->
         try {
-            val nano = values[ChronoField.NANO_OF_SECOND]?.let(ChronoField.NANO_OF_SECOND::checkValidIntValue) ?: 0
+            val nano = fieldValues[ChronoField.NANO_OF_SECOND]
+                ?.let(ChronoField.NANO_OF_SECOND::checkValidIntValue) ?: 0
             Instant.ofEpochSecond(epochSecond, nano.toLong())
         } catch (exception: RuntimeException) {
             throw DateTimeParseException("Invalid instant fields", text, 0, exception)
         }
     }
     val year = try {
-        resolvePatternYear(values, chronology, resolverStyle)
+        resolvePatternYear(fieldValues, chronology, resolverStyle)
     } catch (exception: RuntimeException) {
         throw DateTimeParseException("Text cannot be parsed to a date", text, 0, exception)
     }
-    val month = values[ChronoField.MONTH_OF_YEAR]
-    val day = values[ChronoField.DAY_OF_MONTH]
+    val month = fieldValues[ChronoField.MONTH_OF_YEAR]
+    val day = fieldValues[ChronoField.DAY_OF_MONTH]
     val calendarDate = if (year != null && month != null && day != null) {
         try {
             resolveDateFieldsInChronology(
@@ -2439,7 +2486,7 @@ private fun resolvePatternValues(
     } else {
         null
     }
-    val dayOfYear = values[ChronoField.DAY_OF_YEAR]
+    val dayOfYear = fieldValues[ChronoField.DAY_OF_YEAR]
     val ordinalDate = if (year != null && dayOfYear != null) {
         try {
             resolveOrdinalDateInChronology(
@@ -2454,9 +2501,9 @@ private fun resolvePatternValues(
     } else {
         null
     }
-    val weekBasedYear = values[IsoFields.WEEK_BASED_YEAR]
-    val weekOfYear = values[IsoFields.WEEK_OF_WEEK_BASED_YEAR]
-    val dayOfWeek = values[ChronoField.DAY_OF_WEEK]
+    val weekBasedYear = fieldValues[IsoFields.WEEK_BASED_YEAR]
+    val weekOfYear = fieldValues[IsoFields.WEEK_OF_WEEK_BASED_YEAR]
+    val dayOfWeek = fieldValues[ChronoField.DAY_OF_WEEK]
     val weekDate = if (
         chronology == IsoChronology &&
         weekBasedYear != null &&
@@ -2496,16 +2543,19 @@ private fun resolvePatternValues(
         )
     }
 
-    val hour = values[ChronoField.HOUR_OF_DAY]
-    val minute = values[ChronoField.MINUTE_OF_HOUR]
-    val second = values[ChronoField.SECOND_OF_MINUTE]
-    val fraction = values[ChronoField.NANO_OF_SECOND]
-    val resolvedTime = if (hour != null && minute != null) {
+    val hour = fieldValues[ChronoField.HOUR_OF_DAY]
+    val minute = fieldValues[ChronoField.MINUTE_OF_HOUR]
+    val second = fieldValues[ChronoField.SECOND_OF_MINUTE]
+    val fraction = fieldValues[ChronoField.NANO_OF_SECOND]
+    val hasResolvableTimeFields = hour != null &&
+        (minute != null || second == null && fraction == null) &&
+        (second != null || fraction == null)
+    val resolvedTime = if (hasResolvableTimeFields) {
         resolvePatternTime(
-            hour = hour.toPatternInt('H', text),
-            minute = minute.toPatternInt('m', text),
-            second = (second ?: 0).toPatternInt('s', text),
-            nano = (fraction ?: 0).toPatternInt('S', text),
+            hour = requireNotNull(hour),
+            minute = minute ?: 0,
+            second = second ?: 0,
+            nano = fraction ?: 0,
             resolverStyle = resolverStyle,
             text = text,
         )
@@ -2525,10 +2575,232 @@ private fun resolvePatternValues(
         zone = zone,
         instant = instant,
         chronology = chronology,
-        fields = values,
+        fields = fieldValues,
         excessDays = if (date == null) resolvedTime?.excessDays ?: Period.ZERO else Period.ZERO,
         leapSecond = leapSecond,
     )
+}
+
+private fun resolveTimeFields(
+    fieldValues: MutableMap<TemporalField, Long>,
+    resolverStyle: ResolverStyle,
+) {
+    fieldValues.remove(ChronoField.CLOCK_HOUR_OF_DAY)?.let { clockHour ->
+        if (
+            resolverStyle == ResolverStyle.STRICT ||
+            resolverStyle == ResolverStyle.SMART && clockHour != 0L
+        ) {
+            ChronoField.CLOCK_HOUR_OF_DAY.checkValidValue(clockHour)
+        }
+        fieldValues.updateTimeField(
+            source = ChronoField.CLOCK_HOUR_OF_DAY,
+            target = ChronoField.HOUR_OF_DAY,
+            value = if (clockHour == 24L) 0 else clockHour,
+        )
+    }
+    fieldValues.remove(ChronoField.CLOCK_HOUR_OF_AMPM)?.let { clockHour ->
+        if (
+            resolverStyle == ResolverStyle.STRICT ||
+            resolverStyle == ResolverStyle.SMART && clockHour != 0L
+        ) {
+            ChronoField.CLOCK_HOUR_OF_AMPM.checkValidValue(clockHour)
+        }
+        fieldValues.updateTimeField(
+            source = ChronoField.CLOCK_HOUR_OF_AMPM,
+            target = ChronoField.HOUR_OF_AMPM,
+            value = if (clockHour == 12L) 0 else clockHour,
+        )
+    }
+    if (
+        ChronoField.AMPM_OF_DAY in fieldValues &&
+        ChronoField.HOUR_OF_AMPM in fieldValues
+    ) {
+        val amPm = requireNotNull(fieldValues.remove(ChronoField.AMPM_OF_DAY))
+        val hour = requireNotNull(fieldValues.remove(ChronoField.HOUR_OF_AMPM))
+        val hourOfDay = if (resolverStyle == ResolverStyle.LENIENT) {
+            addExact(multiplyExact(amPm, 12), hour)
+        } else {
+            ChronoField.AMPM_OF_DAY.checkValidValue(amPm)
+            ChronoField.HOUR_OF_AMPM.checkValidValue(hour)
+            amPm * 12 + hour
+        }
+        fieldValues.updateTimeField(
+            source = ChronoField.AMPM_OF_DAY,
+            target = ChronoField.HOUR_OF_DAY,
+            value = hourOfDay,
+        )
+    }
+    fieldValues.remove(ChronoField.NANO_OF_DAY)?.let { nanoOfDay ->
+        if (resolverStyle != ResolverStyle.LENIENT) {
+            ChronoField.NANO_OF_DAY.checkValidValue(nanoOfDay)
+        }
+        fieldValues.updateTimeField(
+            ChronoField.NANO_OF_DAY,
+            ChronoField.HOUR_OF_DAY,
+            nanoOfDay / NANOS_PER_HOUR,
+        )
+        fieldValues.updateTimeField(
+            ChronoField.NANO_OF_DAY,
+            ChronoField.MINUTE_OF_HOUR,
+            nanoOfDay / NANOS_PER_MINUTE % 60,
+        )
+        fieldValues.updateTimeField(
+            ChronoField.NANO_OF_DAY,
+            ChronoField.SECOND_OF_MINUTE,
+            nanoOfDay / NANOS_PER_SECOND % 60,
+        )
+        fieldValues.updateTimeField(
+            ChronoField.NANO_OF_DAY,
+            ChronoField.NANO_OF_SECOND,
+            nanoOfDay % NANOS_PER_SECOND,
+        )
+    }
+    fieldValues.remove(ChronoField.MICRO_OF_DAY)?.let { microOfDay ->
+        if (resolverStyle != ResolverStyle.LENIENT) {
+            ChronoField.MICRO_OF_DAY.checkValidValue(microOfDay)
+        }
+        fieldValues.updateTimeField(
+            ChronoField.MICRO_OF_DAY,
+            ChronoField.SECOND_OF_DAY,
+            microOfDay / MICROS_PER_SECOND,
+        )
+        fieldValues.updateTimeField(
+            ChronoField.MICRO_OF_DAY,
+            ChronoField.MICRO_OF_SECOND,
+            microOfDay % MICROS_PER_SECOND,
+        )
+    }
+    fieldValues.remove(ChronoField.MILLI_OF_DAY)?.let { milliOfDay ->
+        if (resolverStyle != ResolverStyle.LENIENT) {
+            ChronoField.MILLI_OF_DAY.checkValidValue(milliOfDay)
+        }
+        fieldValues.updateTimeField(
+            ChronoField.MILLI_OF_DAY,
+            ChronoField.SECOND_OF_DAY,
+            milliOfDay / MILLIS_PER_SECOND,
+        )
+        fieldValues.updateTimeField(
+            ChronoField.MILLI_OF_DAY,
+            ChronoField.MILLI_OF_SECOND,
+            milliOfDay % MILLIS_PER_SECOND,
+        )
+    }
+    fieldValues.remove(ChronoField.SECOND_OF_DAY)?.let { secondOfDay ->
+        if (resolverStyle != ResolverStyle.LENIENT) {
+            ChronoField.SECOND_OF_DAY.checkValidValue(secondOfDay)
+        }
+        fieldValues.updateTimeField(
+            ChronoField.SECOND_OF_DAY,
+            ChronoField.HOUR_OF_DAY,
+            secondOfDay / SECONDS_PER_HOUR,
+        )
+        fieldValues.updateTimeField(
+            ChronoField.SECOND_OF_DAY,
+            ChronoField.MINUTE_OF_HOUR,
+            secondOfDay / SECONDS_PER_MINUTE % 60,
+        )
+        fieldValues.updateTimeField(
+            ChronoField.SECOND_OF_DAY,
+            ChronoField.SECOND_OF_MINUTE,
+            secondOfDay % SECONDS_PER_MINUTE,
+        )
+    }
+    fieldValues.remove(ChronoField.MINUTE_OF_DAY)?.let { minuteOfDay ->
+        if (resolverStyle != ResolverStyle.LENIENT) {
+            ChronoField.MINUTE_OF_DAY.checkValidValue(minuteOfDay)
+        }
+        fieldValues.updateTimeField(
+            ChronoField.MINUTE_OF_DAY,
+            ChronoField.HOUR_OF_DAY,
+            minuteOfDay / MINUTES_PER_HOUR,
+        )
+        fieldValues.updateTimeField(
+            ChronoField.MINUTE_OF_DAY,
+            ChronoField.MINUTE_OF_HOUR,
+            minuteOfDay % MINUTES_PER_HOUR,
+        )
+    }
+
+    val nano = fieldValues[ChronoField.NANO_OF_SECOND]
+    if (nano != null) {
+        if (resolverStyle != ResolverStyle.LENIENT) {
+            ChronoField.NANO_OF_SECOND.checkValidValue(nano)
+        }
+        fieldValues.remove(ChronoField.MICRO_OF_SECOND)?.let { micro ->
+            if (resolverStyle != ResolverStyle.LENIENT) {
+                ChronoField.MICRO_OF_SECOND.checkValidValue(micro)
+            }
+            fieldValues.updateTimeField(
+                ChronoField.MICRO_OF_SECOND,
+                ChronoField.NANO_OF_SECOND,
+                micro * NANOS_PER_MICRO + nano % NANOS_PER_MICRO,
+            )
+        }
+        fieldValues.remove(ChronoField.MILLI_OF_SECOND)?.let { milli ->
+            if (resolverStyle != ResolverStyle.LENIENT) {
+                ChronoField.MILLI_OF_SECOND.checkValidValue(milli)
+            }
+            val currentNano = requireNotNull(fieldValues[ChronoField.NANO_OF_SECOND])
+            fieldValues.updateTimeField(
+                ChronoField.MILLI_OF_SECOND,
+                ChronoField.NANO_OF_SECOND,
+                milli * NANOS_PER_MILLI + currentNano % NANOS_PER_MILLI,
+            )
+        }
+    } else {
+        val milli = fieldValues.remove(ChronoField.MILLI_OF_SECOND)
+        val micro = fieldValues.remove(ChronoField.MICRO_OF_SECOND)
+        if (resolverStyle != ResolverStyle.LENIENT) {
+            milli?.let(ChronoField.MILLI_OF_SECOND::checkValidValue)
+            micro?.let(ChronoField.MICRO_OF_SECOND::checkValidValue)
+        }
+        when {
+            milli != null && micro != null -> {
+                val mergedMicro = milli * MICROS_PER_MILLI + micro % MICROS_PER_MILLI
+                if (micro != mergedMicro) {
+                    throw DateTimeException(
+                        "Conflict found: ${ChronoField.MICRO_OF_SECOND} $micro differs from " +
+                            "${ChronoField.MICRO_OF_SECOND} $mergedMicro while resolving " +
+                            ChronoField.MILLI_OF_SECOND,
+                    )
+                }
+                fieldValues[ChronoField.NANO_OF_SECOND] = mergedMicro * NANOS_PER_MICRO
+            }
+            milli != null -> fieldValues[ChronoField.NANO_OF_SECOND] = milli * NANOS_PER_MILLI
+            micro != null -> fieldValues[ChronoField.NANO_OF_SECOND] = micro * NANOS_PER_MICRO
+        }
+    }
+
+    if (
+        resolverStyle != ResolverStyle.STRICT &&
+        ChronoField.HOUR_OF_DAY !in fieldValues &&
+        ChronoField.MINUTE_OF_HOUR !in fieldValues &&
+        ChronoField.SECOND_OF_MINUTE !in fieldValues &&
+        ChronoField.NANO_OF_SECOND !in fieldValues
+    ) {
+        fieldValues.remove(ChronoField.AMPM_OF_DAY)?.let { amPm ->
+            val hour = if (resolverStyle == ResolverStyle.LENIENT) {
+                addExact(multiplyExact(amPm, 12), 6)
+            } else {
+                ChronoField.AMPM_OF_DAY.checkValidValue(amPm)
+                amPm * 12 + 6
+            }
+            fieldValues[ChronoField.HOUR_OF_DAY] = hour
+        }
+    }
+}
+
+private fun MutableMap<TemporalField, Long>.updateTimeField(
+    source: TemporalField,
+    target: TemporalField,
+    value: Long,
+) {
+    val previous = put(target, value)
+    if (previous != null && previous != value) {
+        throw DateTimeException(
+            "Conflict found: $target $previous differs from $target $value while resolving $source",
+        )
+    }
 }
 
 private fun resolvePatternYear(
@@ -2606,26 +2878,64 @@ private val POWERS_OF_TEN: IntArray = intArrayOf(
     1_000_000_000,
 )
 
+private const val NANOS_PER_MICRO: Long = 1_000
+private const val NANOS_PER_MILLI: Long = 1_000_000
+private const val NANOS_PER_SECOND: Long = 1_000_000_000
+private const val NANOS_PER_MINUTE: Long = 60 * NANOS_PER_SECOND
+private const val NANOS_PER_HOUR: Long = 60 * NANOS_PER_MINUTE
+private const val NANOS_PER_DAY: Long = 24 * NANOS_PER_HOUR
+private const val MICROS_PER_MILLI: Long = 1_000
+private const val MICROS_PER_SECOND: Long = 1_000_000
+private const val MILLIS_PER_SECOND: Long = 1_000
+private const val SECONDS_PER_MINUTE: Long = 60
+private const val SECONDS_PER_HOUR: Long = 60 * SECONDS_PER_MINUTE
+private const val MINUTES_PER_HOUR: Long = 60
+
 private fun resolvePatternTime(
-    hour: Int,
-    minute: Int,
-    second: Int,
-    nano: Int,
+    hour: Long,
+    minute: Long,
+    second: Long,
+    nano: Long,
     resolverStyle: ResolverStyle,
     text: String,
 ): ResolvedTime = try {
     when (resolverStyle) {
-        ResolverStyle.STRICT -> ResolvedTime(LocalTime.of(hour, minute, second, nano), Period.ZERO)
-        ResolverStyle.SMART -> if (hour == 24 && minute == 0 && second == 0 && nano == 0) {
+        ResolverStyle.STRICT -> ResolvedTime(
+            LocalTime.of(
+                ChronoField.HOUR_OF_DAY.checkValidIntValue(hour),
+                ChronoField.MINUTE_OF_HOUR.checkValidIntValue(minute),
+                ChronoField.SECOND_OF_MINUTE.checkValidIntValue(second),
+                ChronoField.NANO_OF_SECOND.checkValidIntValue(nano),
+            ),
+            Period.ZERO,
+        )
+        ResolverStyle.SMART -> if (hour == 24L && minute == 0L && second == 0L && nano == 0L) {
             ResolvedTime(LocalTime.MIDNIGHT, Period.ofDays(1))
         } else {
-            ResolvedTime(LocalTime.of(hour, minute, second, nano), Period.ZERO)
+            ResolvedTime(
+                LocalTime.of(
+                    ChronoField.HOUR_OF_DAY.checkValidIntValue(hour),
+                    ChronoField.MINUTE_OF_HOUR.checkValidIntValue(minute),
+                    ChronoField.SECOND_OF_MINUTE.checkValidIntValue(second),
+                    ChronoField.NANO_OF_SECOND.checkValidIntValue(nano),
+                ),
+                Period.ZERO,
+            )
         }
         ResolverStyle.LENIENT -> {
-            val totalNanos = (hour * 3_600L + minute * 60L + second) * 1_000_000_000L + nano
+            val totalNanos = addExact(
+                addExact(
+                    addExact(
+                        multiplyExact(hour, NANOS_PER_HOUR),
+                        multiplyExact(minute, NANOS_PER_MINUTE),
+                    ),
+                    multiplyExact(second, NANOS_PER_SECOND),
+                ),
+                nano,
+            )
             ResolvedTime(
-                time = LocalTime.ofNanoOfDay(totalNanos % 86_400_000_000_000L),
-                excessDays = Period.ofDays((totalNanos / 86_400_000_000_000L).toInt()),
+                time = LocalTime.ofNanoOfDay(floorMod(totalNanos, NANOS_PER_DAY)),
+                excessDays = Period.ofDays(floorDiv(totalNanos, NANOS_PER_DAY).toInt()),
             )
         }
     }
@@ -2640,15 +2950,7 @@ private fun describePattern(tokens: List<PatternToken>): String = buildString {
                 .append(token.text.replace("'", "''"))
                 .append('\'')
             is PatternToken.Field -> append(describePatternField(token))
-            is PatternToken.Value -> append("Value(")
-                .append(token.field)
-                .append(',')
-                .append(token.minWidth)
-                .append(',')
-                .append(token.maxWidth)
-                .append(',')
-                .append(token.signStyle)
-                .append(')')
+            is PatternToken.Value -> append(describePatternValue(token))
             is PatternToken.ReducedValue -> append("ReducedValue(")
                 .append(token.field)
                 .append(',')
@@ -2728,6 +3030,14 @@ private fun describePattern(tokens: List<PatternToken>): String = buildString {
                 .append(')')
         }
     }
+}
+
+private fun describePatternValue(token: PatternToken.Value): String = when {
+    token.minWidth == 1 && token.maxWidth == 19 && token.signStyle == SignStyle.NORMAL ->
+        "Value(${token.field})"
+    token.minWidth == token.maxWidth && token.signStyle == SignStyle.NOT_NEGATIVE ->
+        "Value(${token.field},${token.minWidth})"
+    else -> "Value(${token.field},${token.minWidth},${token.maxWidth},${token.signStyle})"
 }
 
 private fun describePatternField(token: PatternToken.Field): String {

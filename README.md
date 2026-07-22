@@ -46,8 +46,11 @@ Implemented foundations:
   week dates, chronology-aware date conversion, instant conversion, parsed
   chronology, and parsed default-zone behavior, and strict/smart/lenient ISO,
   non-ISO calendar, and RFC 1123 resolution (including excess-day handling); numeric
-  `ofPattern` date/time fields, exact fractions, reduced years, adjacent
-  fields, quoted literals, ISO/RFC-style offsets, and region zone IDs;
+  `ofPattern` date/time fields, including ordinal day `D`, aligned week `F`,
+  clock-hour `k`/`K`/`h`, milli/nano-of-day `A`/`N`, raw nano `n`, exact
+  fractions, reduced years, adjacent fields, quoted literals, ISO/RFC-style
+  offsets, and region zone IDs; Java-compatible aggregate and partial time-field
+  normalization for nano/micro/milli, second/minute-of-day, and AM/PM clocks;
   `DateTimeFormatterBuilder` pattern/literal and generic numeric-value
   composition, sign/width controls, integer- and chronology-base-date reduced
   value windows, fixed-range fractions, immutable custom field-text maps,
