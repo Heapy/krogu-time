@@ -1,5 +1,8 @@
 package io.heapy.grogu.time
 
+import io.heapy.grogu.time.chrono.ChronoLocalDate
+import io.heapy.grogu.time.chrono.ChronoLocalDateTime
+import io.heapy.grogu.time.chrono.ChronoZonedDateTime
 import io.heapy.grogu.time.chrono.Chronology
 import io.heapy.grogu.time.chrono.HijrahChronology
 import io.heapy.grogu.time.chrono.HijrahDate
@@ -209,6 +212,92 @@ class TemporalAccessorFieldMatrixJavaConformanceTest {
         assertEquals(emptyList(), mismatches)
     }
 
+    @Test
+    fun everyTemporalAccessorConversionFactoryMatchesJavaTime() {
+        val factories = listOf(
+            AccessorFactoryPair("DayOfWeek", java.time.DayOfWeek::from, DayOfWeek::from),
+            AccessorFactoryPair("Month", java.time.Month::from, Month::from),
+            AccessorFactoryPair("Year", java.time.Year::from, Year::from),
+            AccessorFactoryPair("MonthDay", java.time.MonthDay::from, MonthDay::from),
+            AccessorFactoryPair("YearMonth", java.time.YearMonth::from, YearMonth::from),
+            AccessorFactoryPair("LocalDate", java.time.LocalDate::from, LocalDate::from),
+            AccessorFactoryPair("LocalTime", java.time.LocalTime::from, LocalTime::from),
+            AccessorFactoryPair(
+                "LocalDateTime",
+                java.time.LocalDateTime::from,
+                LocalDateTime::from,
+            ),
+            AccessorFactoryPair("Instant", java.time.Instant::from, Instant::from),
+            AccessorFactoryPair("ZoneOffset", java.time.ZoneOffset::from, ZoneOffset::from),
+            AccessorFactoryPair("ZoneId", java.time.ZoneId::from, ZoneId::from),
+            AccessorFactoryPair("OffsetTime", java.time.OffsetTime::from, OffsetTime::from),
+            AccessorFactoryPair(
+                "OffsetDateTime",
+                java.time.OffsetDateTime::from,
+                OffsetDateTime::from,
+            ),
+            AccessorFactoryPair(
+                "ZonedDateTime",
+                java.time.ZonedDateTime::from,
+                ZonedDateTime::from,
+            ),
+            AccessorFactoryPair(
+                "Chronology",
+                java.time.chrono.Chronology::from,
+                Chronology::from,
+            ),
+            AccessorFactoryPair(
+                "ChronoLocalDate",
+                java.time.chrono.ChronoLocalDate::from,
+                ChronoLocalDate::from,
+            ),
+            AccessorFactoryPair(
+                "ChronoLocalDateTime",
+                java.time.chrono.ChronoLocalDateTime<*>::from,
+                { temporal -> ChronoLocalDateTime.from(temporal) },
+            ),
+            AccessorFactoryPair(
+                "ChronoZonedDateTime",
+                java.time.chrono.ChronoZonedDateTime<*>::from,
+                { temporal -> ChronoZonedDateTime.from(temporal) },
+            ),
+            AccessorFactoryPair(
+                "JapaneseDate",
+                java.time.chrono.JapaneseDate::from,
+                JapaneseDate::from,
+            ),
+            AccessorFactoryPair(
+                "HijrahDate",
+                java.time.chrono.HijrahDate::from,
+                HijrahDate::from,
+            ),
+            AccessorFactoryPair(
+                "MinguoDate",
+                java.time.chrono.MinguoDate::from,
+                MinguoDate::from,
+            ),
+            AccessorFactoryPair(
+                "ThaiBuddhistDate",
+                java.time.chrono.ThaiBuddhistDate::from,
+                ThaiBuddhistDate::from,
+            ),
+        )
+        val mismatches = factories.flatMap { factory ->
+            accessors().mapNotNull { accessor ->
+                val javaOutcome = outcome { factory.java(accessor.java) }
+                val kotlinOutcome = outcome { factory.kotlin(accessor.kotlin) }
+                if (javaOutcome == kotlinOutcome) {
+                    null
+                } else {
+                    "${factory.name} from ${accessor.name}: " +
+                        "Java=$javaOutcome, Kotlin=$kotlinOutcome"
+                }
+            }
+        }
+
+        assertEquals(emptyList(), mismatches)
+    }
+
     private fun chronologies(): List<ChronologyPair> = listOf(
         ChronologyPair(
             "ISO",
@@ -398,6 +487,12 @@ class TemporalAccessorFieldMatrixJavaConformanceTest {
         val name: String,
         val java: java.time.ZoneId,
         val kotlin: ZoneId,
+    )
+
+    private data class AccessorFactoryPair(
+        val name: String,
+        val java: (java.time.temporal.TemporalAccessor) -> Any?,
+        val kotlin: (TemporalAccessor) -> Any?,
     )
 
     private data class ChronologyFactorySnapshot(
