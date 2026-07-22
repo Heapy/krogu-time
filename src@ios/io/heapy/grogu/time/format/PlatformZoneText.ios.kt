@@ -16,7 +16,7 @@ internal actual fun formatLocaleZoneText(
     style: TextStyle,
     generic: Boolean,
 ): String? {
-    if (style.asNormal() == TextStyle.NARROW) return null
+    if (style == TextStyle.NARROW) return null
     val zone = NSTimeZone.timeZoneWithName(zoneId) ?: return null
     val nameStyle = zoneNameStyle(zone, epochSecond, style, generic)
     return zone.localizedName(nameStyle, NSLocale(localeIdentifier = languageTag))
@@ -31,7 +31,7 @@ internal actual fun parseLocaleZoneText(
     caseSensitive: Boolean,
     preferredZoneIds: Set<String>,
 ): ParsedLocaleZoneText? {
-    if (style.asNormal() == TextStyle.NARROW) return null
+    if (style == TextStyle.NARROW) return null
     val locale = NSLocale(localeIdentifier = languageTag)
     val zoneIds = preferredZoneIds +
         preferredZoneIds(languageTag) +

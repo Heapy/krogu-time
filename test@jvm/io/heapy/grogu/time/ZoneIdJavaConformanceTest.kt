@@ -1,5 +1,6 @@
 package io.heapy.grogu.time
 
+import io.heapy.grogu.time.format.TextStyle
 import io.heapy.grogu.time.zone.ZoneRules
 import java.time.Instant as JavaInstant
 import java.time.LocalDateTime as JavaLocalDateTime
@@ -129,6 +130,30 @@ class ZoneIdJavaConformanceTest {
                 kotlinOperation = { ZoneId.of(id) },
                 context = id,
             )
+        }
+    }
+
+    @Test
+    fun localizedDisplayNamesMatchJavaTime() {
+        val zones = listOf("Europe/Paris", "America/New_York", "Asia/Tokyo", "+02:30", "GMT+02:30")
+        val locales = listOf("en-US", "en-GB", "fr-FR", "de-DE", "ja-JP", "ar-SA")
+
+        zones.forEach { zoneId ->
+            locales.forEach { tag ->
+                TextStyle.entries.forEach { style ->
+                    assertEquals(
+                        JavaZoneId.of(zoneId).getDisplayName(
+                            java.time.format.TextStyle.valueOf(style.name),
+                            java.util.Locale.forLanguageTag(tag),
+                        ),
+                        ZoneId.of(zoneId).getDisplayName(
+                            style,
+                            Locale.forLanguageTag(tag),
+                        ),
+                        "$zoneId $tag $style",
+                    )
+                }
+            }
         }
     }
 

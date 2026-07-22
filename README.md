@@ -174,8 +174,8 @@ Implemented foundations:
   integration, adjustment, and Java-compatible ordering
 - `ZoneId` fixed-offset and `UTC`/`GMT`/`UT` prefixed identifiers, alias-map
   resolution, provider-backed region IDs, normalization, available-ID access,
-  bundled IANA TZDB 2025a resolution, system-default lookup, and zone/
-  zone-offset temporal queries (display names remain)
+  bundled IANA TZDB 2025a resolution, system-default lookup, localized display
+  names, and zone/zone-offset temporal queries
 - `ZoneRules` fixed and variable in-memory rule sets, historic standard/wall
   transitions, recurring future rules, instant and ambiguous local-time
   resolution, daylight-saving calculations, transition navigation, and full

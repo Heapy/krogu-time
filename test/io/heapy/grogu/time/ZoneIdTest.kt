@@ -1,11 +1,13 @@
 package io.heapy.grogu.time
 
+import io.heapy.grogu.time.format.TextStyle
 import io.heapy.grogu.time.temporal.TemporalQueries
 import io.heapy.grogu.time.zone.ZoneRules
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -69,5 +71,38 @@ class ZoneIdTest {
         assertEquals(value.offset, ZoneId.from(value))
         assertNull(value.offset.query(TemporalQueries.zoneId()))
         assertEquals(value.offset, value.offset.query(TemporalQueries.zone()))
+    }
+
+    @Test
+    fun obtainsLocalizedDisplayNamesWithIdFallbacks() {
+        val paris = ZoneId.of("Europe/Paris")
+        val full = paris.getDisplayName(TextStyle.FULL, Locale.ENGLISH)
+        val short = paris.getDisplayName(TextStyle.SHORT, Locale.ENGLISH)
+
+        assertTrue(full.isNotEmpty())
+        assertTrue(short.isNotEmpty())
+        assertEquals("Europe/Paris", paris.getDisplayName(TextStyle.NARROW, Locale.ENGLISH))
+        assertNotEquals(
+            "Europe/Paris",
+            paris.getDisplayName(TextStyle.NARROW_STANDALONE, Locale.ENGLISH),
+        )
+        assertEquals(
+            "+02:30",
+            ZoneOffset.ofHoursMinutes(2, 30).getDisplayName(TextStyle.FULL, Locale.ENGLISH),
+        )
+        assertEquals(
+            "GMT+02:30",
+            ZoneId.of("GMT+02:30").getDisplayName(TextStyle.SHORT, Locale.ENGLISH),
+        )
+    }
+
+    @Test
+    fun displayNamesUseTheRequestedLocale() {
+        val paris = ZoneId.of("Europe/Paris")
+
+        assertNotEquals(
+            paris.getDisplayName(TextStyle.FULL, Locale.ENGLISH),
+            paris.getDisplayName(TextStyle.FULL, Locale.forLanguageTag("fr-FR")),
+        )
     }
 }

@@ -1,5 +1,7 @@
 package io.heapy.grogu.time
 
+import io.heapy.grogu.time.format.TextStyle
+import io.heapy.grogu.time.format.formatLocaleZoneText
 import io.heapy.grogu.time.temporal.TemporalAccessor
 import io.heapy.grogu.time.temporal.TemporalQueries
 import io.heapy.grogu.time.zone.ZoneRules
@@ -17,6 +19,26 @@ public abstract class ZoneId {
     /** Returns a fixed offset when these rules never change. */
     public fun normalized(): ZoneId =
         if (rules.isFixedOffset) rules.getOffset(Instant.EPOCH) else this
+
+    /** Returns this zone's localized display name, falling back to [id]. */
+    public fun getDisplayName(style: TextStyle, locale: Locale): String =
+        if (style == TextStyle.NARROW || hasOffsetBasedId()) {
+            id
+        } else {
+            formatLocaleZoneText(
+                languageTag = locale.toLanguageTag(),
+                zoneId = id,
+                epochSecond = null,
+                style = style,
+                generic = false,
+            ) ?: id
+        }
+
+    private fun hasOffsetBasedId(): Boolean =
+        this is ZoneOffset ||
+            id.startsWith("UTC+") || id.startsWith("UTC-") ||
+            id.startsWith("GMT+") || id.startsWith("GMT-") ||
+            id.startsWith("UT+") || id.startsWith("UT-")
 
     override fun equals(other: Any?): Boolean =
         this === other || other is ZoneId && id == other.id
