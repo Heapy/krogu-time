@@ -282,8 +282,8 @@ tracking future Java and timezone-data releases, and improving platform locale
 coverage without changing Java 21 semantics.
 
 The bundled TZDB source is generated reproducibly from the OpenJDK 21
-`lib/tzdb.dat` file by `tools/generate-tzdb-data.rb`.
+`lib/tzdb.dat` file by `tools/generate-tzdb-data.main.kts`.
 
 The bundled Umm al-Qura month table is generated reproducibly from OpenJDK 21's
 `hijrah-config-Hijrah-umalqura_islamic-umalqura.properties` module resource by
-`tools/generate-hijrah-data.rb`.
+`tools/generate-hijrah-data.main.kts`.
