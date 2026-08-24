@@ -16,7 +16,7 @@ come from that script, run twice with the same result.
 It works. Converted TCK, run against the port:
 
 ```
-Total tests run: 17648, Passes: 17617, Failures: 31
+Total tests run: 17648, Passes: 17618, Failures: 30
 ```
 
 82 of 155 TCK/test files ran; 73 were dropped because the converter cannot
@@ -91,6 +91,13 @@ On the full tree that is 9605 rewrites across 155 files.
   Both now return a read-only view. Guarded by
   `ZoneRulesListImmutabilityJavaConformanceTest`.
 
+- **`TCKPadPrinterParser.test_parseStrict`, 1 failure.** A strict parse must
+  fill the whole padded width, and Java reports a short parse at the start of
+  the padded section plus the index the padding ended at, counting the start
+  twice. The port reported it at the start. The double count is only visible
+  when something precedes the padding, so the test puts a literal in front.
+  Guarded by `DateTimeFormatterPadParseJavaConformanceTest`.
+
 ### Worth investigating — possible real divergence
 
 - **`TestZonedDateTime.test_duration`.** `Invalid value for EpochDay ...
@@ -100,7 +107,6 @@ On the full tree that is 9605 rewrites across 155 files.
   factories; the port allocates. This is an allocation strategy, asserted by
   OpenJDK's internal `test` tree rather than by the compatibility `tck` tree,
   so matching it is a design call rather than a compatibility fix.
-- **`TCKPadPrinterParser.test_parseStrict`.** `expected [1] but found [0]`.
 - **`TestMutableZoneRules.testLength`.** Expected `IllegalArgumentException`,
   nothing thrown.
 
@@ -122,11 +128,11 @@ and 3 under Next steps. Known causes:
 
 ## Next steps
 
-1. Of the 31 remaining failures, 23 are the harness artifacts listed above:
-   14 `test_immutable`, 5 `test_serialization`, 2 Coptic `ServiceLoader`, and
-   2 `TestClock_System`. The real work is the 8 under "Worth investigating",
-   and 5 of those are the `LocalTime` whole-hour cache, which lives in
-   OpenJDK's internal `test` tree rather than the compatibility `tck` tree.
+1. The compatibility `tck` tree is clean. Its 6 remaining failures are the
+   5 `test_serialization` and the Coptic `ServiceLoader` fixture, neither of
+   which is a port defect. The other 24 come from OpenJDK's internal `test`
+   tree: 14 `test_immutable`, 2 `ServiceLoader`, 2 `TestClock_System`, and 6
+   real ones, of which 5 are the `LocalTime` whole-hour cache.
 2. Add static-import rules to the converter. Cheap, unlocks several files.
 3. Decide on `Locale` and the covariant return types.
 4. Make the CI job blocking once the failure count reaches zero.

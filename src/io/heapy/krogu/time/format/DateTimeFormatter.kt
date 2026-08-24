@@ -2440,13 +2440,28 @@ private fun parsePatternUnresolved(
                     ) {
                         index++
                     }
-                    parseTokens(listOf(token.token), input.substring(0, endIndex))
-                    if (strictAtStart && index != endIndex) {
-                        throw DateTimeParseException(
-                            "Text could not be parsed at index $startIndex",
-                            input,
-                            startIndex,
-                        )
+                    // Strict parsing must fill the whole padded width. Java
+                    // reports that failure at the start of the section plus
+                    // the index the padding ended at, counting the start
+                    // twice; the value reaches callers through ParsePosition,
+                    // so the arithmetic is reproduced rather than corrected.
+                    val failureIndex = startIndex + index
+                    if (!strictAtStart) {
+                        parseTokens(listOf(token.token), input.substring(0, endIndex))
+                    } else {
+                        val filledWidth = try {
+                            parseTokens(listOf(token.token), input.substring(0, endIndex))
+                            index == endIndex
+                        } catch (_: DateTimeParseException) {
+                            false
+                        }
+                        if (!filledWidth) {
+                            throw DateTimeParseException(
+                                "Text could not be parsed at index $failureIndex",
+                                input,
+                                failureIndex,
+                            )
+                        }
                     }
                 }
                 is PatternToken.ParseSetting -> when (token.setting) {
