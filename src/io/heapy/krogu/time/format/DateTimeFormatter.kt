@@ -51,9 +51,7 @@ public class DateTimeFormatter private constructor(
     /** Formats [temporal] into a string. */
     public fun format(temporal: TemporalAccessor): String {
         val adjusted = adjustForFormatting(temporal)
-        val formatted = patternTokens?.let { tokens ->
-            formatPattern(tokens, adjusted, locale)
-        } ?: printer(adjusted)
+        val formatted = formatPattern(patternTokens ?: builderTokens, adjusted, locale)
         return decimalStyleScope.localize(formatted, decimalStyle)
     }
 
