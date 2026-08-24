@@ -62,9 +62,9 @@ The published bytecode is class-file 65, so a Java 21 JVM can load it.
 
 ## How java.time compliance is checked
 
-Two checks run in CI on every push and pull request. A third runs monthly.
+Three checks run in CI on every push and pull request. A fourth runs monthly.
 
-1. **Differential tests.** 97 test files in `test@jvm/` call `java.time` and
+1. **Differential tests.** 101 test files in `test@jvm/` call `java.time` and
    `krogu-time` with the same input and assert the same result. They cover
    exhaustive and all-pairs matrices over standard fields, units, amounts,
    queries, adjustments, conversions, intervals, chronology factories, and
@@ -72,7 +72,14 @@ Two checks run in CI on every push and pull request. A third runs monthly.
 2. **The same behavioral suite on every target.** The common tests in `test/`
    run on JVM, Android, and iOS. A behavior pinned against Java on the JVM is
    therefore also asserted on iOS, where no `java.time` exists to compare with.
-3. **TZDB freshness.** A monthly workflow compares the bundled IANA database
+3. **The OpenJDK `java.time` TCK.** `tools/run-tck.main.kts` fetches the TCK
+   at a pinned OpenJDK tag, rewrites it to call `krogu-time`, and runs it.
+   The rewrite rules are read out of the built jar, so they follow the port.
+   The sources are GPLv2 only and are never committed. The job is
+   non-blocking while the converter still drops files it cannot rewrite;
+   `tools/TCK_FINDINGS.md` records the current result and triages what
+   still fails.
+4. **TZDB freshness.** A monthly workflow compares the bundled IANA database
    with the one the JDK ships and opens an issue when the JDK is ahead. Zone
    rules are the one input that goes stale on its own.
 

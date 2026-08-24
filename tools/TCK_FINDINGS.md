@@ -131,8 +131,8 @@ and 3 under Next steps. Known causes:
 1. The compatibility `tck` tree is clean. Its 6 remaining failures are the
    5 `test_serialization` and the Coptic `ServiceLoader` fixture, neither of
    which is a port defect. The other 24 come from OpenJDK's internal `test`
-   tree: 14 `test_immutable`, 2 `ServiceLoader`, 2 `TestClock_System`, and 6
-   real ones, of which 5 are the `LocalTime` whole-hour cache.
+   tree: 14 `test_immutable`, 1 Coptic `ServiceLoader`, 2 `TestClock_System`,
+   and 7 real ones, of which 5 are the `LocalTime` whole-hour cache.
 2. Add static-import rules to the converter. Cheap, unlocks several files.
 3. Decide on `Locale` and the covariant return types.
 4. Make the CI job blocking once the failure count reaches zero.
