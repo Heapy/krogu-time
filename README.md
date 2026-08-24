@@ -64,6 +64,12 @@ you release it by hand.
 - Arithmetic: checked overflow and normalized values must match Java
 - Development: red-green-refactor slices, with each green slice committed
 
+## Migration notes
+
+Converting Java `java.time` code is mostly mechanical. See
+[MIGRATION_NOTES.md](MIGRATION_NOTES.md) for the cases that need a manual
+change.
+
 ## Coverage
 
 Implemented public surface and foundations:
