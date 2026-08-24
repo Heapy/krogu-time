@@ -62,7 +62,7 @@ The published bytecode is class-file 65, so a Java 21 JVM can load it.
 
 ## How java.time compliance is checked
 
-Three checks, all in CI on every push and pull request:
+Two checks run in CI on every push and pull request. A third runs monthly.
 
 1. **Differential tests.** 97 test files in `test@jvm/` call `java.time` and
    `krogu-time` with the same input and assert the same result. They cover

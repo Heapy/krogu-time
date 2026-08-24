@@ -53,3 +53,13 @@ echo "==> publishing io.heapy:krogu-time:$version to Maven Central"
 # exists"). Running the task itself skips the check and does the same work.
 # Re-test `kotlin publish mavenCentral` after a toolchain upgrade.
 KOTLIN_CLI_NO_WELCOME_BANNER=1 ./kotlin task ":$module:publishToMavenCentral"
+
+# The toolchain names the bundle "<module>-central-bundle.zip" and buries it in
+# the task output directory, so the file on disk does not say which release it
+# is. Copy it out under a versioned name.
+bundle="build/tasks/_${module}_prepareMavenCentralBundle/${module}-central-bundle.zip"
+if [ -f "$bundle" ]; then
+  cp "$bundle" "build/${module}-${version}.zip"
+  echo
+  echo "bundle: build/${module}-${version}.zip"
+fi
