@@ -14,8 +14,8 @@
  * Usage:
  *   kotlinr tools/run-tck.main.kts [work-dir]
  *
- * Requires `./kotlin build` first, and a JDK 21 on JAVA_HOME or in the
- * Kotlin Toolchain cache.
+ * Requires `./kotlin build` first, and the reference JDK on JAVA_HOME or in
+ * the Kotlin Toolchain cache.
  */
 
 import java.io.File
@@ -23,9 +23,13 @@ import java.net.URI
 import java.util.zip.ZipFile
 import kotlin.system.exitProcess
 
-// Matches the toolchain JDK. The reference of this port is Java 21, and the
-// TCK checks SHORT_IDS, tzdb rules, and field ranges that later JDKs changed.
-val tckTag = "jdk-21.0.12-ga"
+// Must match the JDK that runs the JVM differential tests, because that JDK
+// is the behavioral reference of this port (module.yaml, jvm.jdk.version).
+// The TCK checks SHORT_IDS, tzdb rules, and field ranges that move between
+// JDK releases, so a mismatch here compares against the wrong java.time.
+val jdkMajor = "25"
+val tckTag = "jdk-25.0.4.1-ga"
+val tckRepository = "https://github.com/openjdk/jdk${jdkMajor}u.git"
 
 val newPackage = "io.heapy.krogu.time"
 
@@ -62,28 +66,28 @@ fun ensure(condition: Boolean, message: () -> String) {
     }
 }
 
-// --- JDK 21 --------------------------------------------------------------
+// --- reference JDK ------------------------------------------------------
 
-fun isJdk21(home: File): Boolean {
+fun isReferenceJdk(home: File): Boolean {
     val javac = File(home, "bin/javac")
     if (!javac.canExecute()) return false
-    return run(javac.path, "-version").second.contains(" 21.")
+    return run(javac.path, "-version").second.contains(" $jdkMajor.")
 }
 
 val toolchainCache = File(System.getProperty("user.home"), "Library/Caches/JetBrains/Kotlin/extract.cache")
 val jdkCandidates = buildList {
     System.getenv("JAVA_HOME")?.let { add(File(it)) }
-    run("/usr/libexec/java_home", "-v", "21").let { (code, out) ->
+    run("/usr/libexec/java_home", "-v", jdkMajor).let { (code, out) ->
         if (code == 0) add(File(out.trim()))
     }
     if (toolchainCache.isDirectory) {
         toolchainCache.walkTopDown().maxDepth(4)
-            .filter { it.isDirectory && it.name == "Home" && it.path.contains("21.0") }
+            .filter { it.isDirectory && it.name == "Home" && it.path.contains("$jdkMajor.0") }
             .forEach { add(it) }
     }
 }
-val jdkOrNull = jdkCandidates.firstOrNull(::isJdk21)
-ensure(jdkOrNull != null) { "JDK 21 not found. Set JAVA_HOME to a JDK 21." }
+val jdkOrNull = jdkCandidates.firstOrNull(::isReferenceJdk)
+ensure(jdkOrNull != null) { "JDK $jdkMajor not found. Set JAVA_HOME to a JDK $jdkMajor." }
 val jdk = jdkOrNull!!
 val javac = File(jdk, "bin/javac").path
 val javap = File(jdk, "bin/javap").path
@@ -112,12 +116,12 @@ val classpath = (listOf(portJar.path) + File(work, "lib").listFiles()!!.map { it
 
 // --- TCK sources ---------------------------------------------------------
 
-val checkout = File(work, "jdk21u")
+val checkout = File(work, "jdk-tck")
 if (!checkout.isDirectory) {
     println("fetching TCK at $tckTag")
     run(
         "git", "clone", "--filter=blob:none", "--no-checkout", "--depth", "1",
-        "--branch", tckTag, "https://github.com/openjdk/jdk21u.git", checkout.path,
+        "--branch", tckTag, tckRepository, checkout.path,
     )
     run("git", "-C", checkout.path, "sparse-checkout", "init", "--cone")
     run("git", "-C", checkout.path, "sparse-checkout", "set", "test/jdk/java/time")
@@ -202,7 +206,11 @@ val generated = File(work, "gen")
 generated.deleteRecursively()
 generated.mkdirs()
 
-val tckFiles = sources.walkTopDown()
+// Only the tck and test trees. The sibling nontestng tree is jtreg-only
+// scaffolding with no TestNG classes.
+val tckFiles = listOf("tck", "test")
+    .map { File(sources, it) }
+    .flatMap { it.walkTopDown() }
     .filter { it.isFile && it.extension == "java" }
     .filter { file -> excludedPaths.none { it in file.path } }
     .toList()

@@ -4749,6 +4749,10 @@ private class UnresolvedParsedTemporalAccessor(
         val result: Any? = when (query) {
             TemporalQueries.chronology() -> chronology
             TemporalQueries.zoneId() -> zone
+            // A zone parsed from an offset id answers the offset query too,
+            // even though OFFSET_SECONDS stays unset, the way Java does.
+            TemporalQueries.offset() ->
+                super<TemporalAccessor>.query(query) ?: (zone as? ZoneOffset)
             TemporalQueries.precision() -> null
             else -> return super<TemporalAccessor>.query(query)
         }

@@ -3,8 +3,10 @@
 Spike goal: decide whether the OpenJDK `java.time` TCK can run against
 `krogu-time` in CI, and at what cost.
 
-Reference JDK 21.0.12.1 (the toolchain JDK). TCK sources from
-`openjdk/jdk21u` at tag `jdk-21.0.12-ga`.
+Reference JDK 25.0.4, the JDK that runs the JVM differential tests and so
+sets the behavioral reference of this port. TCK sources from `openjdk/jdk25u`
+at tag `jdk-25.0.4.1-ga`. Both are pinned in `tools/run-tck.main.kts` and must
+move together with `jvm.jdk.version` in `module.yaml`.
 
 Reproduce with `./kotlin build && kotlinr tools/run-tck.main.kts`. The numbers below
 come from that script, run twice with the same result.
@@ -14,18 +16,18 @@ come from that script, run twice with the same result.
 It works. Converted TCK, run against the port:
 
 ```
-Total tests run: 17637, Passes: 17523, Failures: 114
+Total tests run: 17648, Passes: 17590, Failures: 58
 ```
 
-81 of 155 TCK/test files ran; 74 were dropped because the converter
-cannot handle them yet, and the script lists every one. The conversion is fully mechanical, driven by
+82 of 155 TCK/test files ran; 73 were dropped because the converter cannot
+handle them yet, and the script lists every one. The conversion is fully mechanical, driven by
 the built jar rather than a hand-written rule list.
 
 ## Gates checked
 
 | Gate | Result |
 | --- | --- |
-| License of TCK sources | **GPLv2 only, no Classpath exception.** Do not vendor into this Apache-2.0 repo. `run-tck.sh` fetches at CI time and discards. |
+| License of TCK sources | **GPLv2 only, no Classpath exception.** Do not vendor into this Apache-2.0 repo. The script fetches at run time and discards. |
 | Interface default methods | Real JVM default methods, not `DefaultImpls`. Java can implement `TemporalAccessor`/`Temporal` anonymously. No blocker. |
 | `@JvmStatic` needed? | **No.** Rewriting call sites to `LocalDate.Companion.of(...)` and `LocalDate.Companion.getMIN()` compiles clean. The library needs no change. |
 
@@ -57,11 +59,17 @@ On the full tree that is 7645 companion calls, 1285 companion constants,
 - Coptic `ServiceLoader` (2). The TCK's service fixture is not wired up yet.
 - `TestClock_System` (2). `NoClassDefFoundError` from jtreg infrastructure.
 
+### Fixed
+
+- **`TCKZoneIdPrinterParser`, 80 failures, now 24.** `parseUnresolved` built
+  an accessor whose offset query only read `OFFSET_SECONDS`. Java answers the
+  offset query from the parsed zone when that zone is itself a `ZoneOffset`,
+  and never sets `OFFSET_SECONDS` while doing it. The resolved accessor
+  already had that rule; the unresolved one did not. Guarded by
+  `DateTimeFormatterUnresolvedZoneQueryJavaConformanceTest`.
+
 ### Worth investigating — possible real divergence
 
-- **`TCKZoneIdPrinterParser`, 80 failures.** One cluster, one area.
-  `Incorrect offset parsing: z expected [Z] but found [null]`. Zone-id
-  parsing returns null where Java parses. Top suspect.
 - **`getTransitions_immutable` / `getTransitionRules_immutable`, 3 failures.**
   Java returns a list that throws on mutation. The port's list does not.
 - **`TestZonedDateTime.test_duration`.** `Invalid value for EpochDay ...
@@ -88,8 +96,7 @@ On the full tree that is 7645 companion calls, 1285 companion constants,
 
 ## Next steps
 
-1. Investigate the `TCKZoneIdPrinterParser` cluster. Biggest single signal.
+1. Work through the remaining `TCKZoneIdPrinterParser` failures (24 left).
 2. Add static-import rules to the converter. Cheap, unlocks several files.
 3. Decide on `Locale` and the covariant return types.
-4. Wire `run-tck.sh` into CI as a non-blocking job first, with a failure
-   budget, then tighten it.
+4. Make the CI job blocking once the failure count reaches zero.
