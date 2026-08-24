@@ -137,10 +137,10 @@ public class ZoneRules private constructor(
 
     /** Returns the complete historic transition list. */
     public fun getTransitions(): List<ZoneOffsetTransition> =
-        savingsInstantTransitions.indices.map(::transitionAt)
+        ReadOnlyList(savingsInstantTransitions.indices.map(::transitionAt))
 
     /** Returns the recurring transition rules used beyond the historic list. */
-    public fun getTransitionRules(): List<ZoneOffsetTransitionRule> = lastRules
+    public fun getTransitionRules(): List<ZoneOffsetTransitionRule> = ReadOnlyList(lastRules)
 
     override fun equals(other: Any?): Boolean =
         this === other ||
@@ -309,4 +309,20 @@ public class ZoneRules private constructor(
             emptyList(),
         )
     }
+}
+
+/**
+ * A read-only view of [source].
+ *
+ * Java sees Kotlin's read-only `List` as `java.util.List`, and the compiler
+ * gives a class implementing it mutator stubs that throw. `map` and `listOf`
+ * hand back a plain `ArrayList` instead, which a Java caller can clear, so
+ * the lists that leave [ZoneRules] are wrapped.
+ */
+private class ReadOnlyList<T>(
+    private val source: List<T>,
+) : AbstractList<T>() {
+    override val size: Int get() = source.size
+
+    override fun get(index: Int): T = source[index]
 }

@@ -76,7 +76,7 @@ Two checks run in CI on every push and pull request. A third runs monthly.
    with the one the JDK ships and opens an issue when the JDK is ahead. Zone
    rules are the one input that goes stale on its own.
 
-The current baseline is 713 JVM tests, 461 Android tests, and 460 iOS tests, all
+The current baseline is 715 JVM tests, 461 Android tests, and 460 iOS tests, all
 passing, followed by a successful build of every target.
 
 Run them:

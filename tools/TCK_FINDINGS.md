@@ -16,7 +16,7 @@ come from that script, run twice with the same result.
 It works. Converted TCK, run against the port:
 
 ```
-Total tests run: 17648, Passes: 17614, Failures: 34
+Total tests run: 17648, Passes: 17617, Failures: 31
 ```
 
 82 of 155 TCK/test files ran; 73 were dropped because the converter cannot
@@ -63,8 +63,8 @@ On the full tree that is 9605 rewrites across 155 files.
 - **`TCKZoneIdPrinterParser`, 80 failures, now 0.** Two separate bugs, both
   in that one class.
 
-  First, `parseUnresolved` built
-  an accessor whose offset query only read `OFFSET_SECONDS`. Java answers the
+  First, `parseUnresolved` built an accessor whose offset query only read
+  `OFFSET_SECONDS`. Java answers the
   offset query from the parsed zone when that zone is itself a `ZoneOffset`,
   and never sets `OFFSET_SECONDS` while doing it. The resolved accessor
   already had that rule; the unresolved one did not. Guarded by
@@ -81,19 +81,30 @@ On the full tree that is 9605 rewrites across 155 files.
   compares index, error index, and zone across 43 inputs in both
   case-sensitive and case-insensitive mode.
 
+- **`getTransitions` and `getTransitionRules` returned mutable lists,
+  3 failures.** Java returns unmodifiable lists. Kotlin's read-only `List` is
+  a compile-time guarantee only, and `map` and `listOf` hand back an
+  `ArrayList`, so a Java caller could clear them. `getTransitionRules`
+  returned the rules list itself, so clearing it corrupted the shared
+  `ZoneRules` for the rest of the process — writing the regression test
+  against the unfixed code broke two unrelated tests that used the same zone.
+  Both now return a read-only view. Guarded by
+  `ZoneRulesListImmutabilityJavaConformanceTest`.
+
 ### Worth investigating — possible real divergence
 
-- **`getTransitions_immutable` / `getTransitionRules_immutable`, 3 failures.**
-  Java returns a list that throws on mutation. The port's list does not.
 - **`TestZonedDateTime.test_duration`.** `Invalid value for EpochDay ...
   365241780472` at the end of the range.
-- **`TestLocalTime.factory_ofNanoOfDay_singletons`.** An `assertSame` check.
-  Java caches whole-hour `LocalTime` constants; the port makes new instances.
+- **`TestLocalTime` whole-hour singletons, 5 failures.** `assertSame` checks.
+  Java caches the 24 whole-hour `LocalTime` values and returns them from the
+  factories; the port allocates. This is an allocation strategy, asserted by
+  OpenJDK's internal `test` tree rather than by the compatibility `tck` tree,
+  so matching it is a design call rather than a compatibility fix.
 - **`TCKPadPrinterParser.test_parseStrict`.** `expected [1] but found [0]`.
 - **`TestMutableZoneRules.testLength`.** Expected `IllegalArgumentException`,
   nothing thrown.
 
-## Not yet converted (74 files)
+## Not yet converted (73 files)
 
 73 files are dropped. The error census below was measured against the JDK 21
 TCK, before the harness moved to JDK 25; re-measure it before working items 2
@@ -111,9 +122,11 @@ and 3 under Next steps. Known causes:
 
 ## Next steps
 
-1. The 34 remaining failures have no cluster left: the largest is 6 in
-   `TestLocalTime`. About 23 of them are the harness artifacts listed above,
-   so the real work is the handful under "Worth investigating".
+1. Of the 31 remaining failures, 23 are the harness artifacts listed above:
+   14 `test_immutable`, 5 `test_serialization`, 2 Coptic `ServiceLoader`, and
+   2 `TestClock_System`. The real work is the 8 under "Worth investigating",
+   and 5 of those are the `LocalTime` whole-hour cache, which lives in
+   OpenJDK's internal `test` tree rather than the compatibility `tck` tree.
 2. Add static-import rules to the converter. Cheap, unlocks several files.
 3. Decide on `Locale` and the covariant return types.
 4. Make the CI job blocking once the failure count reaches zero.
