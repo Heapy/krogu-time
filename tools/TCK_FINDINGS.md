@@ -16,13 +16,13 @@ come from that script, run twice with the same result.
 It works. Converted TCK, run against the port:
 
 ```
-Total tests run: 17648, Passes: 17619, Failures: 29
+Total tests run: 18093, Passes: 18064, Failures: 29
 ```
 
-82 of 155 TCK/test files ran; 73 were dropped because the converter cannot
+83 of 155 TCK/test files ran; 72 were dropped because the converter cannot
 handle them yet, and the script lists every one. Of the 75 files in the
-compatibility `tck` tree, 44 ran and 31 did not, so every statement below
-about the `tck` tree covers 59% of it. The conversion is fully mechanical, driven by
+compatibility `tck` tree, 45 ran and 30 did not, so every statement below
+about the `tck` tree covers 60% of it. The conversion is fully mechanical, driven by
 the built jar rather than a hand-written rule list.
 
 ## Gates checked
@@ -125,33 +125,49 @@ On the full tree that is 9605 rewrites across 155 files.
 
 ## Not yet converted (73 files)
 
-73 files are dropped: 31 of the 75 in the `tck` tree and 42 of the 80 in the
-internal `test` tree. Only 22 fail to compile directly; dropping those cascades
-to the rest through base classes and helpers.
+72 files are dropped: 30 of the 75 in the `tck` tree and 42 of the 80 in the
+internal `test` tree. 65 fail to compile directly; dropping those cascades to
+the rest through base classes and helpers.
 
 Formatting is the largest blind spot, 46 of the 73: `TCKDateTimeFormatter`,
 `TCKDateTimeFormatterBuilder`, `TCKDateTimeFormatters`, `TCKDateTimeParseResolver`
-and 11 more from the `tck` tree. Then chronology, 15, including every calendar
-`TCKChronology`. Also lost: `TCKLocalDate`, `TCKZoneId`, `TCKZoneOffset`,
+and 11 more from the `tck` tree. Then chronology, 14: every calendar
+`TCKChronology` except `TCKIsoChronology`, which the `resolveDate` fix
+unblocked and which added 445 passing tests. Also lost: `TCKLocalDate`, `TCKZoneId`, `TCKZoneOffset`,
 `TCKDayOfWeek`, `TCKMonth`, `TCKZoneRulesProvider`.
 
-The census below was re-measured against the JDK 25 TCK and the current port:
-100 errors over 22 files, the same as the first run. Causes:
+The census below was re-measured against the JDK 25 TCK and the current port,
+after the covariant `resolveDate` fix, with `-Xmaxerrs 10000`.
 
-- `java.util.Locale` versus the port's own `Locale` (28) — needs an adapter
-  or per-site rewrite
-- covariant return types (34). Checked against `java.time` with `javap`, and
-  both are real differences in the port's API rather than converter gaps:
-  - `resolveDate` is not overridden covariantly. Java returns `HijrahDate`,
-    `ThaiBuddhistDate`, `MinguoDate`, `LocalDate`; the port inherits
-    `ChronoLocalDate` for all of them except `JapaneseChronology`, which is
-    already correct. Java callers need a cast the JDK does not.
-  - `eras()` is more specific than Java's. Java returns `List<Era>`; the port
-    returns `List<HijrahEra>` and so on. Kotlin's `List` is covariant so this
-    reads better from Kotlin, but Java's is invariant, so a Java caller cannot
-    assign the result to `List<Era>`.
+Every earlier count of "100 errors over 22 files" in this file was wrong. 100
+is `javac`'s default error cap, so the measurement was truncated and read as a
+round number. The real figure is **477 errors over 65 files**. Always pass
+`-Xmaxerrs` when censusing this.
+
+Causes, largest first:
+
+- `java.util.Locale` versus the port's own `Locale` (214, 45% of the total) —
+  needs a bridge at the call sites, not a change to the port
+- method references (174). `LocalDate::from` and friends. The converter
+  rewrites `Type.member(` call syntax but not `Type::member`, which needs
+  `Type.Companion::member`. This is the largest converter gap and was hidden
+  behind the error cap.
+- the noun-accessor rule over-applying (37). `.length()` is rewritten to
+  `.getLength()` even on a `String`; the rule needs to know the receiver type.
 - static imports of `object` members (`IsoFields.QUARTER_OF_YEAR`) and of
-  companion constants (`DateTimeFormatter.BASIC_ISO_DATE`) — converter gap
+  companion constants (`DateTimeFormatter.BASIC_ISO_DATE`) — 34
+- `toFormat()` (15). A JVM extension function on `DateTimeFormatter`, so it is
+  a static on a file class and invisible to a Java caller. Real interop note,
+  not a converter gap.
+- `getAvailableZoneIds()` and `getAvailableChronologies()` (24) — check the
+  port's names against `java.time` before assuming either side is wrong.
+- covariant return types (6). Checked against `java.time` with `javap`:
+  `eras()` is more specific than Java's. Java returns `List<Era>`; the port
+  returns `List<HijrahEra>` and so on. Kotlin's `List` is covariant so this
+  reads better from Kotlin, but Java's is invariant, so a Java caller cannot
+  assign the result to `List<Era>`. Every use in the TCK is read-only, so the
+  harness can declare `List<? extends Era>` and keep the port's shape.
+  `resolveDate` was the other half of this and is now fixed in the port.
 - `datesUntil` returns `Sequence`, not `Stream` — permanent exclusion
 - `jdk.test.lib` jtreg infrastructure — exclude
 

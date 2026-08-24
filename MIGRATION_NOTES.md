@@ -34,6 +34,30 @@ Those parameters are nullable here too, and they keep the Java answer:
   ignore the value and return a result, while rules with transitions reject it
   the way Java does.
 
+## `eras()` returns the calendar's own era type
+
+`Chronology.eras()` returns `List<Era>` in Java. Here each calendar returns its
+own type, such as `List<HijrahEra>`.
+
+From Kotlin this is strictly better. Kotlin's read-only `List` is covariant, so
+a `List<HijrahEra>` is already a `List<Era>` wherever one is wanted, and the
+element type stays exact.
+
+From Java it is a compile error. Java's `List` is invariant, so this does not
+build:
+
+```java
+List<Era> eras = HijrahChronology.INSTANCE.eras();   // does not compile
+```
+
+Widen the declared type instead:
+
+```java
+List<? extends Era> eras = HijrahChronology.INSTANCE.eras();
+```
+
+The list itself is the same at run time; only the declared generic type differs.
+
 ## `datesUntil` returns a `Sequence`
 
 `LocalDate.datesUntil` returns a Kotlin `Sequence`, the idiomatic equivalent of
