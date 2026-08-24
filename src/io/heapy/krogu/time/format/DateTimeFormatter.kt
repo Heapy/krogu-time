@@ -14,6 +14,8 @@ import io.heapy.krogu.time.ZoneOffset
 import io.heapy.krogu.time.ZonedDateTime
 import io.heapy.krogu.time.localeTimeZoneId
 import io.heapy.krogu.time.chrono.ChronoLocalDate
+import io.heapy.krogu.time.chrono.ChronoLocalDateTime
+import io.heapy.krogu.time.chrono.ChronoZonedDateTime
 import io.heapy.krogu.time.chrono.Chronology
 import io.heapy.krogu.time.chrono.IsoChronology
 import io.heapy.krogu.time.internal.addExact
@@ -69,6 +71,7 @@ public class DateTimeFormatter private constructor(
                 text = standardized,
                 resolverStyle = resolverStyle,
                 chronology = chronology,
+                zone = zone,
                 resolverFields = resolverFields,
                 locale = locale,
             )
@@ -77,6 +80,7 @@ public class DateTimeFormatter private constructor(
                 text = standardized,
                 resolverStyle = resolverStyle,
                 chronology = chronology,
+                zone = zone,
                 locale = locale,
             )
             resolverParser != null -> resolverParser.invoke(standardized, resolverStyle)
@@ -112,6 +116,7 @@ public class DateTimeFormatter private constructor(
                     text = input,
                     resolverStyle = resolverStyle,
                     chronology = chronology,
+                    zone = zone,
                     resolverFields = resolverFields,
                 ),
             )
@@ -2016,6 +2021,7 @@ private data class ParsedPatternParse(
         text: String,
         resolverStyle: ResolverStyle,
         chronology: Chronology?,
+        zone: ZoneId?,
         resolverFields: Set<TemporalField>?,
     ): TemporalAccessor {
         val resolvingValues = resolverFields?.let { fields ->
@@ -2027,7 +2033,7 @@ private data class ParsedPatternParse(
             resolverStyle = resolverStyle,
             chronology = this.chronology ?: chronology ?: IsoChronology,
             offset = offset.takeIf { ChronoField.OFFSET_SECONDS in resolvingValues },
-            zone = zone,
+            zone = this.zone ?: zone,
             leapSecond = leapSecond,
             dayPeriod = dayPeriod,
         )
@@ -2046,6 +2052,7 @@ private fun parsePattern(
     text: String,
     resolverStyle: ResolverStyle,
     chronology: Chronology? = null,
+    zone: ZoneId? = null,
     resolverFields: Set<TemporalField>? = null,
     locale: Locale = Locale.ROOT,
 ): TemporalAccessor {
@@ -2067,6 +2074,7 @@ private fun parsePattern(
         text = text,
         resolverStyle = resolverStyle,
         chronology = chronology,
+        zone = zone,
         resolverFields = resolverFields,
     )
 }
@@ -3398,10 +3406,15 @@ private fun resolvePatternValues(
             throw DateTimeParseException("Invalid instant fields", text, 0, exception)
         }
     }
-    val date = try {
-        resolveParsedDateFields(fieldValues, chronology, resolverStyle)
+    val resolvedFields = try {
+        resolveParsedFields(
+            fieldValues = fieldValues,
+            chronology = chronology,
+            resolverStyle = resolverStyle,
+            zone = zone,
+        )
     } catch (exception: RuntimeException) {
-        throw DateTimeParseException("Text cannot be parsed to a date", text, 0, exception)
+        throw DateTimeParseException("Text cannot be parsed", text, 0, exception)
     }
 
     val hour = fieldValues[ChronoField.HOUR_OF_DAY]
@@ -3411,7 +3424,7 @@ private fun resolvePatternValues(
     val hasResolvableTimeFields = hour != null &&
         (minute != null || second == null && fraction == null) &&
         (second != null || fraction == null)
-    val resolvedTime = if (hasResolvableTimeFields) {
+    val fieldTime = if (hasResolvableTimeFields) {
         resolvePatternTime(
             hour = requireNotNull(hour),
             minute = minute ?: 0,
@@ -3424,30 +3437,54 @@ private fun resolvePatternValues(
         null
     }
 
-    val resolvedDate = if (date != null && resolvedTime != null) {
-        date.plus(resolvedTime.excessDays.days.toLong(), ChronoUnit.DAYS)
+    val resolvedTime = try {
+        val candidate = mergeResolvedTime(resolvedFields.time, fieldTime?.time)
+        if (fieldTime != null) {
+            fieldValues.remove(ChronoField.HOUR_OF_DAY)
+            fieldValues.remove(ChronoField.MINUTE_OF_HOUR)
+            fieldValues.remove(ChronoField.SECOND_OF_MINUTE)
+            fieldValues.remove(ChronoField.NANO_OF_SECOND)
+        }
+        candidate?.let { crossCheckTimeFields(it, fieldValues) }
+        validateRemainingTimeFields(fieldValues, resolverStyle)
+        candidate
+    } catch (exception: RuntimeException) {
+        throw DateTimeParseException("Text cannot be parsed to a time", text, 0, exception)
+    }
+    val excessDays = fieldTime?.excessDays ?: Period.ZERO
+    val resolvedDate = if (resolvedFields.date != null && resolvedTime != null) {
+        resolvedFields.date.plus(excessDays.days.toLong(), ChronoUnit.DAYS)
     } else {
-        date
+        resolvedFields.date
     }
     return ParsedTemporalAccessor(
         date = resolvedDate,
-        time = resolvedTime?.time,
+        time = resolvedTime,
         offset = resolvedOffset,
-        zone = zone,
+        zone = resolvedFields.zone,
         instant = instant,
         chronology = chronology,
         fields = fieldValues,
-        excessDays = if (date == null) resolvedTime?.excessDays ?: Period.ZERO else Period.ZERO,
+        excessDays = if (resolvedFields.date == null) excessDays else Period.ZERO,
         leapSecond = leapSecond,
     )
 }
 
-private fun resolveParsedDateFields(
+private data class ResolvedFields(
+    val date: ChronoLocalDate?,
+    val time: LocalTime?,
+    val zone: ZoneId?,
+)
+
+private fun resolveParsedFields(
     fieldValues: MutableMap<TemporalField, Long>,
     chronology: Chronology,
     resolverStyle: ResolverStyle,
-): ChronoLocalDate? {
+    zone: ZoneId?,
+): ResolvedFields {
     var resolvedDate: ChronoLocalDate? = null
+    var resolvedTime: LocalTime? = null
+    var resolvedZone = zone
 
     fun mergeDate(candidate: ChronoLocalDate?) {
         if (candidate == null) return
@@ -3465,6 +3502,27 @@ private fun resolveParsedDateFields(
         resolvedDate = candidate
     }
 
+    fun mergeTime(candidate: LocalTime?) {
+        if (candidate == null) return
+        val previous = resolvedTime
+        if (previous != null && previous != candidate) {
+            throw DateTimeException(
+                "Conflict found: Fields resolved to different times: $previous $candidate",
+            )
+        }
+        resolvedTime = candidate
+    }
+
+    fun mergeZone(candidate: ZoneId) {
+        val previous = resolvedZone
+        if (previous != null && previous != candidate) {
+            throw DateTimeException(
+                "ChronoZonedDateTime must use the effective parsed zone: $previous",
+            )
+        }
+        resolvedZone = candidate
+    }
+
     mergeDate(chronology.resolveDate(fieldValues, resolverStyle))
     var changedCount = 0
     while (changedCount < MAX_FIELD_RESOLVE_PASSES) {
@@ -3473,16 +3531,29 @@ private fun resolveParsedDateFields(
             val previousValues = fieldValues.toMap()
             val partialTemporal = ParsedTemporalAccessor(
                 date = resolvedDate,
+                time = resolvedTime,
+                zone = resolvedZone,
                 chronology = chronology,
                 fields = fieldValues,
             )
             val resolved = field.resolve(fieldValues, partialTemporal, resolverStyle)
-            resolved?.let { temporal ->
-                mergeDate(if (temporal is ChronoLocalDate) {
-                    temporal
-                } else {
-                    chronology.date(temporal)
-                })
+            when (resolved) {
+                is ChronoZonedDateTime<*> -> {
+                    mergeZone(resolved.zone)
+                    mergeTime(resolved.time)
+                    mergeDate(resolved.date)
+                }
+                is ChronoLocalDateTime<*> -> {
+                    mergeTime(resolved.time)
+                    mergeDate(resolved.date)
+                }
+                is ChronoLocalDate -> mergeDate(resolved)
+                is LocalTime -> mergeTime(resolved)
+                null -> Unit
+                else -> throw DateTimeException(
+                    "Method resolve() can only return ChronoZonedDateTime, " +
+                        "ChronoLocalDateTime, ChronoLocalDate or LocalTime",
+                )
             }
             if (resolved != null || fieldValues != previousValues) {
                 changed = true
@@ -3497,9 +3568,22 @@ private fun resolveParsedDateFields(
     }
     if (changedCount > 0) {
         mergeDate(chronology.resolveDate(fieldValues, resolverStyle))
+        resolveTimeFields(fieldValues, resolverStyle, null)
     }
     resolvedDate?.let { date -> crossCheckDateFields(date, fieldValues) }
-    return resolvedDate
+    return ResolvedFields(resolvedDate, resolvedTime, resolvedZone)
+}
+
+private fun mergeResolvedTime(
+    resolvedTime: LocalTime?,
+    fieldTime: LocalTime?,
+): LocalTime? {
+    if (resolvedTime != null && fieldTime != null && resolvedTime != fieldTime) {
+        throw DateTimeException(
+            "Conflict found: Fields resolved to different times: $resolvedTime $fieldTime",
+        )
+    }
+    return resolvedTime ?: fieldTime
 }
 
 private fun crossCheckDateFields(
@@ -3519,6 +3603,39 @@ private fun crossCheckDateFields(
             )
         }
         fieldValues.remove(field)
+    }
+}
+
+private fun crossCheckTimeFields(
+    time: LocalTime,
+    fieldValues: MutableMap<TemporalField, Long>,
+) {
+    for ((field, parsedValue) in fieldValues.toMap()) {
+        if (!time.isSupported(field)) continue
+        val resolvedValue = try {
+            time.getLong(field)
+        } catch (_: RuntimeException) {
+            continue
+        }
+        if (resolvedValue != parsedValue) {
+            throw DateTimeException(
+                "Conflict found: Field $field $resolvedValue differs from " +
+                    "$field $parsedValue derived from $time",
+            )
+        }
+        fieldValues.remove(field)
+    }
+}
+
+private fun validateRemainingTimeFields(
+    fieldValues: Map<TemporalField, Long>,
+    resolverStyle: ResolverStyle,
+) {
+    if (resolverStyle == ResolverStyle.LENIENT) return
+    fieldValues.forEach { (field, value) ->
+        if (field is ChronoField && field.isTimeBased) {
+            field.checkValidValue(value)
+        }
     }
 }
 
