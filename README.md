@@ -11,8 +11,12 @@ Kotlin shared by every target.
 
 ## Build
 
-The repository uses JetBrains Kotlin Toolchain 0.11.0 and its checked-in
+The repository uses JetBrains Kotlin Toolchain 0.12.0-dev-4300 and its checked-in
 wrapper. No Gradle installation is required.
+
+The JDK is pinned to 21. The JVM differential tests compare against the
+`java.time` of the running JDK, and newer JDKs changed `ZoneId.SHORT_IDS` and
+the `InstantSeconds` field range.
 
 ```shell
 ./kotlin test
@@ -27,6 +31,29 @@ iOS tests, followed by a successful build of every configured target. The JVM
 suite includes exhaustive and all-pairs differential matrices for standard
 fields, units, amounts, queries, adjustments, conversions, intervals,
 chronology factories, and chronology-aware ordering.
+
+## Publishing
+
+The module publishes to Maven Central as `io.heapy:grogu-time`. Publication
+covers the JVM, Android, and iOS targets plus the shared Kotlin metadata.
+
+Set these environment variables before publishing:
+
+```shell
+export KOTLIN_TOOLCHAIN_MAVEN_CENTRAL_USERNAME=...
+export KOTLIN_TOOLCHAIN_MAVEN_CENTRAL_PASSWORD=...
+export KOTLIN_TOOLCHAIN_SIGNING_KEY=...
+export KOTLIN_TOOLCHAIN_SIGNING_KEY_PASSPHRASE=...
+```
+
+Then run:
+
+```shell
+./kotlin publish mavenCentral
+```
+
+The publishing mode is `manual`. The upload waits in the Central portal until
+you release it by hand.
 
 ## Compatibility contract
 
@@ -287,3 +314,7 @@ The bundled TZDB source is generated reproducibly from the OpenJDK 21
 The bundled Umm al-Qura month table is generated reproducibly from OpenJDK 21's
 `hijrah-config-Hijrah-umalqura_islamic-umalqura.properties` module resource by
 `tools/generate-hijrah-data.main.kts`.
+
+## License
+
+Apache License 2.0. See `LICENSE`.

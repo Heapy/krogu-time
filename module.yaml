@@ -10,5 +10,60 @@ description: A Kotlin Multiplatform port of java.time
 settings:
   android:
     namespace: io.heapy.grogu.time
+  # Pinned to 21 on purpose. The behavioral reference of this port is Java 21
+  # java.time, and the JVM differential tests compare against the running JDK.
+  # Newer JDKs changed ZoneId.SHORT_IDS and the InstantSeconds field range, so
+  # a newer JDK makes those tests fail.
+  jvm:
+    jdk:
+      version: 21
+  publishing:
+    enabled: true
+    group: io.heapy
+    artifactId: grogu-time
+    version: 0.1.0
+    publishSources: true
+    signArtifacts: true
+    mavenCentral:
+      enabled: true
+      publishingMode: manual
+    pom:
+      name: grogu-time
+      description: A Kotlin Multiplatform port of the Java 21 java.time API
+      url: https://github.com/heapy/grogu-time
+      licenses:
+        - name: The Apache License, Version 2.0
+          url: https://www.apache.org/licenses/LICENSE-2.0.txt
+      developers:
+        - id: heapy
+          name: Ruslan Ibrahimau
+      scm:
+        url: https://github.com/heapy/grogu-time
+        connection: scm:git:https://github.com/heapy/grogu-time.git
+        developerConnection: scm:git:ssh://git@github.com/heapy/grogu-time.git
+
+# allWarningsAsErrors is applied per leaf platform, not in common.
+# The publication metadata compilation (compileMetadataIos) hits a
+# kotlin-stdlib KLIB loader warning about a duplicated unique_name that no
+# project code can fix, and -Werror there blocks `kotlin publish`. Every
+# common source file is still compiled by each leaf platform, so project
+# warnings remain errors.
+settings@jvm:
+  kotlin:
+    allWarningsAsErrors: true
+
+settings@android:
+  kotlin:
+    allWarningsAsErrors: true
+
+settings@iosArm64:
+  kotlin:
+    allWarningsAsErrors: true
+
+settings@iosSimulatorArm64:
+  kotlin:
+    allWarningsAsErrors: true
+
+settings@iosX64:
   kotlin:
     allWarningsAsErrors: true
