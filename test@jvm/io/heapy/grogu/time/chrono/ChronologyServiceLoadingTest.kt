@@ -56,6 +56,6 @@ class ChronologyServiceLoadingTest {
     private companion object {
         const val SERVICE_RESOURCE: String =
             "META-INF/services/io.heapy.grogu.time.chrono.Chronology"
-        const val SERVICE_FIXTURE: String = "service-fixtures/grogu-time-chronology"
+        const val SERVICE_FIXTURE: String = "service-fixtures/krogu-time-chronology"
     }
 }

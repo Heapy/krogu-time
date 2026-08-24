@@ -3,7 +3,7 @@ package io.heapy.grogu.time
 /**
  * A locale identifier used by locale-sensitive date-time APIs.
  *
- * Grogu-time represents locales as canonical BCP 47 language tags so the
+ * Krogu-time represents locales as canonical BCP 47 language tags so the
  * same value can be used on every Kotlin Multiplatform target.
  */
 public class Locale private constructor(

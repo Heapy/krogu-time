@@ -1,6 +1,6 @@
-# grogu-time
+# krogu-time
 
-`grogu-time` is a Kotlin Multiplatform port of the Java 21 `java.time` API under
+`krogu-time` is a Kotlin Multiplatform port of the Java 21 `java.time` API under
 the `io.heapy.grogu.time` package.
 
 The public Java 21 API surface is feature-complete, translated into idiomatic
@@ -34,7 +34,7 @@ chronology factories, and chronology-aware ordering.
 
 ## Publishing
 
-The module publishes to Maven Central as `io.heapy:grogu-time`. Publication
+The module publishes to Maven Central as `io.heapy:krogu-time`. Publication
 covers the JVM, Android, and iOS targets plus the shared Kotlin metadata.
 
 Set these environment variables before publishing:

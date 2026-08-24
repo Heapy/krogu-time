@@ -20,7 +20,7 @@ settings:
   publishing:
     enabled: true
     group: io.heapy
-    artifactId: grogu-time
+    artifactId: krogu-time
     version: 0.1.0
     publishSources: true
     signArtifacts: true
@@ -28,7 +28,7 @@ settings:
       enabled: true
       publishingMode: manual
     pom:
-      name: grogu-time
+      name: krogu-time
       description: A Kotlin Multiplatform port of the Java 21 java.time API
       url: https://github.com/heapy/krogu-time
       licenses:
