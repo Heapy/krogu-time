@@ -1,59 +1,130 @@
 # krogu-time
 
-`krogu-time` is a Kotlin Multiplatform port of the Java 25 `java.time` API under
-the `io.heapy.krogu.time` package.
+`krogu-time` is a cleanroom Kotlin Multiplatform port of the Java 25 `java.time`
+API, in the package `io.heapy.krogu.time`. It targets JVM, Android, and iOS.
 
-The public Java 25 API surface is feature-complete, translated into idiomatic
-Kotlin where JavaBean accessors map naturally to properties. Platform-specific
-JDK integration, such as `java.text.Format`, is provided on JVM and Android;
-the date-time model, chronology, formatting, temporal, and zone APIs are common
-Kotlin shared by every target.
+The point is migration. A Java or Kotlin/JVM app that uses `java.time` can move
+to Kotlin Multiplatform by changing the import, not the code. So the port keeps
+the Java shape even where Kotlin would prefer another one: parameters that Java
+accepts as `null` stay nullable here, and the arithmetic, the overflow checks,
+and the exception messages match the JDK. Only APIs that do not exist outside
+the JVM are replaced, such as `Stream`, which becomes `Sequence`.
+
+The public Java 25 API surface is feature-complete. The date-time model,
+chronology, formatting, temporal, and zone APIs are common Kotlin shared by every
+target. JDK-specific integration, such as `java.text.Format`, is added on JVM and
+Android only.
+
+## Install
+
+The library is published to Maven Central as `io.heapy:krogu-time`.
+
+Kotlin Toolchain (`module.yaml`):
+
+```yaml
+dependencies:
+  - io.heapy:krogu-time:0.1.0
+```
+
+Gradle (`build.gradle.kts`), from the `commonMain` source set:
+
+```kotlin
+kotlin {
+    sourceSets {
+        commonMain.dependencies {
+            implementation("io.heapy:krogu-time:0.1.0")
+        }
+    }
+}
+```
+
+Maven, for a JVM-only project:
+
+```xml
+<dependency>
+    <groupId>io.heapy</groupId>
+    <artifactId>krogu-time-jvm</artifactId>
+    <version>0.1.0</version>
+</dependency>
+```
+
+The published bytecode is class-file 65, so a Java 21 JVM can load it.
+
+## Documentation
+
+- [MIGRATION_NOTES.md](MIGRATION_NOTES.md) — the cases where converted Java code
+  does not compile as-is, and what to write instead. Everything else is
+  mechanical, and the IDE Java-to-Kotlin converter handles it.
+- [ARCHITECTURE.md](ARCHITECTURE.md) — how the module is laid out, what is
+  common code, and the four things each platform has to supply.
+- [INTENT.md](INTENT.md) — the rules the port follows when a Java API and
+  idiomatic Kotlin disagree.
+
+## How java.time compliance is checked
+
+Three checks, all in CI on every push and pull request:
+
+1. **Differential tests.** 97 test files in `test@jvm/` call `java.time` and
+   `krogu-time` with the same input and assert the same result. They cover
+   exhaustive and all-pairs matrices over standard fields, units, amounts,
+   queries, adjustments, conversions, intervals, chronology factories, and
+   chronology-aware ordering. They run on JDK 25, so JDK 25 is the reference.
+2. **The same behavioral suite on every target.** The common tests in `test/`
+   run on JVM, Android, and iOS. A behavior pinned against Java on the JVM is
+   therefore also asserted on iOS, where no `java.time` exists to compare with.
+3. **TZDB freshness.** A monthly workflow compares the bundled IANA database
+   with the one the JDK ships and opens an issue when the JDK is ahead. Zone
+   rules are the one input that goes stale on its own.
+
+The current baseline is 709 JVM tests, 461 Android tests, and 460 iOS tests, all
+passing, followed by a successful build of every target.
+
+Run them:
+
+```shell
+./kotlin test
+```
 
 ## Build
 
 The repository uses JetBrains Kotlin Toolchain 0.12.0-dev-4300 and its checked-in
 wrapper. No Gradle installation is required.
 
+```shell
+./kotlin test     # run every target's tests
+./kotlin build    # build every target
+```
+
 The JDK is pinned to 25, because the JVM differential tests compare against the
 `java.time` of the running JDK. The published bytecode is a separate knob and
 stays at class-file 65, so the library still loads on a Java 21 JVM.
-
-```shell
-./kotlin test
-```
-
-The current module targets JVM, Android, iOS ARM64, iOS Simulator ARM64, and
-iOS x64. Production code and behavioral tests live in common Kotlin. JVM-only
-differential tests compare observable behavior with Java 25 `java.time`.
-
-The current verification baseline is 709 JVM tests, 461 Android tests, and 460
-iOS tests, followed by a successful build of every configured target. The JVM
-suite includes exhaustive and all-pairs differential matrices for standard
-fields, units, amounts, queries, adjustments, conversions, intervals,
-chronology factories, and chronology-aware ordering.
 
 ## Publishing
 
 The module publishes to Maven Central as `io.heapy:krogu-time`. Publication
 covers the JVM, Android, and iOS targets plus the shared Kotlin metadata.
 
-Set these environment variables before publishing:
+`scripts/release.sh` does the whole release. It reads three variables:
 
 ```shell
-export KOTLIN_TOOLCHAIN_MAVEN_CENTRAL_USERNAME=...
-export KOTLIN_TOOLCHAIN_MAVEN_CENTRAL_PASSWORD=...
-export KOTLIN_TOOLCHAIN_SIGNING_KEY=...
-export KOTLIN_TOOLCHAIN_SIGNING_KEY_PASSPHRASE=...
+export GPG_KEY_ID=...        # signing key, from gpg --list-secret-keys
+export GPG_PASSPHRASE=...    # its passphrase
+export CENTRAL_TOKEN=...     # Central Portal token, as "<username>:<password>"
+scripts/release.sh
 ```
 
-Then run:
+Keep those exports in a `publish.sh` wrapper at the repository root that calls
+the script. That file is git-ignored, so the credentials stay local.
 
-```shell
-./kotlin publish mavenCentral
-```
+The script exports the signing key from the local GPG keyring at run time and
+hands the toolchain what it wants: `KOTLIN_TOOLCHAIN_SIGNING_KEY`,
+`KOTLIN_TOOLCHAIN_SIGNING_KEY_PASSPHRASE`,
+`KOTLIN_TOOLCHAIN_MAVEN_CENTRAL_USERNAME`, and
+`KOTLIN_TOOLCHAIN_MAVEN_CENTRAL_PASSWORD`.
 
-The publishing mode is `manual`. The upload waits in the Central portal until
-you release it by hand.
+The publishing mode is `manual`. The upload is validated by Central and then
+waits at https://central.sonatype.com/publishing/deployments until you release
+it by hand.
 
 ## Compatibility contract
 
@@ -64,12 +135,6 @@ you release it by hand.
   semantics, with Java-named operations retained when useful
 - Arithmetic: checked overflow and normalized values must match Java
 - Development: red-green-refactor slices, with each green slice committed
-
-## Migration notes
-
-Converting Java `java.time` code is mostly mechanical. See
-[MIGRATION_NOTES.md](MIGRATION_NOTES.md) for the cases that need a manual
-change.
 
 ## Coverage
 
