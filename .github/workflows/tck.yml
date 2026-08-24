@@ -1,0 +1,82 @@
+name: TCK
+
+# Runs the OpenJDK java.time TCK against the port and reports divergence.
+#
+# Non-blocking on purpose. The converter still drops files it cannot rewrite,
+# and a known set of failures is triaged in tools/TCK_FINDINGS.md, so a red
+# result here is a signal to read, not a reason to stop a merge. Tighten this
+# to a blocking job once the failure count reaches zero.
+#
+# The TCK sources are GPLv2 only. They are fetched at run time into build/ and
+# never committed, so this Apache-2.0 project redistributes nothing GPL'd.
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tck:
+    name: Run the java.time TCK
+    runs-on: macos-26
+    timeout-minutes: 60
+    continue-on-error: true
+
+    env:
+      KOTLIN_CLI_NO_WELCOME_BANNER: "1"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Cache Kotlin Toolchain
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/Library/Caches/JetBrains/Kotlin
+            ~/.konan
+          key: kotlin-toolchain-macos-26-${{ runner.arch }}-${{ hashFiles('kotlin', 'module.yaml') }}
+          restore-keys: |
+            kotlin-toolchain-macos-26-${{ runner.arch }}-
+
+      - name: Build the JVM jar
+        run: ./kotlin build
+
+      # The checked-in ./kotlin wrapper builds the project but cannot run a
+      # standalone script from inside a project directory, so the script
+      # runner is fetched separately, pinned to the version used locally.
+      - name: Set up the Kotlin script runner
+        run: |
+          set -euo pipefail
+          curl -sSL -o /tmp/kotlin-compiler.zip \
+            https://github.com/JetBrains/kotlin/releases/download/v2.4.10/kotlin-compiler-2.4.10.zip
+          unzip -q /tmp/kotlin-compiler.zip -d /tmp
+          echo "/tmp/kotlinc/bin" >> "$GITHUB_PATH"
+
+      - name: Run the TCK
+        run: kotlinr tools/run-tck.main.kts
+
+      - name: Upload the TCK report
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: tck-report
+          path: build/tck/report
+          if-no-files-found: warn
