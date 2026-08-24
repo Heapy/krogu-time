@@ -3143,8 +3143,15 @@ private fun parsePatternValue(
         .map { it.adjacentFixedNumericWidth() }
         .takeWhile { it != null }
         .sumOf { it ?: 0 }
-    val minimumDigits = if (strict) token.minWidth else 1
-    val configuredMaximum = if (strict) token.maxWidth else 9
+    // Java forces fixed-width values appended to an active adjacent parser to
+    // keep their configured width even when the parse context is lenient.
+    val fixedWidth = strict || token.isFixedWidthInAdjacentParsing(
+        tokens = tokens,
+        tokenIndex = tokenIndex,
+        reservedWidth = reservedWidth,
+    )
+    val minimumDigits = if (fixedWidth) token.minWidth else 1
+    val configuredMaximum = if (fixedWidth) token.maxWidth else 9
     val availableDigits = digitRunEnd - digitsStart
     val maximumDigits = minOf(
         configuredMaximum,
@@ -3231,6 +3238,27 @@ private fun PatternToken.adjacentFixedNumericWidth(): Int? = when (this) {
     is PatternToken.Optional,
     is PatternToken.Padded,
     is PatternToken.Literal -> null
+}
+
+private fun PatternToken.Value.isFixedWidthInAdjacentParsing(
+    tokens: List<PatternToken>,
+    tokenIndex: Int,
+    reservedWidth: Int,
+): Boolean = minWidth == maxWidth &&
+    signStyle == SignStyle.NOT_NEGATIVE &&
+    (
+        reservedWidth > 0 ||
+            tokens.getOrNull(tokenIndex - 1)?.isAdjacentNumericParser() == true
+    )
+
+private fun PatternToken.isAdjacentNumericParser(): Boolean = when (this) {
+    is PatternToken.Value,
+    is PatternToken.ReducedValue,
+    is PatternToken.Fraction,
+    is PatternToken.LocalizedWeek,
+    is PatternToken.Field,
+    -> true
+    else -> false
 }
 
 private data class ParsedReducedPatternField(
