@@ -16,13 +16,11 @@ come from that script, run twice with the same result.
 It works. Converted TCK, run against the port:
 
 ```
-Total tests run: 18093, Passes: 18064, Failures: 29
+Total tests run: 20915, Passes: 20867, Failures: 48
 ```
 
-83 of 155 TCK/test files ran; 72 were dropped because the converter cannot
-handle them yet, and the script lists every one. Of the 75 files in the
-compatibility `tck` tree, 45 ran and 30 did not, so every statement below
-about the `tck` tree covers 60% of it. The conversion is fully mechanical, driven by
+113 of 155 TCK/test files ran; 42 were dropped because the converter cannot
+handle them yet, and the script lists every one. The conversion is fully mechanical, driven by
 the built jar rather than a hand-written rule list.
 
 ## Gates checked
@@ -115,6 +113,29 @@ On the full tree that is 9605 rewrites across 155 files.
   by `ZonedDateTimeTimelineEndsJavaConformanceTest`, which compares `until`
   for every `ChronoUnit` and `Duration.between` over 75 zone and value pairs.
 
+### Found once the converter reached more files
+
+The static-import and Locale rules brought 30 more files in, and they
+immediately exposed differences nothing had tested before. All three were
+reproduced outside the harness, against `java.time`, before being recorded.
+
+- **Numeric overflow while parsing, 9 failures in `TestNumberParser`.** Java's
+  value parser stops taking digits when the next one would overflow a `long`,
+  and succeeds with what it has: `appendValue(DAY_OF_MONTH, 1, 19, NORMAL)`
+  parsing `9223372036854775808` returns index 18 and the value
+  922337203685477580. The port rejects the whole parse and reports an error at
+  index 0. Same for `99999999999999999999` and the negative side.
+- **Adjacent value parse errors, 3 failures in `TestNumberParser`.** With a
+  value field followed by a fixed-width one, Java reports a failure after the
+  first field has been consumed; parsing `"1"` gives error index 1. The port
+  reports index 0. The success case, `"12"`, already matches.
+- **`TestCharLiteralPrinter.test_toString_apos`, 1 failure.** The builder's
+  `toString` escapes an apostrophe literal as `''''` where Java prints `''`.
+
+Two more are harness artifacts: `TestZoneId.test_systemDefault_*` set the JVM
+default time zone and expect the port's exception type, but the JVM's own
+`java.time` throws first.
+
 ### Left open — a design call, not a defect
 
 - **`TestLocalTime` whole-hour singletons, 5 failures.** `assertSame` checks.
@@ -123,13 +144,12 @@ On the full tree that is 9605 rewrites across 155 files.
   OpenJDK's internal `test` tree rather than by the compatibility `tck` tree,
   so matching it is a design call rather than a compatibility fix.
 
-## Not yet converted (73 files)
+## Not yet converted (42 files)
 
-72 files are dropped: 30 of the 75 in the `tck` tree and 42 of the 80 in the
-internal `test` tree. 65 fail to compile directly; dropping those cascades to
-the rest through base classes and helpers.
+42 files are dropped. The census below predates the static-import and Locale
+rules; re-measure it with `-Xmaxerrs 10000` before working the list.
 
-Formatting is the largest blind spot, 46 of the 73: `TCKDateTimeFormatter`,
+Formatting was the largest blind spot before those rules landed, 46 of 73: `TCKDateTimeFormatter`,
 `TCKDateTimeFormatterBuilder`, `TCKDateTimeFormatters`, `TCKDateTimeParseResolver`
 and 11 more from the `tck` tree. Then chronology, 14: every calendar
 `TCKChronology` except `TCKIsoChronology`, which the `resolveDate` fix
@@ -173,20 +193,19 @@ Causes, largest first:
 
 ## Next steps
 
-1. Every failure that is left has been traced, and none of them is an
-   unexplained divergence — but only across the 82 files that run. The
-   compatibility `tck` tree holds 6 failures among its 44 running files: the
-   5 that need `java.io.Serializable` and the Coptic `ServiceLoader`. The
-   internal `test` tree holds 23: 14 `test_immutable`, 2 `TestClock_System`,
-   1 Coptic `ServiceLoader`, 1 `testLength`, and the 5 `LocalTime` whole-hour
-   singletons, which are the one open decision.
-2. Coverage is the bigger gap than the failure list. 31 `tck` files never run,
-   and 46 of the 73 dropped files are formatting, the port's largest area.
-3. Add static-import rules to the converter. Cheap, unlocks several files.
-4. Decide on the two real API differences: the missing covariant `resolveDate`
-   and the over-specific `eras()`. Both change the published Java-facing
-   signatures, so they are the owner's call, and both block `tck/chrono`.
-5. Decide on `Locale`, which is 28 of the 100 compile errors on its own.
+1. Fix the three real differences the wider conversion exposed: numeric
+   overflow while parsing, the adjacent-value error index, and the apostrophe
+   in the builder's `toString`. The first is the most serious.
+2. Re-census the 42 dropped files with `-Xmaxerrs 10000`. The old census is
+   stale and the largest cause on it, `Locale`, is now handled.
+3. Teach the converter method references: `LocalDate::from` needs
+   `LocalDate.Companion::from`. That was 174 errors before the Locale rule and
+   is likely the largest remaining gap.
+4. Add `-Xmaxerrs` to the script's own compile so the census is never
+   truncated again.
+5. Add the `eras()` rule: rewrite the declared `List<Era>` to
+   `List<? extends Era>`. Every use in the TCK is read-only, so this keeps the
+   port's shape and unblocks `tck/chrono`.
 6. The failure count will not reach zero: 21 of the 29 cannot be fixed in the
    port. To make the CI job blocking, have the script compare against a
    checked-in baseline of expected failures and fail on anything new, rather
