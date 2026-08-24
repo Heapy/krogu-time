@@ -1,9 +1,9 @@
 # krogu-time
 
-`krogu-time` is a Kotlin Multiplatform port of the Java 21 `java.time` API under
+`krogu-time` is a Kotlin Multiplatform port of the Java 25 `java.time` API under
 the `io.heapy.krogu.time` package.
 
-The public Java 21 API surface is feature-complete, translated into idiomatic
+The public Java 25 API surface is feature-complete, translated into idiomatic
 Kotlin where JavaBean accessors map naturally to properties. Platform-specific
 JDK integration, such as `java.text.Format`, is provided on JVM and Android;
 the date-time model, chronology, formatting, temporal, and zone APIs are common
@@ -14,9 +14,9 @@ Kotlin shared by every target.
 The repository uses JetBrains Kotlin Toolchain 0.12.0-dev-4300 and its checked-in
 wrapper. No Gradle installation is required.
 
-The JDK is pinned to 21. The JVM differential tests compare against the
-`java.time` of the running JDK, and newer JDKs changed `ZoneId.SHORT_IDS` and
-the `InstantSeconds` field range.
+The JDK is pinned to 25, because the JVM differential tests compare against the
+`java.time` of the running JDK. The published bytecode is a separate knob and
+stays at class-file 65, so the library still loads on a Java 21 JVM.
 
 ```shell
 ./kotlin test
@@ -24,7 +24,7 @@ the `InstantSeconds` field range.
 
 The current module targets JVM, Android, iOS ARM64, iOS Simulator ARM64, and
 iOS x64. Production code and behavioral tests live in common Kotlin. JVM-only
-differential tests compare observable behavior with Java 21 `java.time`.
+differential tests compare observable behavior with Java 25 `java.time`.
 
 The current verification baseline is 709 JVM tests, 461 Android tests, and 460
 iOS tests, followed by a successful build of every configured target. The JVM
@@ -58,7 +58,8 @@ you release it by hand.
 ## Compatibility contract
 
 - Package root: `io.heapy.krogu.time`
-- Behavioral reference: Java 21 `java.time`
+- Behavioral reference: Java 25 `java.time`
+- Bytecode target: class-file 65 (Java 21), so Java 21 JVMs can load the library
 - API style: Kotlin properties and operators where they preserve Java
   semantics, with Java-named operations retained when useful
 - Arithmetic: checked overflow and normalized values must match Java
@@ -233,7 +234,7 @@ Implemented public surface and foundations:
   differences, boundaries, ordering, strict ISO parsing, ISO text output, and
   system-default, injected-clock, and explicit-zone current-value factories and
   formatter overloads
-- `Duration` with the complete Java 21 public API surface, including parsing,
+- `Duration` with the complete Java 25 public API surface, including parsing,
   temporal integration, checked arithmetic, conversions, truncation, and
   `between`
 - `Instant` value and boundary constants, normalized epoch factories,
@@ -312,7 +313,7 @@ Implemented public surface and foundations:
 
 Ongoing work is compatibility hardening: expanding differential inputs,
 tracking future Java and timezone-data releases, and improving platform locale
-coverage without changing Java 21 semantics.
+coverage without changing Java 25 semantics.
 
 The bundled TZDB source is generated reproducibly from the OpenJDK 21
 `lib/tzdb.dat` file by `tools/generate-tzdb-data.main.kts`.

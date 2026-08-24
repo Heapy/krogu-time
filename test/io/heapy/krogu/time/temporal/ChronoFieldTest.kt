@@ -14,7 +14,10 @@ class ChronoFieldTest {
         assertEquals(ValueRange.of(1, 365, 366), ChronoField.DAY_OF_YEAR.range)
         assertEquals(ValueRange.of(1, 12), ChronoField.MONTH_OF_YEAR.range)
         assertEquals(ValueRange.of(-999_999_999, 999_999_999), ChronoField.YEAR.range)
-        assertEquals(ValueRange.of(Long.MIN_VALUE, Long.MAX_VALUE), ChronoField.INSTANT_SECONDS.range)
+        assertEquals(
+            ValueRange.of(-31_557_014_167_219_200, 31_556_889_864_403_199),
+            ChronoField.INSTANT_SECONDS.range,
+        )
         assertEquals(ValueRange.of(-64_800, 64_800), ChronoField.OFFSET_SECONDS.range)
     }
 

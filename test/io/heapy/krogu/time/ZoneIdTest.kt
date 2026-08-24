@@ -18,7 +18,7 @@ class ZoneIdTest {
         assertSame(ZoneOffset.UTC, ZoneId.of("Z"))
         assertSame(ZoneOffset.UTC, ZoneId.of("+00:00"))
         assertEquals(ZoneOffset.ofHours(2), ZoneId.of("+02"))
-        assertEquals(ZoneOffset.ofHours(-5), ZoneId.of("EST", ZoneId.SHORT_IDS))
+        assertEquals(ZoneId.of("America/Panama"), ZoneId.of("EST", ZoneId.SHORT_IDS))
 
         val utc = ZoneId.of("UTC")
         assertEquals("UTC", utc.id)

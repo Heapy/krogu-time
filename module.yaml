@@ -10,13 +10,14 @@ description: A Kotlin Multiplatform port of java.time
 settings:
   android:
     namespace: io.heapy.krogu.time
-  # Pinned to 21 on purpose. The behavioral reference of this port is Java 21
-  # java.time, and the JVM differential tests compare against the running JDK.
-  # Newer JDKs changed ZoneId.SHORT_IDS and the InstantSeconds field range, so
-  # a newer JDK makes those tests fail.
+  # Two separate knobs. `jdk.version` is the JDK that compiles the code and runs
+  # the JVM differential tests, so it sets the behavioral reference of this port:
+  # JDK 25 java.time. `release` stays at 21 so the published bytecode is
+  # class-file 65 and still loads on a Java 21 JVM.
   jvm:
     jdk:
-      version: 21
+      version: 25
+    release: 21
   publishing:
     enabled: true
     group: io.heapy
@@ -29,7 +30,7 @@ settings:
       publishingMode: manual
     pom:
       name: krogu-time
-      description: A Kotlin Multiplatform port of the Java 21 java.time API
+      description: A Kotlin Multiplatform port of the Java 25 java.time API
       url: https://github.com/heapy/krogu-time
       licenses:
         - name: The Apache License, Version 2.0
@@ -67,3 +68,9 @@ settings@iosSimulatorArm64:
 settings@iosX64:
   kotlin:
     allWarningsAsErrors: true
+
+# The published bytecode targets class-file 65 (`release: 21`), but the JVM
+# differential tests must see the full JDK 25 API to compare against it.
+test-settings:
+  jvm:
+    release: 25

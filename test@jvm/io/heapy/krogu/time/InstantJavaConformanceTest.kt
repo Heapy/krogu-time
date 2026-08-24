@@ -192,8 +192,7 @@ class InstantJavaConformanceTest {
                 }
                 assertSameOutcome(
                     javaOperation = {
-                        java.time.Duration.between(start.toJava(), end.toJava())
-                            .let { it.seconds to it.nano }
+                        start.toJava().until(end.toJava()).let { it.seconds to it.nano }
                     },
                     kotlinOperation = { start.until(end).let { it.seconds to it.nano } },
                     context = "duration start=${start.snapshot()} end=${end.snapshot()}",

@@ -140,6 +140,7 @@ private class TickClock(
 
     override fun millis(): Long {
         val millis = baseClock.millis()
+        if (tickNanos < NANOS_PER_MILLI) return millis
         val tickMillis = tickNanos / NANOS_PER_MILLI
         return millis - floorMod(millis, tickMillis)
     }

@@ -23,6 +23,7 @@ class ClockJavaConformanceTest {
             val ourTick = Clock.tick(ourFixed, Duration.ofNanos(nanos))
             val javaTick = JavaClock.tick(javaFixed, JavaDuration.ofNanos(nanos))
             assertEquals(javaTick.instant().toString(), ourTick.instant().toString(), nanos.toString())
+            assertEquals(javaTick.millis(), ourTick.millis(), nanos.toString())
             assertEquals(javaTick.toString(), ourTick.toString(), nanos.toString())
         }
     }

@@ -191,7 +191,9 @@ public enum class ChronoField(
         "InstantSeconds",
         ChronoUnit.SECONDS,
         ChronoUnit.FOREVER,
-        ValueRange.of(Long.MIN_VALUE, Long.MAX_VALUE),
+        // Instant.MIN.epochSecond .. Instant.MAX.epochSecond, inlined because
+        // those bounds are private to Instant.
+        ValueRange.of(-31_557_014_167_219_200, 31_556_889_864_403_199),
     ),
     OFFSET_SECONDS(
         "OffsetSeconds",

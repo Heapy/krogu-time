@@ -15,6 +15,7 @@ class TzdbZoneRulesProviderJavaConformanceTest {
             .filterNot { it.startsWith("Test/") }
             .toSet()
         assertEquals(emptySet(), bundledZoneIds - javaZoneIds, "extra bundled IDs")
+        assertEquals(emptySet(), javaZoneIds - bundledZoneIds, "missing bundled IDs")
         val instants = listOf(
             "1900-01-01T00:00:00Z",
             "1970-01-01T00:00:00Z",

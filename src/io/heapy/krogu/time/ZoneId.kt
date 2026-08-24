@@ -75,9 +75,9 @@ public abstract class ZoneId {
             "PST" to "America/Los_Angeles",
             "SST" to "Pacific/Guadalcanal",
             "VST" to "Asia/Ho_Chi_Minh",
-            "EST" to "-05:00",
-            "MST" to "-07:00",
-            "HST" to "-10:00",
+            "EST" to "America/Panama",
+            "MST" to "America/Phoenix",
+            "HST" to "Pacific/Honolulu",
         )
 
         /** Obtains the system default time-zone. */
