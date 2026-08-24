@@ -57,6 +57,14 @@ On the full tree that is 9605 rewrites across 155 files.
   Permanent exclusion.
 - Coptic `ServiceLoader` (2). The TCK's service fixture is not wired up yet.
 - `TestClock_System` (2). `NoClassDefFoundError` from jtreg infrastructure.
+- `TestMutableZoneRules.testLength` (1). Java copies the rule list through
+  `toArray()` and rejects the result when it holds more than 16 rules. The
+  test passes a `List` whose `toArray()` returns 17 elements while `size()`
+  reports 1, which is a JVM-only hardening: Kotlin's common `List` has no
+  `toArray`, so the port reads the list through `size` and iteration and
+  stays self-consistent. The port already rejects more than 16 rules from an
+  ordinary list, and already copies the caller's list; both were verified
+  against `java.time`.
 
 ### Fixed
 
@@ -105,15 +113,13 @@ On the full tree that is 9605 rewrites across 155 files.
   by `ZonedDateTimeTimelineEndsJavaConformanceTest`, which compares `until`
   for every `ChronoUnit` and `Duration.between` over 75 zone and value pairs.
 
-### Worth investigating — possible real divergence
+### Left open — a design call, not a defect
 
 - **`TestLocalTime` whole-hour singletons, 5 failures.** `assertSame` checks.
   Java caches the 24 whole-hour `LocalTime` values and returns them from the
   factories; the port allocates. This is an allocation strategy, asserted by
   OpenJDK's internal `test` tree rather than by the compatibility `tck` tree,
   so matching it is a design call rather than a compatibility fix.
-- **`TestMutableZoneRules.testLength`.** Expected `IllegalArgumentException`,
-  nothing thrown.
 
 ## Not yet converted (73 files)
 
@@ -133,11 +139,15 @@ and 3 under Next steps. Known causes:
 
 ## Next steps
 
-1. The compatibility `tck` tree is clean. Its 6 remaining failures are the
-   5 `test_serialization` and the Coptic `ServiceLoader` fixture, neither of
-   which is a port defect. The other 24 come from OpenJDK's internal `test`
-   tree: 14 `test_immutable`, 1 Coptic `ServiceLoader`, 2 `TestClock_System`,
-   and 6 real ones, of which 5 are the `LocalTime` whole-hour cache.
+1. Every failure that is left has been traced, and none of them is an
+   unexplained divergence. The compatibility `tck` tree holds 6: the 5 that
+   need `java.io.Serializable` and the Coptic `ServiceLoader` fixture. The
+   internal `test` tree holds 23: 14 `test_immutable`, 2 `TestClock_System`,
+   1 Coptic `ServiceLoader`, 1 `testLength`, and the 5 `LocalTime` whole-hour
+   singletons, which are the one open decision.
 2. Add static-import rules to the converter. Cheap, unlocks several files.
 3. Decide on `Locale` and the covariant return types.
-4. Make the CI job blocking once the failure count reaches zero.
+4. The failure count will not reach zero: 21 of the 29 cannot be fixed in the
+   port. To make the CI job blocking, have the script compare against a
+   checked-in baseline of expected failures and fail on anything new, rather
+   than waiting for a clean run.
