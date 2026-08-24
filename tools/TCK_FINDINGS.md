@@ -16,7 +16,7 @@ come from that script, run twice with the same result.
 It works. Converted TCK, run against the port:
 
 ```
-Total tests run: 20915, Passes: 20867, Failures: 48
+Total tests run: 20915, Passes: 20883, Failures: 32
 ```
 
 113 of 155 TCK/test files ran; 42 were dropped because the converter cannot
@@ -113,7 +113,7 @@ On the full tree that is 9605 rewrites across 155 files.
   by `ZonedDateTimeTimelineEndsJavaConformanceTest`, which compares `until`
   for every `ChronoUnit` and `Duration.between` over 75 zone and value pairs.
 
-### Found once the converter reached more files
+### Found once the converter reached more files, and fixed
 
 The static-import and Locale rules brought 30 more files in, and they
 immediately exposed differences nothing had tested before. All three were
@@ -128,13 +128,36 @@ reproduced outside the harness, against `java.time`, before being recorded.
 - **Adjacent value parse errors, 3 failures in `TestNumberParser`.** With a
   value field followed by a fixed-width one, Java reports a failure after the
   first field has been consumed; parsing `"1"` gives error index 1. The port
-  reports index 0. The success case, `"12"`, already matches.
+  reported index 0. Fixed by giving the leading field its minimum width before
+  digits are reserved for the next one.
 - **`TestCharLiteralPrinter.test_toString_apos`, 1 failure.** The builder's
-  `toString` escapes an apostrophe literal as `''''` where Java prints `''`.
+  `toString` escaped an apostrophe literal as `''''` where Java prints `''`.
+  Fixed.
+
+All three are guarded by tests that call `java.time` for the expected values.
+The strict adjacent case is fixed; one lenient case is still open, below.
 
 Two more are harness artifacts: `TestZoneId.test_systemDefault_*` set the JVM
 default time zone and expect the port's exception type, but the JVM's own
 `java.time` throws first.
+
+### Still open — a real difference
+
+- **`TestNumberParser.test_parseDigitsAdjacentLenient`, 1 failure.** Lenient
+  parsing with `appendValue(MONTH_OF_YEAR, 1, 2, NORMAL)` followed by
+  `appendValue(DAY_OF_MONTH, 2)`. Java requires the fixed-width second field to
+  get its full two digits and fails when it cannot; the port accepts a short
+  one and reports success.
+
+  | input | java.time | krogu-time |
+  | --- | --- | --- |
+  | `5` | index 0, error 1 | index 0, error 1 |
+  | `54` | index 0, error 1 | index 2, error -1 |
+  | `54A` | index 0, error 1 | index 2, error -1 |
+  | `543` | index 3, error -1 | index 3, error -1 |
+
+  The port is more permissive here, so this one accepts input Java rejects
+  rather than the other way round. Reproduced outside the harness.
 
 ### Left open — a design call, not a defect
 
