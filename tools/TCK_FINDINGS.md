@@ -20,7 +20,9 @@ Total tests run: 17648, Passes: 17619, Failures: 29
 ```
 
 82 of 155 TCK/test files ran; 73 were dropped because the converter cannot
-handle them yet, and the script lists every one. The conversion is fully mechanical, driven by
+handle them yet, and the script lists every one. Of the 75 files in the
+compatibility `tck` tree, 44 ran and 31 did not, so every statement below
+about the `tck` tree covers 59% of it. The conversion is fully mechanical, driven by
 the built jar rather than a hand-written rule list.
 
 ## Gates checked
@@ -123,15 +125,31 @@ On the full tree that is 9605 rewrites across 155 files.
 
 ## Not yet converted (73 files)
 
-73 files are dropped. The error census below was measured against the JDK 21
-TCK, before the harness moved to JDK 25; re-measure it before working items 2
-and 3 under Next steps. Known causes:
+73 files are dropped: 31 of the 75 in the `tck` tree and 42 of the 80 in the
+internal `test` tree. Only 22 fail to compile directly; dropping those cascades
+to the rest through base classes and helpers.
+
+Formatting is the largest blind spot, 46 of the 73: `TCKDateTimeFormatter`,
+`TCKDateTimeFormatterBuilder`, `TCKDateTimeFormatters`, `TCKDateTimeParseResolver`
+and 11 more from the `tck` tree. Then chronology, 15, including every calendar
+`TCKChronology`. Also lost: `TCKLocalDate`, `TCKZoneId`, `TCKZoneOffset`,
+`TCKDayOfWeek`, `TCKMonth`, `TCKZoneRulesProvider`.
+
+The census below was re-measured against the JDK 25 TCK and the current port:
+100 errors over 22 files, the same as the first run. Causes:
 
 - `java.util.Locale` versus the port's own `Locale` (28) — needs an adapter
   or per-site rewrite
-- covariant return types: `ChronoLocalDate` where the TCK expects
-  `HijrahDate`/`ThaiBuddhistDate` (28), `List<Era>` versus `List<JapaneseEra>`
-  (6) — worth checking against Java before assuming it is a converter gap
+- covariant return types (34). Checked against `java.time` with `javap`, and
+  both are real differences in the port's API rather than converter gaps:
+  - `resolveDate` is not overridden covariantly. Java returns `HijrahDate`,
+    `ThaiBuddhistDate`, `MinguoDate`, `LocalDate`; the port inherits
+    `ChronoLocalDate` for all of them except `JapaneseChronology`, which is
+    already correct. Java callers need a cast the JDK does not.
+  - `eras()` is more specific than Java's. Java returns `List<Era>`; the port
+    returns `List<HijrahEra>` and so on. Kotlin's `List` is covariant so this
+    reads better from Kotlin, but Java's is invariant, so a Java caller cannot
+    assign the result to `List<Era>`.
 - static imports of `object` members (`IsoFields.QUARTER_OF_YEAR`) and of
   companion constants (`DateTimeFormatter.BASIC_ISO_DATE`) — converter gap
 - `datesUntil` returns `Sequence`, not `Stream` — permanent exclusion
@@ -140,14 +158,21 @@ and 3 under Next steps. Known causes:
 ## Next steps
 
 1. Every failure that is left has been traced, and none of them is an
-   unexplained divergence. The compatibility `tck` tree holds 6: the 5 that
-   need `java.io.Serializable` and the Coptic `ServiceLoader` fixture. The
+   unexplained divergence — but only across the 82 files that run. The
+   compatibility `tck` tree holds 6 failures among its 44 running files: the
+   5 that need `java.io.Serializable` and the Coptic `ServiceLoader`. The
    internal `test` tree holds 23: 14 `test_immutable`, 2 `TestClock_System`,
    1 Coptic `ServiceLoader`, 1 `testLength`, and the 5 `LocalTime` whole-hour
    singletons, which are the one open decision.
-2. Add static-import rules to the converter. Cheap, unlocks several files.
-3. Decide on `Locale` and the covariant return types.
-4. The failure count will not reach zero: 21 of the 29 cannot be fixed in the
+2. Coverage is the bigger gap than the failure list. 31 `tck` files never run,
+   and 46 of the 73 dropped files are formatting, the port's largest area.
+3. Add static-import rules to the converter. Cheap, unlocks several files.
+4. Decide on the two real API differences: the missing covariant `resolveDate`
+   and the over-specific `eras()`. Both change the published Java-facing
+   signatures, so they are the owner's call, and both block `tck/chrono`.
+5. Decide on `Locale`, which is 28 of the 100 compile errors on its own.
+6. The failure count will not reach zero: 21 of the 29 cannot be fixed in the
    port. To make the CI job blocking, have the script compare against a
    checked-in baseline of expected failures and fail on anything new, rather
-   than waiting for a clean run.
+   than waiting for a clean run. The baseline should carry the dropped-file
+   list too, so lost coverage cannot grow unnoticed.
