@@ -117,14 +117,19 @@ Keep those exports in a `publish.sh` wrapper at the repository root that calls
 the script. That file is git-ignored, so the credentials stay local.
 
 The script exports the signing key from the local GPG keyring at run time and
-hands the toolchain what it wants: `KOTLIN_TOOLCHAIN_SIGNING_KEY`,
-`KOTLIN_TOOLCHAIN_SIGNING_KEY_PASSPHRASE`,
-`KOTLIN_TOOLCHAIN_MAVEN_CENTRAL_USERNAME`, and
-`KOTLIN_TOOLCHAIN_MAVEN_CENTRAL_PASSWORD`.
+passes it to the toolchain as `KOTLIN_TOOLCHAIN_SIGNING_KEY` and
+`KOTLIN_TOOLCHAIN_SIGNING_KEY_PASSPHRASE`. Nothing is stored on disk.
 
-The publishing mode is `manual`. The upload is validated by Central and then
-waits at https://central.sonatype.com/publishing/deployments until you release
-it by hand.
+The toolchain builds and signs the bundle; the script uploads it itself. That is
+what gives the deployment a readable name: the toolchain's own
+`publishToMavenCentral` posts the file under a fixed
+`<module>-central-bundle.zip`, and the Portal shows that as the deployment name.
+The script uploads `build/<module>-<version>.zip` instead, so the Portal shows
+the version.
+
+The deployment is `USER_MANAGED`. Central validates it and then waits at
+https://central.sonatype.com/publishing/deployments until you release it by
+hand.
 
 ## Compatibility contract
 

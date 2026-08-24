@@ -1,7 +1,14 @@
 #!/usr/bin/env bash
-# Publishes krogu-time to Maven Central through the toolchain's built-in Central
-# Portal support. The module declares `publishingMode: manual`, so this only
-# stages a deployment: nothing becomes public until it is released by hand at
+# Publishes krogu-time to Maven Central.
+#
+# The toolchain builds and signs the bundle; the upload is done here with curl.
+# That is what lets the deployment carry a real name: the toolchain's own
+# `publishToMavenCentral` posts the file under its fixed
+# "<module>-central-bundle.zip", and the Portal shows that as the deployment
+# name. Uploading directly puts "<module>-<version>" there instead.
+#
+# The deployment is USER_MANAGED: Central validates it and then waits. Nothing
+# becomes public until it is released by hand at
 # https://central.sonatype.com/publishing/deployments.
 #
 # The signing key is exported from the local GPG keyring at run time rather than
@@ -32,34 +39,49 @@ version="$(sed -n 's/^    version: *//p' module.yaml | head -1)"
 # The module name is the directory name, which is `grogu-time` here while the
 # artifact is `krogu-time`. Derive it so a rename of either one cannot desync.
 module="$(basename "$repo_root")"
+name="$module-$version"
 
-# The token is one "user:pass" string in the Portal UI, but the toolchain takes
-# the two halves separately.
-KOTLIN_TOOLCHAIN_MAVEN_CENTRAL_USERNAME="${CENTRAL_TOKEN%%:*}"
-KOTLIN_TOOLCHAIN_MAVEN_CENTRAL_PASSWORD="${CENTRAL_TOKEN#*:}"
 KOTLIN_TOOLCHAIN_SIGNING_KEY="$(gpg --batch --pinentry-mode loopback \
   --passphrase "$GPG_PASSPHRASE" --armor --export-secret-keys "$GPG_KEY_ID")"
 KOTLIN_TOOLCHAIN_SIGNING_KEY_PASSPHRASE="$GPG_PASSPHRASE"
-export KOTLIN_TOOLCHAIN_MAVEN_CENTRAL_USERNAME KOTLIN_TOOLCHAIN_MAVEN_CENTRAL_PASSWORD
 export KOTLIN_TOOLCHAIN_SIGNING_KEY KOTLIN_TOOLCHAIN_SIGNING_KEY_PASSPHRASE
 
-echo "==> publishing io.heapy:krogu-time:$version to Maven Central"
-# The task is invoked directly instead of through `kotlin publish mavenCentral`.
-# On toolchain 0.12.0-dev-4300 that command first checks the requested id against
-# the module's publishable repositories, and the built-in Central publication is
-# not in that list, so it always fails with "not marked as publishable". Adding
-# the id under `repositories` to satisfy the check collides with the task the
-# toolchain already registers ("Task ':<module>:publishToMavenCentral' already
-# exists"). Running the task itself skips the check and does the same work.
-# Re-test `kotlin publish mavenCentral` after a toolchain upgrade.
-KOTLIN_CLI_NO_WELCOME_BANNER=1 ./kotlin task ":$module:publishToMavenCentral"
+echo "==> building and signing the bundle for io.heapy:krogu-time:$version"
+KOTLIN_CLI_NO_WELCOME_BANNER=1 ./kotlin task ":$module:prepareMavenCentralBundle"
 
-# The toolchain names the bundle "<module>-central-bundle.zip" and buries it in
-# the task output directory, so the file on disk does not say which release it
-# is. Copy it out under a versioned name.
-bundle="build/tasks/_${module}_prepareMavenCentralBundle/${module}-central-bundle.zip"
-if [ -f "$bundle" ]; then
-  cp "$bundle" "build/${module}-${version}.zip"
-  echo
-  echo "bundle: build/${module}-${version}.zip"
-fi
+built="build/tasks/_${module}_prepareMavenCentralBundle/${module}-central-bundle.zip"
+[ -f "$built" ] || { echo "the bundle task produced no zip at $built" >&2; exit 1; }
+bundle="build/$name.zip"
+cp "$built" "$bundle"
+echo "bundle: $bundle ($(unzip -l "$bundle" | tail -1 | awk '{print $2}') files)"
+
+auth="$(printf '%s' "$CENTRAL_TOKEN" | base64 | tr -d '\n')"
+
+echo "==> uploading as '$name'"
+deployment_id="$(curl -s --fail-with-body \
+  --header "Authorization: Bearer $auth" \
+  --form "bundle=@$bundle" \
+  "https://central.sonatype.com/api/v1/publisher/upload?publishingType=USER_MANAGED&name=$name")"
+echo "deployment id: $deployment_id"
+
+echo "==> waiting for validation"
+# Central validates asynchronously. VALIDATED is the terminal state for a
+# USER_MANAGED deployment: it stops there and waits for the release button.
+for _ in $(seq 1 60); do
+  status="$(curl -s --header "Authorization: Bearer $auth" -X POST \
+    "https://central.sonatype.com/api/v1/publisher/status?id=$deployment_id")"
+  state="$(printf '%s' "$status" | sed -n 's/.*"deploymentState":"\([A-Z_]*\)".*/\1/p')"
+  echo "  $state"
+  case "$state" in
+    VALIDATED|PUBLISHED) break ;;
+    FAILED)
+      echo "$status" >&2
+      exit 1
+      ;;
+  esac
+  sleep 5
+done
+
+echo
+echo "Deployment '$name' is $state and waiting."
+echo "Release it at https://central.sonatype.com/publishing/deployments"
