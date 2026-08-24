@@ -3145,7 +3145,11 @@ private fun parsePatternValue(
         .sumOf { it ?: 0 }
     val minimumDigits = if (strict) token.minWidth else 1
     val configuredMaximum = if (strict) token.maxWidth else 9
-    val maximumDigits = minOf(configuredMaximum, digitRunEnd - digitsStart - reservedWidth)
+    val availableDigits = digitRunEnd - digitsStart
+    val maximumDigits = minOf(
+        configuredMaximum,
+        maxOf(minimumDigits, availableDigits - reservedWidth),
+    )
     while (index < digitRunEnd && index - digitsStart < maximumDigits) {
         index++
     }
@@ -3165,8 +3169,15 @@ private fun parsePatternValue(
 
     val unsigned = text.substring(digitsStart, index)
     val numericText = if (sign == '-') "-$unsigned" else unsigned
-    val value = numericText.toLongOrNull()
-        ?: throw DateTimeParseException("Invalid numeric value", text, startIndex)
+    val value = numericText.toLongOrNull() ?: run {
+        // With a maximum width of 19, Java can recover from overflow by
+        // discarding exactly the last digit and leaving it unparsed.
+        index--
+        val fittingUnsigned = unsigned.dropLast(1)
+        val fittingText = if (sign == '-') "-$fittingUnsigned" else fittingUnsigned
+        fittingText.toLongOrNull()
+            ?: throw DateTimeParseException("Invalid numeric value", text, startIndex)
+    }
     if (strict && sign == '-' && value == 0L) {
         throw DateTimeParseException("Text could not be parsed at index $startIndex", text, startIndex)
     }
@@ -3849,9 +3860,13 @@ private fun resolvePatternTime(
 private fun describePattern(tokens: List<PatternToken>): String = buildString {
     tokens.forEach { token ->
         when (token) {
-            is PatternToken.Literal -> append('\'')
-                .append(token.text.replace("'", "''"))
-                .append('\'')
+            is PatternToken.Literal -> if (token.text == "'") {
+                append("''")
+            } else {
+                append('\'')
+                    .append(token.text.replace("'", "''"))
+                    .append('\'')
+            }
             is PatternToken.Field -> append(describePatternField(token))
             is PatternToken.Value -> append(describePatternValue(token))
             is PatternToken.ReducedValue -> append("ReducedValue(")
