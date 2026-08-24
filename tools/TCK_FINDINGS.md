@@ -16,7 +16,7 @@ come from that script, run twice with the same result.
 It works. Converted TCK, run against the port:
 
 ```
-Total tests run: 24524, Passes: 24473, Failures: 51
+Total tests run: 24524, Passes: 24484, Failures: 40
 ```
 
 125 of 155 TCK/test files ran; 30 were dropped because the converter cannot
@@ -164,15 +164,14 @@ default time zone and expect the port's exception type, but the JVM's own
   It was not a test-only shape: a custom `TemporalAccessor` is a documented
   extension point, and the blast radius was every ISO formatter.
 
-### Still open — parsed-field resolution
+### Fixed — parsed-field resolution
 
-- **`TCKDateTimeParseResolver`, 13 failures.** A custom `TemporalField` that
-  resolves to a `LocalTime`, a `ChronoLocalDateTime` or a `ChronoZonedDateTime`
-  is not honoured: the value comes back `null`, or the parse reports "Text
-  cannot be parsed to a date", or "Unable to obtain ZonedDateTime from
-  TemporalAccessor". `TemporalField.resolve` is the same kind of documented
-  extension point that the formatter bug turned out to be, so this is the next
-  real one.
+- **`TCKDateTimeParseResolver`, 13 failures, now 2.** Resolution collected
+  only a resolved date from `TemporalField.resolve`, so a field resolving to a
+  `LocalTime`, a `ChronoLocalDateTime` or a `ChronoZonedDateTime` was dropped.
+  It now collects a date, a time and a zone, merges each with what the text
+  parsed, and reports a conflict when two sources disagree. Two cases remain
+  in that file and have not been looked at.
 
 - **`TestLocalizedOffsetPrinterParser`, 3 failures.** A custom locale provider
   supplies "MAG" where the port prints "GMT". Needs checking against the JDK
