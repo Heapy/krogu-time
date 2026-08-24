@@ -24,12 +24,12 @@ public class OffsetTime private constructor(
     public val second: Int get() = time.second
     public val nano: Int get() = time.nano
 
-    override fun isSupported(field: TemporalField): Boolean =
+    override fun isSupported(field: TemporalField?): Boolean =
         if (field is ChronoField) field.isTimeBased || field === ChronoField.OFFSET_SECONDS else
-            field.isSupportedBy(this)
+            field != null && field.isSupportedBy(this)
 
-    override fun isSupported(unit: TemporalUnit): Boolean =
-        if (unit is ChronoUnit) unit.isTimeBased else unit.isSupportedBy(this)
+    override fun isSupported(unit: TemporalUnit?): Boolean =
+        if (unit is ChronoUnit) unit.isTimeBased else unit != null && unit.isSupportedBy(this)
 
     override fun getLong(field: TemporalField): Long = when (field) {
         ChronoField.OFFSET_SECONDS -> offset.totalSeconds.toLong()

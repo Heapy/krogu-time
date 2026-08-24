@@ -302,7 +302,7 @@ class LocalTimeTest {
     private data class NanoOfDayAccessor(
         val nanoOfDay: Long? = null,
     ) : TemporalAccessor {
-        override fun isSupported(field: TemporalField): Boolean = field === ChronoField.NANO_OF_DAY
+        override fun isSupported(field: TemporalField?): Boolean = field === ChronoField.NANO_OF_DAY
 
         override fun getLong(field: TemporalField): Long =
             nanoOfDay ?: throw UnsupportedTemporalTypeException("Unsupported field: $field")
@@ -311,9 +311,9 @@ class LocalTimeTest {
     private data class NanoOfDayTemporal(
         val nanoOfDay: Long? = null,
     ) : Temporal {
-        override fun isSupported(field: TemporalField): Boolean = field === ChronoField.NANO_OF_DAY
+        override fun isSupported(field: TemporalField?): Boolean = field === ChronoField.NANO_OF_DAY
 
-        override fun isSupported(unit: TemporalUnit): Boolean = false
+        override fun isSupported(unit: TemporalUnit?): Boolean = false
 
         override fun getLong(field: TemporalField): Long =
             nanoOfDay ?: throw UnsupportedTemporalTypeException("Unsupported field: $field")

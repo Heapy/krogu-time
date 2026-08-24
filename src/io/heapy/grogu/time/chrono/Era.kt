@@ -28,11 +28,11 @@ public interface Era : TemporalAccessor, TemporalAdjuster {
             style,
         ).firstOrNull { it.value == value.toLong() }?.text ?: value.toString()
 
-    override fun isSupported(field: TemporalField): Boolean =
+    override fun isSupported(field: TemporalField?): Boolean =
         if (field is ChronoField) {
             field === ChronoField.ERA
         } else {
-            field.isSupportedBy(this)
+            field != null && field.isSupportedBy(this)
         }
 
     override fun getLong(field: TemporalField): Long = when {

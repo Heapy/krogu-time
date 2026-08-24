@@ -436,9 +436,9 @@ class DurationTest {
     private data class RecordingTemporal(
         val operations: List<Pair<TemporalUnit, Long>> = emptyList(),
     ) : Temporal {
-        override fun isSupported(field: TemporalField): Boolean = false
+        override fun isSupported(field: TemporalField?): Boolean = false
 
-        override fun isSupported(unit: TemporalUnit): Boolean =
+        override fun isSupported(unit: TemporalUnit?): Boolean =
             unit === ChronoUnit.SECONDS || unit === ChronoUnit.NANOS
 
         override fun getLong(field: TemporalField): Long =
@@ -460,10 +460,10 @@ class DurationTest {
         val nanoOfSecond: Long = 0,
         val supportsNanoOfSecond: Boolean = true,
     ) : Temporal {
-        override fun isSupported(field: TemporalField): Boolean =
+        override fun isSupported(field: TemporalField?): Boolean =
             supportsNanoOfSecond && field === ChronoField.NANO_OF_SECOND
 
-        override fun isSupported(unit: TemporalUnit): Boolean =
+        override fun isSupported(unit: TemporalUnit?): Boolean =
             unit === ChronoUnit.SECONDS || unit === ChronoUnit.NANOS
 
         override fun getLong(field: TemporalField): Long =

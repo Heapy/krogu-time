@@ -26,18 +26,18 @@ public class Instant private constructor(
     public val epochSecond: Long,
     public val nano: Int,
 ) : Temporal, TemporalAdjuster, Comparable<Instant> {
-    override fun isSupported(field: TemporalField): Boolean = when (field) {
+    override fun isSupported(field: TemporalField?): Boolean = when (field) {
         ChronoField.INSTANT_SECONDS,
         ChronoField.NANO_OF_SECOND,
         ChronoField.MICRO_OF_SECOND,
         ChronoField.MILLI_OF_SECOND,
         -> true
         is ChronoField -> false
-        else -> field.isSupportedBy(this)
+        else -> field != null && field.isSupportedBy(this)
     }
 
-    override fun isSupported(unit: TemporalUnit): Boolean =
-        if (unit is ChronoUnit) unit <= ChronoUnit.DAYS else unit.isSupportedBy(this)
+    override fun isSupported(unit: TemporalUnit?): Boolean =
+        if (unit is ChronoUnit) unit <= ChronoUnit.DAYS else unit != null && unit.isSupportedBy(this)
 
     override fun get(field: TemporalField): Int = when (field) {
         ChronoField.NANO_OF_SECOND -> nano

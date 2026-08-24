@@ -163,7 +163,7 @@ class ChronoZonedDateTimeTest {
         private val time: LocalTime,
         private val zone: ZoneOffset,
     ) : TemporalAccessor {
-        override fun isSupported(field: TemporalField): Boolean =
+        override fun isSupported(field: TemporalField?): Boolean =
             field === ChronoField.EPOCH_DAY || field === ChronoField.NANO_OF_DAY
 
         override fun getLong(field: TemporalField): Long = when (field) {

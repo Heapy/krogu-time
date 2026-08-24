@@ -19,8 +19,8 @@ internal class ChronoLocalDateTimeImpl<D : ChronoLocalDate> private constructor(
     override val date: D,
     override val time: LocalTime,
 ) : ChronoLocalDateTime<D> {
-    override fun isSupported(field: TemporalField): Boolean =
-        if (field is ChronoField) field.isDateBased || field.isTimeBased else field.isSupportedBy(this)
+    override fun isSupported(field: TemporalField?): Boolean =
+        if (field is ChronoField) field.isDateBased || field.isTimeBased else field != null && field.isSupportedBy(this)
 
     override fun range(field: TemporalField): ValueRange = when {
         field is ChronoField && field.isTimeBased -> time.range(field)

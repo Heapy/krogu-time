@@ -74,9 +74,9 @@ class TemporalCoreTest {
     }
 
     private data class SampleTemporal(val value: Long) : Temporal {
-        override fun isSupported(field: TemporalField): Boolean = field === SAMPLE_FIELD
+        override fun isSupported(field: TemporalField?): Boolean = field === SAMPLE_FIELD
 
-        override fun isSupported(unit: TemporalUnit): Boolean = unit === ChronoUnit.DAYS
+        override fun isSupported(unit: TemporalUnit?): Boolean = unit === ChronoUnit.DAYS
 
         override fun getLong(field: TemporalField): Long = if (isSupported(field)) {
             value

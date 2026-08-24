@@ -442,9 +442,9 @@ class LocalDateTest {
     private data class EpochDayRecordingTemporal(
         val epochDay: Long? = null,
     ) : Temporal {
-        override fun isSupported(field: TemporalField): Boolean = field === ChronoField.EPOCH_DAY
+        override fun isSupported(field: TemporalField?): Boolean = field === ChronoField.EPOCH_DAY
 
-        override fun isSupported(unit: TemporalUnit): Boolean = false
+        override fun isSupported(unit: TemporalUnit?): Boolean = false
 
         override fun getLong(field: TemporalField): Long =
             epochDay ?: throw UnsupportedTemporalTypeException("Unsupported field: $field")

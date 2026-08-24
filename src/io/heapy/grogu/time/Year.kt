@@ -50,16 +50,16 @@ public class Year private constructor(
     /** Formats this year using [formatter]. */
     public fun format(formatter: DateTimeFormatter): String = formatter.format(this)
 
-    override fun isSupported(field: TemporalField): Boolean =
+    override fun isSupported(field: TemporalField?): Boolean =
         if (field is ChronoField) {
             field === ChronoField.YEAR ||
                 field === ChronoField.YEAR_OF_ERA ||
                 field === ChronoField.ERA
         } else {
-            field.isSupportedBy(this)
+            field != null && field.isSupportedBy(this)
         }
 
-    override fun isSupported(unit: TemporalUnit): Boolean =
+    override fun isSupported(unit: TemporalUnit?): Boolean =
         if (unit is ChronoUnit) {
             unit === ChronoUnit.YEARS ||
                 unit === ChronoUnit.DECADES ||
@@ -67,7 +67,7 @@ public class Year private constructor(
                 unit === ChronoUnit.MILLENNIA ||
                 unit === ChronoUnit.ERAS
         } else {
-            unit.isSupportedBy(this)
+            unit != null && unit.isSupportedBy(this)
         }
 
     override fun range(field: TemporalField): ValueRange = when (field) {

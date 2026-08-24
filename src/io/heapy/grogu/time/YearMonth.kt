@@ -49,7 +49,7 @@ public class YearMonth private constructor(
     /** Formats this year-month using [formatter]. */
     public fun format(formatter: DateTimeFormatter): String = formatter.format(this)
 
-    override fun isSupported(field: TemporalField): Boolean =
+    override fun isSupported(field: TemporalField?): Boolean =
         if (field is ChronoField) {
             field === ChronoField.MONTH_OF_YEAR ||
                 field === ChronoField.PROLEPTIC_MONTH ||
@@ -57,10 +57,10 @@ public class YearMonth private constructor(
                 field === ChronoField.YEAR ||
                 field === ChronoField.ERA
         } else {
-            field.isSupportedBy(this)
+            field != null && field.isSupportedBy(this)
         }
 
-    override fun isSupported(unit: TemporalUnit): Boolean =
+    override fun isSupported(unit: TemporalUnit?): Boolean =
         if (unit is ChronoUnit) {
             unit === ChronoUnit.MONTHS ||
                 unit === ChronoUnit.YEARS ||
@@ -69,7 +69,7 @@ public class YearMonth private constructor(
                 unit === ChronoUnit.MILLENNIA ||
                 unit === ChronoUnit.ERAS
         } else {
-            unit.isSupportedBy(this)
+            unit != null && unit.isSupportedBy(this)
         }
 
     override fun range(field: TemporalField): ValueRange = when (field) {
@@ -323,7 +323,11 @@ public class YearMonth private constructor(
                 else -> yearDigits in 5..10
             }
             if (!validYearWidth || sign < 0 && yearValue == 0L) {
-                throw parseFailure(input, 0)
+                // Too few digits is reported just past any consumed sign; other
+                // width/sign violations (unsigned exceeding the pad, '+' not
+                // exceeding it, negative zero) are reported at the field start,
+                // matching Java's year parser.
+                throw parseFailure(input, if (yearDigits < 4) yearStart else 0)
             }
             if (index >= input.length || input[index] != '-') {
                 throw parseFailure(input, index.coerceAtMost(yearStart + 10))

@@ -151,9 +151,9 @@ class MonthTest {
     }
 
     private data class AdjustableMonth(private val month: Long) : Temporal {
-        override fun isSupported(field: TemporalField): Boolean = field === ChronoField.MONTH_OF_YEAR
+        override fun isSupported(field: TemporalField?): Boolean = field === ChronoField.MONTH_OF_YEAR
 
-        override fun isSupported(unit: TemporalUnit): Boolean = unit === ChronoUnit.MONTHS
+        override fun isSupported(unit: TemporalUnit?): Boolean = unit === ChronoUnit.MONTHS
 
         override fun getLong(field: TemporalField): Long = month
 

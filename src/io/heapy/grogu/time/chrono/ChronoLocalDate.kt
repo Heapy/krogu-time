@@ -34,11 +34,11 @@ public interface ChronoLocalDate : Temporal, TemporalAdjuster, Comparable<Chrono
     /** Returns the number of days in this date's year. */
     public fun lengthOfYear(): Int = if (isLeapYear) 366 else 365
 
-    override fun isSupported(field: TemporalField): Boolean =
-        if (field is ChronoField) field.isDateBased else field.isSupportedBy(this)
+    override fun isSupported(field: TemporalField?): Boolean =
+        if (field is ChronoField) field.isDateBased else field != null && field.isSupportedBy(this)
 
-    override fun isSupported(unit: TemporalUnit): Boolean =
-        if (unit is ChronoUnit) unit.isDateBased else unit.isSupportedBy(this)
+    override fun isSupported(unit: TemporalUnit?): Boolean =
+        if (unit is ChronoUnit) unit.isDateBased else unit != null && unit.isSupportedBy(this)
 
     override fun with(adjuster: TemporalAdjuster): ChronoLocalDate =
         ensureValid(chronology, super<Temporal>.with(adjuster))

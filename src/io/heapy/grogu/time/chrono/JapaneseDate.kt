@@ -35,7 +35,7 @@ public class JapaneseDate private constructor(
     override fun lengthOfYear(): Int =
         (segmentEndEpochExclusive() - segmentStart().toEpochDay()).toInt()
 
-    override fun isSupported(field: TemporalField): Boolean = when (field) {
+    override fun isSupported(field: TemporalField?): Boolean = when (field) {
         ChronoField.ALIGNED_DAY_OF_WEEK_IN_MONTH,
         ChronoField.ALIGNED_DAY_OF_WEEK_IN_YEAR,
         ChronoField.ALIGNED_WEEK_OF_MONTH,

@@ -23,10 +23,16 @@ public class ZoneRules private constructor(
             savingsInstantTransitions.isEmpty() &&
             lastRules.isEmpty()
 
-    /** Returns the offset applicable at [instant]. */
-    public fun getOffset(instant: Instant): ZoneOffset {
+    /**
+     * Returns the offset applicable at [instant].
+     *
+     * [instant] may be `null` when these rules have a single offset for every
+     * instant, because the value is then never consulted; variable rules require
+     * a value, as in Java.
+     */
+    public fun getOffset(instant: Instant?): ZoneOffset {
         if (savingsInstantTransitions.isEmpty()) return wallOffsets[0]
-        val epochSecond = instant.epochSecond
+        val epochSecond = instant!!.epochSecond
         if (lastRules.isNotEmpty() && epochSecond > savingsInstantTransitions.last()) {
             val transitions = findTransitionArray(findYear(epochSecond, wallOffsets.last()))
             transitions.forEach { transition ->
@@ -41,14 +47,14 @@ public class ZoneRules private constructor(
     }
 
     /** Returns the best available offset for [localDateTime]. */
-    public fun getOffset(localDateTime: LocalDateTime): ZoneOffset =
+    public fun getOffset(localDateTime: LocalDateTime?): ZoneOffset =
         when (val info = getOffsetInfo(localDateTime)) {
             is ZoneOffsetTransition -> info.offsetBefore
             else -> info as ZoneOffset
         }
 
     /** Returns the valid offsets for [localDateTime]. */
-    public fun getValidOffsets(localDateTime: LocalDateTime): List<ZoneOffset> =
+    public fun getValidOffsets(localDateTime: LocalDateTime?): List<ZoneOffset> =
         when (val info = getOffsetInfo(localDateTime)) {
             is ZoneOffsetTransition ->
                 if (info.isGap) emptyList() else listOf(info.offsetBefore, info.offsetAfter)
@@ -56,19 +62,19 @@ public class ZoneRules private constructor(
         }
 
     /** Returns a transition affecting [localDateTime], or `null`. */
-    public fun getTransition(localDateTime: LocalDateTime): ZoneOffsetTransition? =
+    public fun getTransition(localDateTime: LocalDateTime?): ZoneOffsetTransition? =
         getOffsetInfo(localDateTime) as? ZoneOffsetTransition
 
     /** Returns the standard offset applicable at [instant]. */
-    public fun getStandardOffset(instant: Instant): ZoneOffset {
+    public fun getStandardOffset(instant: Instant?): ZoneOffset {
         if (standardTransitions.isEmpty()) return standardOffsets[0]
-        var index = standardTransitions.binarySearch(instant.epochSecond)
+        var index = standardTransitions.binarySearch(instant!!.epochSecond)
         if (index < 0) index = -index - 2
         return standardOffsets[index + 1]
     }
 
     /** Returns the daylight-saving adjustment applicable at [instant]. */
-    public fun getDaylightSavings(instant: Instant): Duration {
+    public fun getDaylightSavings(instant: Instant?): Duration {
         if (isFixedOffset) return Duration.ZERO
         return Duration.ofSeconds(
             (getOffset(instant).totalSeconds - getStandardOffset(instant).totalSeconds).toLong(),
@@ -76,17 +82,21 @@ public class ZoneRules private constructor(
     }
 
     /** Whether daylight saving is active at [instant]. */
-    public fun isDaylightSavings(instant: Instant): Boolean =
+    public fun isDaylightSavings(instant: Instant?): Boolean =
         getStandardOffset(instant) != getOffset(instant)
 
     /** Whether [offset] is valid for [localDateTime]. */
-    public fun isValidOffset(localDateTime: LocalDateTime, offset: ZoneOffset): Boolean =
-        offset in getValidOffsets(localDateTime)
+    public fun isValidOffset(localDateTime: LocalDateTime?, offset: ZoneOffset?): Boolean {
+        // The offsets are resolved first so that variable rules reject a null
+        // local date-time before the offset is examined, matching Java.
+        val validOffsets = getValidOffsets(localDateTime)
+        return offset != null && offset in validOffsets
+    }
 
     /** Returns the next transition strictly after [instant]. */
-    public fun nextTransition(instant: Instant): ZoneOffsetTransition? {
+    public fun nextTransition(instant: Instant?): ZoneOffsetTransition? {
         if (savingsInstantTransitions.isEmpty()) return null
-        val epochSecond = instant.epochSecond
+        val epochSecond = instant!!.epochSecond
         if (epochSecond >= savingsInstantTransitions.last()) {
             if (lastRules.isEmpty()) return null
             val year = findYear(epochSecond, wallOffsets.last())
@@ -102,9 +112,9 @@ public class ZoneRules private constructor(
     }
 
     /** Returns the previous transition strictly before [instant]. */
-    public fun previousTransition(instant: Instant): ZoneOffsetTransition? {
+    public fun previousTransition(instant: Instant?): ZoneOffsetTransition? {
         if (savingsInstantTransitions.isEmpty()) return null
-        var epochSecond = instant.epochSecond
+        var epochSecond = instant!!.epochSecond
         if (instant.nano > 0 && epochSecond < Long.MAX_VALUE) epochSecond++
 
         val lastHistoric = savingsInstantTransitions.last()
@@ -151,8 +161,9 @@ public class ZoneRules private constructor(
     override fun toString(): String =
         "ZoneRules[currentStandardOffset=${standardOffsets.last()}]"
 
-    private fun getOffsetInfo(dateTime: LocalDateTime): Any {
+    private fun getOffsetInfo(localDateTime: LocalDateTime?): Any {
         if (savingsLocalTransitions.isEmpty()) return wallOffsets[0]
+        val dateTime = localDateTime!!
         if (lastRules.isNotEmpty() && dateTime.isAfter(savingsLocalTransitions.last())) {
             var info: Any = wallOffsets.last()
             findTransitionArray(dateTime.year).forEach { transition ->

@@ -220,7 +220,7 @@ class LocalDateTimeTest {
         val epochDay: Long? = null,
         val nanoOfDay: Long? = null,
     ) : TemporalAccessor {
-        override fun isSupported(field: TemporalField): Boolean =
+        override fun isSupported(field: TemporalField?): Boolean =
             field === ChronoField.EPOCH_DAY && epochDay != null ||
                 field === ChronoField.NANO_OF_DAY && nanoOfDay != null
 
@@ -234,10 +234,10 @@ class LocalDateTimeTest {
     private data class DateTimeRecordingTemporal(
         val operations: List<Pair<TemporalField, Long>> = emptyList(),
     ) : Temporal {
-        override fun isSupported(field: TemporalField): Boolean =
+        override fun isSupported(field: TemporalField?): Boolean =
             field === ChronoField.EPOCH_DAY || field === ChronoField.NANO_OF_DAY
 
-        override fun isSupported(unit: TemporalUnit): Boolean = false
+        override fun isSupported(unit: TemporalUnit?): Boolean = false
 
         override fun getLong(field: TemporalField): Long =
             throw UnsupportedTemporalTypeException("Unsupported field: $field")

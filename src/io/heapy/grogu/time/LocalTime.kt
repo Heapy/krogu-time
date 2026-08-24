@@ -22,11 +22,11 @@ public class LocalTime private constructor(
     public val second: Int,
     public val nano: Int,
 ) : Temporal, TemporalAdjuster, Comparable<LocalTime> {
-    override fun isSupported(field: TemporalField): Boolean =
-        if (field is ChronoField) field.isTimeBased else field.isSupportedBy(this)
+    override fun isSupported(field: TemporalField?): Boolean =
+        if (field is ChronoField) field.isTimeBased else field != null && field.isSupportedBy(this)
 
-    override fun isSupported(unit: TemporalUnit): Boolean =
-        if (unit is ChronoUnit) unit.isTimeBased else unit.isSupportedBy(this)
+    override fun isSupported(unit: TemporalUnit?): Boolean =
+        if (unit is ChronoUnit) unit.isTimeBased else unit != null && unit.isSupportedBy(this)
 
     override fun get(field: TemporalField): Int = when (field) {
         ChronoField.NANO_OF_SECOND -> nano
@@ -387,8 +387,12 @@ public class LocalTime private constructor(
         /** Obtains the current time using the system clock in [zone]. */
         public fun now(zone: ZoneId): LocalTime = now(Clock.system(zone))
 
-        /** Obtains the current time from [clock]. */
-        public fun now(clock: Clock): LocalTime = LocalDateTime.now(clock).time
+        /**
+         * Obtains the current time from [clock]. Derived directly from the clock's
+         * instant and zone offset without constructing a date, so it stays valid at
+         * the extreme ends of the instant range (matching Java's `LocalTime.now`).
+         */
+        public fun now(clock: Clock): LocalTime = ofInstant(clock.instant(), clock.zone)
 
         /** Obtains a time from an hour and minute. */
         public fun of(hour: Int, minute: Int): LocalTime = of(hour, minute, 0, 0)

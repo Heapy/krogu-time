@@ -147,9 +147,9 @@ class YearTest {
     private data class YearRecordingTemporal(
         val year: Long? = null,
     ) : Temporal {
-        override fun isSupported(field: TemporalField): Boolean = field === ChronoField.YEAR
+        override fun isSupported(field: TemporalField?): Boolean = field === ChronoField.YEAR
 
-        override fun isSupported(unit: TemporalUnit): Boolean = false
+        override fun isSupported(unit: TemporalUnit?): Boolean = false
 
         override fun getLong(field: TemporalField): Long =
             year ?: throw UnsupportedTemporalTypeException("Unsupported field: $field")

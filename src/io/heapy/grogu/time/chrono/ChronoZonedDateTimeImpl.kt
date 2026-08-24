@@ -17,8 +17,8 @@ internal class ChronoZonedDateTimeImpl<D : ChronoLocalDate> private constructor(
     override val offset: ZoneOffset,
     override val zone: ZoneId,
 ) : ChronoZonedDateTime<D> {
-    override fun isSupported(field: TemporalField): Boolean =
-        field is ChronoField || field.isSupportedBy(this)
+    override fun isSupported(field: TemporalField?): Boolean =
+        field is ChronoField || field != null && field.isSupportedBy(this)
 
     override fun withEarlierOffsetAtOverlap(): ChronoZonedDateTime<D> {
         val transition = zone.rules.getTransition(dateTime.toIsoLocalDateTime())

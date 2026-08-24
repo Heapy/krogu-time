@@ -48,9 +48,9 @@ class IsoEraTest {
     private data class EraRecordingTemporal(
         val era: Long? = null,
     ) : Temporal {
-        override fun isSupported(field: TemporalField): Boolean = field === ChronoField.ERA
+        override fun isSupported(field: TemporalField?): Boolean = field === ChronoField.ERA
 
-        override fun isSupported(unit: TemporalUnit): Boolean = false
+        override fun isSupported(unit: TemporalUnit?): Boolean = false
 
         override fun getLong(field: TemporalField): Long =
             era ?: throw UnsupportedTemporalTypeException("Unsupported field: $field")

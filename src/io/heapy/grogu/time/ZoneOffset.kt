@@ -22,8 +22,8 @@ public class ZoneOffset private constructor(
     override val rules: ZoneRules
         get() = ZoneRules.of(this)
 
-    override fun isSupported(field: TemporalField): Boolean =
-        if (field is ChronoField) field === ChronoField.OFFSET_SECONDS else field.isSupportedBy(this)
+    override fun isSupported(field: TemporalField?): Boolean =
+        if (field is ChronoField) field === ChronoField.OFFSET_SECONDS else field != null && field.isSupportedBy(this)
 
     override fun get(field: TemporalField): Int = when (field) {
         ChronoField.OFFSET_SECONDS -> totalSeconds

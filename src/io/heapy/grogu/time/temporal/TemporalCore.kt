@@ -16,7 +16,7 @@ public fun interface TemporalQuery<R> {
 /** Read-only access to date-time fields. */
 public interface TemporalAccessor {
     /** Returns whether this object supports [field]. */
-    public fun isSupported(field: TemporalField): Boolean
+    public fun isSupported(field: TemporalField?): Boolean
 
     /** Returns the refined valid range for [field]. */
     public fun range(field: TemporalField): ValueRange {
@@ -139,7 +139,7 @@ public interface TemporalAmount {
 
 /** A date-time object that supports field adjustment and unit arithmetic. */
 public interface Temporal : TemporalAccessor {
-    public fun isSupported(unit: TemporalUnit): Boolean
+    public fun isSupported(unit: TemporalUnit?): Boolean
 
     public fun with(adjuster: TemporalAdjuster): Temporal = adjuster.adjustInto(this)
 

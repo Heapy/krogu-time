@@ -101,7 +101,7 @@ class ZoneOffsetTest {
     private data class OffsetAccessor(
         val totalSeconds: Long?,
     ) : TemporalAccessor {
-        override fun isSupported(field: TemporalField): Boolean =
+        override fun isSupported(field: TemporalField?): Boolean =
             field === ChronoField.OFFSET_SECONDS && totalSeconds != null
 
         override fun getLong(field: TemporalField): Long =
@@ -131,9 +131,9 @@ class ZoneOffsetTest {
     private data class OffsetRecordingTemporal(
         val operations: List<Pair<TemporalField, Long>> = emptyList(),
     ) : Temporal {
-        override fun isSupported(field: TemporalField): Boolean = field === ChronoField.OFFSET_SECONDS
+        override fun isSupported(field: TemporalField?): Boolean = field === ChronoField.OFFSET_SECONDS
 
-        override fun isSupported(unit: TemporalUnit): Boolean = false
+        override fun isSupported(unit: TemporalUnit?): Boolean = false
 
         override fun getLong(field: TemporalField): Long =
             throw UnsupportedTemporalTypeException("Unsupported field: $field")

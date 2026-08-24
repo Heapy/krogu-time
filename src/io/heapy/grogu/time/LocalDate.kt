@@ -60,11 +60,11 @@ public class LocalDate private constructor(
     /** Returns the number of days in this date's year. */
     override fun lengthOfYear(): Int = if (isLeapYear) 366 else 365
 
-    override fun isSupported(field: TemporalField): Boolean =
-        if (field is ChronoField) field.isDateBased else field.isSupportedBy(this)
+    override fun isSupported(field: TemporalField?): Boolean =
+        if (field is ChronoField) field.isDateBased else field != null && field.isSupportedBy(this)
 
-    override fun isSupported(unit: TemporalUnit): Boolean =
-        if (unit is ChronoUnit) unit.isDateBased else unit.isSupportedBy(this)
+    override fun isSupported(unit: TemporalUnit?): Boolean =
+        if (unit is ChronoUnit) unit.isDateBased else unit != null && unit.isSupportedBy(this)
 
     override fun range(field: TemporalField): ValueRange = when (field) {
         ChronoField.DAY_OF_MONTH -> ValueRange.of(1, lengthOfMonth().toLong())

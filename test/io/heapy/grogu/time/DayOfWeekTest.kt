@@ -123,9 +123,9 @@ class DayOfWeekTest {
     }
 
     private data class AdjustableDay(private val day: Long) : Temporal {
-        override fun isSupported(field: TemporalField): Boolean = field === ChronoField.DAY_OF_WEEK
+        override fun isSupported(field: TemporalField?): Boolean = field === ChronoField.DAY_OF_WEEK
 
-        override fun isSupported(unit: TemporalUnit): Boolean = unit === ChronoUnit.DAYS
+        override fun isSupported(unit: TemporalUnit?): Boolean = unit === ChronoUnit.DAYS
 
         override fun getLong(field: TemporalField): Long = day
 

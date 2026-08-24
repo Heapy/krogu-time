@@ -84,10 +84,10 @@ public enum class Month : TemporalAccessor, TemporalAdjuster {
     /** Returns the first month of the quarter containing this month. */
     public fun firstMonthOfQuarter(): Month = entries[(ordinal / MONTHS_PER_QUARTER) * MONTHS_PER_QUARTER]
 
-    override fun isSupported(field: TemporalField): Boolean = if (field is ChronoField) {
+    override fun isSupported(field: TemporalField?): Boolean = if (field is ChronoField) {
         field == ChronoField.MONTH_OF_YEAR
     } else {
-        field.isSupportedBy(this)
+        field != null && field.isSupportedBy(this)
     }
 
     override fun getLong(field: TemporalField): Long = when {

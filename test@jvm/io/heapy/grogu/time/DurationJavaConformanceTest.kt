@@ -350,10 +350,10 @@ class DurationJavaConformanceTest {
     private data class JavaTemporalAdapter(
         val delegate: JavaTemporal,
     ) : Temporal {
-        override fun isSupported(field: TemporalField): Boolean =
+        override fun isSupported(field: TemporalField?): Boolean =
             field is ChronoField && delegate.isSupported(JavaChronoField.valueOf(field.name))
 
-        override fun isSupported(unit: TemporalUnit): Boolean =
+        override fun isSupported(unit: TemporalUnit?): Boolean =
             unit is ChronoUnit && delegate.isSupported(JavaChronoUnit.valueOf(unit.name))
 
         override fun getLong(field: TemporalField): Long =

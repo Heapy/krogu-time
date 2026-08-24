@@ -85,8 +85,8 @@ public interface ChronoZonedDateTime<out D : ChronoLocalDate> :
 
     public fun withZoneSameInstant(zone: ZoneId): ChronoZonedDateTime<D>
 
-    override fun isSupported(unit: TemporalUnit): Boolean =
-        if (unit is ChronoUnit) unit !== ChronoUnit.FOREVER else unit.isSupportedBy(this)
+    override fun isSupported(unit: TemporalUnit?): Boolean =
+        if (unit is ChronoUnit) unit !== ChronoUnit.FOREVER else unit != null && unit.isSupportedBy(this)
 
     override fun with(adjuster: TemporalAdjuster): ChronoZonedDateTime<D> =
         ChronoZonedDateTimeImpl.ensureValid<D>(

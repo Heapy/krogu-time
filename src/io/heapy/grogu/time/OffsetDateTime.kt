@@ -34,11 +34,11 @@ public class OffsetDateTime private constructor(
     public val second: Int get() = dateTime.second
     public val nano: Int get() = dateTime.nano
 
-    override fun isSupported(field: TemporalField): Boolean =
-        if (field is ChronoField) true else field.isSupportedBy(this)
+    override fun isSupported(field: TemporalField?): Boolean =
+        if (field is ChronoField) true else field != null && field.isSupportedBy(this)
 
-    override fun isSupported(unit: TemporalUnit): Boolean =
-        if (unit is ChronoUnit) unit !== ChronoUnit.FOREVER else unit.isSupportedBy(this)
+    override fun isSupported(unit: TemporalUnit?): Boolean =
+        if (unit is ChronoUnit) unit !== ChronoUnit.FOREVER else unit != null && unit.isSupportedBy(this)
 
     override fun range(field: TemporalField): ValueRange = when (field) {
         ChronoField.INSTANT_SECONDS,

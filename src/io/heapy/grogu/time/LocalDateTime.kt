@@ -56,15 +56,15 @@ public class LocalDateTime private constructor(
     public val nano: Int
         get() = time.nano
 
-    override fun isSupported(field: TemporalField): Boolean =
+    override fun isSupported(field: TemporalField?): Boolean =
         if (field is ChronoField) {
             field.isDateBased || field.isTimeBased
         } else {
-            field.isSupportedBy(this)
+            field != null && field.isSupportedBy(this)
         }
 
-    override fun isSupported(unit: TemporalUnit): Boolean =
-        if (unit is ChronoUnit) unit !== ChronoUnit.FOREVER else unit.isSupportedBy(this)
+    override fun isSupported(unit: TemporalUnit?): Boolean =
+        if (unit is ChronoUnit) unit !== ChronoUnit.FOREVER else unit != null && unit.isSupportedBy(this)
 
     override fun range(field: TemporalField): ValueRange = when (field) {
         is ChronoField -> if (field.isTimeBased) time.range(field) else date.range(field)

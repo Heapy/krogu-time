@@ -3053,10 +3053,16 @@ private fun parsePatternValue(
         index++
     }
     val digitCount = index - digitsStart
-    if (digitCount < minimumDigits ||
-        strict && token.signStyle == SignStyle.EXCEEDS_PAD &&
+    if (digitCount < minimumDigits) {
+        // Too few digits: the error is reported where the digits were expected to
+        // begin, i.e. past any consumed sign (matching Java's NumberPrinterParser).
+        throw DateTimeParseException("Text could not be parsed at index $digitsStart", text, digitsStart)
+    }
+    if (strict && token.signStyle == SignStyle.EXCEEDS_PAD &&
         ((sign == '+' && digitCount <= token.minWidth) || (sign == null && digitCount > token.minWidth))
     ) {
+        // EXCEEDS_PAD sign violation: the error is reported at the field start (the
+        // sign itself for '+'), which is startIndex.
         throw DateTimeParseException("Text could not be parsed at index $startIndex", text, startIndex)
     }
 
@@ -4661,8 +4667,8 @@ private class FormatterOverrideTemporalAccessor(
     private val chronology: Chronology? = null,
     private val zone: ZoneId? = null,
 ) : TemporalAccessor {
-    override fun isSupported(field: TemporalField): Boolean =
-        if (date != null && field.isDateBased) date.isSupported(field) else delegate.isSupported(field)
+    override fun isSupported(field: TemporalField?): Boolean =
+        if (date != null && field?.isDateBased == true) date.isSupported(field) else delegate.isSupported(field)
 
     override fun range(field: TemporalField): ValueRange =
         if (date != null && field.isDateBased) date.range(field) else delegate.range(field)
@@ -4729,7 +4735,7 @@ private class UnresolvedParsedTemporalAccessor(
 ) : TemporalAccessor, ParsedState {
     override val excessDays: Period = Period.ZERO
 
-    override fun isSupported(field: TemporalField): Boolean = field in fields
+    override fun isSupported(field: TemporalField?): Boolean = field in fields
 
     override fun range(field: TemporalField): ValueRange = when {
         field in fields -> field.range
@@ -4808,7 +4814,7 @@ private class ParsedTemporalAccessor(
             )
         }
 
-    override fun isSupported(field: TemporalField): Boolean = when (field) {
+    override fun isSupported(field: TemporalField?): Boolean = when (field) {
         ChronoField.INSTANT_SECONDS ->
             instant != null || date != null && time != null && (offset != null || zone != null)
         ChronoField.OFFSET_SECONDS -> offset != null || zone is ZoneOffset
@@ -4817,7 +4823,7 @@ private class ParsedTemporalAccessor(
         is ChronoField if instant != null -> instant.isSupported(field)
         is ChronoField if field in fields -> true
         is ChronoField -> false
-        else -> field in fields || field.isSupportedBy(this)
+        else -> field in fields || field != null && field.isSupportedBy(this)
     }
 
     override fun range(field: TemporalField): ValueRange = when (field) {

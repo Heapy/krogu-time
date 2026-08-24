@@ -38,8 +38,8 @@ public interface ChronoLocalDateTime<out D : ChronoLocalDate> :
     /** Returns the local-time part. */
     public fun toLocalTime(): LocalTime = time
 
-    override fun isSupported(unit: TemporalUnit): Boolean =
-        if (unit is ChronoUnit) unit !== ChronoUnit.FOREVER else unit.isSupportedBy(this)
+    override fun isSupported(unit: TemporalUnit?): Boolean =
+        if (unit is ChronoUnit) unit !== ChronoUnit.FOREVER else unit != null && unit.isSupportedBy(this)
 
     override fun with(adjuster: TemporalAdjuster): ChronoLocalDateTime<D> =
         ChronoLocalDateTimeImpl.ensureValid<D>(

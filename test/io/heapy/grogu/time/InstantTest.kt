@@ -205,7 +205,7 @@ class InstantTest {
         val epochSecond: Long? = null,
         val nano: Long? = null,
     ) : TemporalAccessor {
-        override fun isSupported(field: TemporalField): Boolean =
+        override fun isSupported(field: TemporalField?): Boolean =
             field === ChronoField.INSTANT_SECONDS && epochSecond != null ||
                 field === ChronoField.NANO_OF_SECOND && nano != null
 
@@ -219,10 +219,10 @@ class InstantTest {
     private data class InstantRecordingTemporal(
         val operations: List<Pair<TemporalField, Long>> = emptyList(),
     ) : Temporal {
-        override fun isSupported(field: TemporalField): Boolean =
+        override fun isSupported(field: TemporalField?): Boolean =
             field === ChronoField.INSTANT_SECONDS || field === ChronoField.NANO_OF_SECOND
 
-        override fun isSupported(unit: TemporalUnit): Boolean = false
+        override fun isSupported(unit: TemporalUnit?): Boolean = false
 
         override fun getLong(field: TemporalField): Long =
             throw UnsupportedTemporalTypeException("Unsupported field: $field")

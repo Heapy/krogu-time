@@ -51,10 +51,10 @@ public enum class DayOfWeek : TemporalAccessor, TemporalAdjuster {
     /** Returns this day with [days] subtracted, wrapping around the seven-day week. */
     public fun minus(days: Long): DayOfWeek = plus(-(days % DAYS_PER_WEEK))
 
-    override fun isSupported(field: TemporalField): Boolean = if (field is ChronoField) {
+    override fun isSupported(field: TemporalField?): Boolean = if (field is ChronoField) {
         field == ChronoField.DAY_OF_WEEK
     } else {
-        field.isSupportedBy(this)
+        field != null && field.isSupportedBy(this)
     }
 
     override fun getLong(field: TemporalField): Long = when {

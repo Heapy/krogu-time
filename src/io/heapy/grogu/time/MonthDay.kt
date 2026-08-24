@@ -23,11 +23,11 @@ public class MonthDay private constructor(
     public val month: Month
         get() = Month.of(monthValue)
 
-    override fun isSupported(field: TemporalField): Boolean =
+    override fun isSupported(field: TemporalField?): Boolean =
         if (field is ChronoField) {
             field === ChronoField.MONTH_OF_YEAR || field === ChronoField.DAY_OF_MONTH
         } else {
-            field.isSupportedBy(this)
+            field != null && field.isSupportedBy(this)
         }
 
     override fun range(field: TemporalField): ValueRange = when (field) {
