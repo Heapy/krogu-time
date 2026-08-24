@@ -193,6 +193,43 @@ val nounAccessors = listOf(
     "weekOfWeekBasedYear", "weekBasedYear",
 )
 
+fun splitParameters(parameters: String): List<String> {
+    if (parameters.isBlank()) return emptyList()
+    val result = mutableListOf<String>()
+    var start = 0
+    var genericDepth = 0
+    parameters.forEachIndexed { index, char ->
+        when (char) {
+            '<' -> genericDepth++
+            '>' -> genericDepth--
+            ',' -> if (genericDepth == 0) {
+                result += parameters.substring(start, index).trim()
+                start = index + 1
+            }
+        }
+    }
+    result += parameters.substring(start).trim()
+    return result
+}
+
+// Locale positions come from the same JVM surface as the companion and
+// singleton rules, so new locale-taking port APIs are covered automatically.
+val localeParameters = mutableMapOf<String, MutableSet<Int>>()
+val (localeDumpCode, localeDump) = run(
+    javap, "-cp", portJar.path, *classNames.toTypedArray(),
+)
+ensure(localeDumpCode == 0) { "javap failed while reading locale parameters:\n$localeDump" }
+localeDump.lineSequence().forEach { line ->
+    val signature = Regex("""\b([\w$]+)\((.*)\);$""").find(line)
+        ?: return@forEach
+    val method = signature.groupValues[1]
+    splitParameters(signature.groupValues[2]).forEachIndexed { index, parameter ->
+        if (parameter == "$newPackage.Locale") {
+            localeParameters.getOrPut(method) { mutableSetOf() } += index
+        }
+    }
+}
+
 // --- rewrite -------------------------------------------------------------
 
 // Never rewrite inside string literals: the TCK asserts on text that
@@ -201,6 +238,233 @@ fun rewritePackages(text: String): String =
     text.replace(Regex("""("(?:[^"\\]|\\.)*")|\bjava\.time\b""")) { match ->
         if (match.groupValues[1].isNotEmpty()) match.value else newPackage
     }
+
+data class SourceReplacement(val start: Int, val end: Int, val value: String)
+
+fun applyReplacements(text: String, replacements: List<SourceReplacement>): String {
+    val result = StringBuilder(text)
+    replacements.sortedByDescending { it.start }.forEach { replacement ->
+        result.replace(replacement.start, replacement.end, replacement.value)
+    }
+    return result.toString()
+}
+
+// Masking comments and literals lets token offsets stay aligned with the
+// source while ensuring their contents can never become rewrite targets.
+fun codeMask(text: String): String {
+    val mask = text.toCharArray()
+    var index = 0
+    while (index < text.length) {
+        val end = when {
+            text.startsWith("//", index) -> {
+                text.indexOf('\n', index).let { if (it == -1) text.length else it }
+            }
+            text.startsWith("/*", index) -> {
+                text.indexOf("*/", index + 2).let { if (it == -1) text.length else it + 2 }
+            }
+            text[index] == '"' || text[index] == '\'' -> {
+                val quote = text[index]
+                var cursor = index + 1
+                while (cursor < text.length) {
+                    if (text[cursor] == '\\') cursor++
+                    else if (text[cursor] == quote) {
+                        cursor++
+                        break
+                    }
+                    cursor++
+                }
+                cursor
+            }
+            else -> {
+                index++
+                continue
+            }
+        }
+        for (masked in index until end) {
+            if (mask[masked] != '\n' && mask[masked] != '\r') mask[masked] = ' '
+        }
+        index = end
+    }
+    return mask.concatToString()
+}
+
+data class CallArguments(val ranges: List<IntRange>)
+
+fun callArguments(text: String, open: Int): CallArguments? {
+    val ranges = mutableListOf<IntRange>()
+    var start = open + 1
+    var parentheses = 0
+    var brackets = 0
+    var braces = 0
+    var index = start
+    while (index < text.length) {
+        when {
+            text.startsWith("//", index) -> {
+                index = text.indexOf('\n', index).let { if (it == -1) text.length else it }
+                continue
+            }
+            text.startsWith("/*", index) -> {
+                index = text.indexOf("*/", index + 2)
+                    .let { if (it == -1) text.length else it + 2 }
+                continue
+            }
+            text[index] == '"' || text[index] == '\'' -> {
+                val quote = text[index++]
+                while (index < text.length) {
+                    if (text[index] == '\\') index++
+                    else if (text[index] == quote) {
+                        index++
+                        break
+                    }
+                    index++
+                }
+                continue
+            }
+        }
+        when (text[index]) {
+            '(' -> parentheses++
+            ')' -> if (parentheses == 0) {
+                if (text.substring(start, index).isNotBlank()) {
+                    ranges += start until index
+                }
+                return CallArguments(ranges)
+            } else parentheses--
+            '[' -> brackets++
+            ']' -> brackets--
+            '{' -> braces++
+            '}' -> braces--
+            ',' -> if (parentheses == 0 && brackets == 0 && braces == 0) {
+                ranges += start until index
+                start = index + 1
+            }
+        }
+        index++
+    }
+    return null
+}
+
+fun receiverBefore(text: String, dot: Int): String? {
+    var end = dot
+    while (end > 0 && text[end - 1].isWhitespace()) end--
+    var start = end
+    while (start > 0 && (text[start - 1].isJavaIdentifierPart() || text[start - 1] == '$')) {
+        start--
+    }
+    var receiver = text.substring(start, end)
+    if (receiver != "Companion" && receiver != "INSTANCE") return receiver.ifEmpty { null }
+    var ownerEnd = start
+    while (ownerEnd > 0 && text[ownerEnd - 1].isWhitespace()) ownerEnd--
+    if (ownerEnd == 0 || text[ownerEnd - 1] != '.') return receiver
+    ownerEnd--
+    while (ownerEnd > 0 && text[ownerEnd - 1].isWhitespace()) ownerEnd--
+    var ownerStart = ownerEnd
+    while (ownerStart > 0 && text[ownerStart - 1].isJavaIdentifierPart()) ownerStart--
+    receiver = text.substring(ownerStart, ownerEnd)
+    return receiver.ifEmpty { null }
+}
+
+var rewrites = 0
+
+fun rewriteStaticImports(source: String): String {
+    val imported = mutableMapOf<String, String>()
+    val staticImport = Regex(
+        """^import static (${Regex.escape(newPackage)}\.[\w.]+)\.(\w+);""",
+        RegexOption.MULTILINE,
+    )
+    var text = source.replace(staticImport) { match ->
+        val owner = match.groupValues[1]
+        val simple = owner.substringAfterLast('.')
+        val member = match.groupValues[2]
+        val replacement = when {
+            member in (enumConstants[simple] ?: emptySet()) -> null
+            member in (singletons[simple]?.properties ?: emptySet()) ->
+                "$owner.INSTANCE.get$member()"
+            member in (singletons[simple]?.methods ?: emptySet()) ->
+                "$owner.INSTANCE.$member"
+            member in (companions[simple]?.properties ?: emptySet()) ->
+                "$owner.Companion.get$member()"
+            member in (companions[simple]?.methods ?: emptySet()) ->
+                "$owner.Companion.$member"
+            else -> null
+        }
+        if (replacement == null) match.value else {
+            imported[member] = replacement
+            rewrites++
+            ""
+        }
+    }
+    val mask = codeMask(text)
+    val replacements = imported.flatMap { (member, replacement) ->
+        Regex("""(?<![.\w])${Regex.escape(member)}\b""").findAll(mask).map { match ->
+            rewrites++
+            SourceReplacement(match.range.first, match.range.last + 1, replacement)
+        }.toList()
+    }
+    text = applyReplacements(text, replacements)
+    return text
+}
+
+fun isJavaLocale(expression: String, names: Set<String>): Boolean {
+    val value = expression.trim()
+    if (Regex("""^\(\s*(?:java\.util\.)?Locale\s*\)""").containsMatchIn(value)) {
+        return true
+    }
+    if (Regex("""^(?:java\.util\.)?Locale\b""").containsMatchIn(value)) return true
+    val leadingName = Regex("""^\(*\s*([A-Za-z_$][\w$]*)""")
+        .find(value)?.groupValues?.get(1)
+    return leadingName in names
+}
+
+fun rewriteJavaLocales(
+    source: String,
+    foreignTypes: Set<String>,
+    foreignValues: Set<String>,
+    inheritedLocaleNames: Set<String>,
+): String {
+    val javaLocaleNames = if ("Locale" in foreignTypes) {
+        Regex("""(?<![\w.])Locale\s*(?:\[\s*])?\s*(?:\.\.\.)?\s*(\w+)""")
+            .findAll(codeMask(source)).map { it.groupValues[1] }.toSet()
+    } else emptySet()
+    val importedLocaleNames = Regex(
+        """^import static java\.util\.Locale\.(\w+);""",
+        RegexOption.MULTILINE,
+    ).findAll(source).map { it.groupValues[1] }.toSet()
+    val streamedLocaleNames = Regex(
+        """Arrays\.stream\(\s*Locale\.getAvailableLocales\(\)\s*\)\s*""" +
+            """\.forEach\(\s*(\w+)\s*->""",
+    ).findAll(codeMask(source)).map { it.groupValues[1] }.toSet()
+    val localeNames = javaLocaleNames + importedLocaleNames + inheritedLocaleNames +
+        streamedLocaleNames
+    if ("Locale" !in foreignTypes && localeNames.isEmpty()) return source
+
+    val mask = codeMask(source)
+    val replacements = mutableListOf<SourceReplacement>()
+    Regex("""\.\s*([A-Za-z_$][\w$]*)\s*\(""").findAll(mask).forEach { call ->
+        val method = call.groupValues[1]
+        val localePositions = localeParameters[method] ?: return@forEach
+        val dot = call.range.first
+        val receiver = receiverBefore(mask, dot)
+        if (receiver in foreignTypes || receiver in foreignValues) return@forEach
+        if (method == "of" && receiver !in companions && receiver !in singletons) {
+            return@forEach
+        }
+        val open = mask.indexOf('(', call.range.first)
+        val arguments = callArguments(source, open) ?: return@forEach
+        localePositions.forEach { position ->
+            val range = arguments.ranges.getOrNull(position) ?: return@forEach
+            val start = range.first + source.substring(range).indexOfFirst { !it.isWhitespace() }
+            val end = range.last + 1 - source.substring(range).reversed()
+                .indexOfFirst { !it.isWhitespace() }
+            val expression = source.substring(start, end)
+            if (!isJavaLocale(expression, localeNames)) return@forEach
+            val bridge = "$newPackage.Locale.Companion.forLanguageTag(" +
+                "($expression).toLanguageTag())"
+            replacements += SourceReplacement(start, end, bridge)
+            rewrites++
+        }
+    }
+    return applyReplacements(source, replacements)
+}
 
 val generated = File(work, "gen")
 generated.deleteRecursively()
@@ -215,13 +479,55 @@ val tckFiles = listOf("tck", "test")
     .filter { file -> excludedPaths.none { it in file.path } }
     .toList()
 
-var rewrites = 0
+data class JavaLocaleScope(
+    val names: Set<String>,
+    val superclass: String?,
+)
+
+val javaLocaleScopes = tckFiles.mapNotNull { file ->
+    val source = file.readText()
+    val mask = codeMask(source)
+    val className = Regex("""\bclass\s+(\w+)""").find(mask)?.groupValues?.get(1)
+        ?: return@mapNotNull null
+    val importsJavaLocale = Regex(
+        """^import java\.util\.Locale;""",
+        RegexOption.MULTILINE,
+    ).containsMatchIn(source)
+    val names = if (importsJavaLocale) {
+        Regex("""(?<![\w.])Locale\s*(?:\[\s*])?\s*(?:\.\.\.)?\s*(\w+)""")
+            .findAll(mask).map { it.groupValues[1] }.toSet()
+    } else emptySet()
+    val superclass = Regex("""\bclass\s+\w+\s+extends\s+(\w+)""")
+        .find(mask)?.groupValues?.get(1)
+    className to JavaLocaleScope(names, superclass)
+}.toMap()
+
+fun inheritedLocaleNames(file: File): Set<String> {
+    var className = Regex("""\bclass\s+(\w+)""")
+        .find(codeMask(file.readText()))?.groupValues?.get(1)
+    val names = mutableSetOf<String>()
+    val visited = mutableSetOf<String>()
+    while (className != null && visited.add(className)) {
+        val scope = javaLocaleScopes[className] ?: break
+        names += scope.names
+        className = scope.superclass
+    }
+    return names
+}
+
 tckFiles.forEach { file ->
     var text = rewritePackages(file.readText())
 
     // A simple name imported from outside the port is not a port type.
     val foreign = Regex("""^import\s+(?!io\.heapy\.krogu\.)[\w.]*\.(\w+);""", RegexOption.MULTILINE)
         .findAll(text).map { it.groupValues[1] }.toSet()
+    val masked = codeMask(text)
+    val foreignValues = foreign.flatMap { type ->
+        Regex("""(?<![\w.])${Regex.escape(type)}\s+(\w+)""")
+            .findAll(masked).map { it.groupValues[1] }.toList()
+    }.toSet()
+
+    text = rewriteStaticImports(text)
 
     companions.forEach { (simple, members) ->
         if (simple in foreign) return@forEach
@@ -260,6 +566,8 @@ tckFiles.forEach { file ->
             "${it.groupValues[1]} ${it.groupValues[2]} $getter()"
         }
     }
+
+    text = rewriteJavaLocales(text, foreign, foreignValues, inheritedLocaleNames(file))
 
     val relative = file.relativeTo(sources).path
         .replace("java/time", newPackage.replace('.', '/'))
