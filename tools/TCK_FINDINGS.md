@@ -16,7 +16,7 @@ come from that script, run twice with the same result.
 It works. Converted TCK, run against the port:
 
 ```
-Total tests run: 17648, Passes: 17618, Failures: 30
+Total tests run: 17648, Passes: 17619, Failures: 29
 ```
 
 82 of 155 TCK/test files ran; 73 were dropped because the converter cannot
@@ -98,10 +98,15 @@ On the full tree that is 9605 rewrites across 155 files.
   when something precedes the padding, so the test puts a literal in front.
   Guarded by `DateTimeFormatterPadParseJavaConformanceTest`.
 
+- **`TestZonedDateTime.test_duration`, 1 failure.** `until` moved the end of
+  the difference into the start's zone, which pushes the local date-time past
+  the end of the timeline when the start is already at `LocalDateTime.MAX`.
+  Java catches that and moves the start into the end's zone instead. Guarded
+  by `ZonedDateTimeTimelineEndsJavaConformanceTest`, which compares `until`
+  for every `ChronoUnit` and `Duration.between` over 75 zone and value pairs.
+
 ### Worth investigating — possible real divergence
 
-- **`TestZonedDateTime.test_duration`.** `Invalid value for EpochDay ...
-  365241780472` at the end of the range.
 - **`TestLocalTime` whole-hour singletons, 5 failures.** `assertSame` checks.
   Java caches the 24 whole-hour `LocalTime` values and returns them from the
   factories; the port allocates. This is an allocation strategy, asserted by
@@ -132,7 +137,7 @@ and 3 under Next steps. Known causes:
    5 `test_serialization` and the Coptic `ServiceLoader` fixture, neither of
    which is a port defect. The other 24 come from OpenJDK's internal `test`
    tree: 14 `test_immutable`, 1 Coptic `ServiceLoader`, 2 `TestClock_System`,
-   and 7 real ones, of which 5 are the `LocalTime` whole-hour cache.
+   and 6 real ones, of which 5 are the `LocalTime` whole-hour cache.
 2. Add static-import rules to the converter. Cheap, unlocks several files.
 3. Decide on `Locale` and the covariant return types.
 4. Make the CI job blocking once the failure count reaches zero.

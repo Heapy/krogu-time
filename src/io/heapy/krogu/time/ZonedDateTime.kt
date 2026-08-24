@@ -203,11 +203,20 @@ public class ZonedDateTime private constructor(
     override fun until(endExclusive: Temporal, unit: TemporalUnit): Long {
         val end = from(endExclusive)
         if (unit !is ChronoUnit) return unit.between(this, end)
-        val zonedEnd = end.withZoneSameInstant(zone)
+        // Moving the end into this zone can leave the local date-time outside
+        // its range, near the ends of the timeline. Java then moves this one
+        // into the end's zone instead, so the difference is still measurable.
+        var start = this
+        var zonedEnd = end
+        try {
+            zonedEnd = end.withZoneSameInstant(zone)
+        } catch (_: DateTimeException) {
+            start = withZoneSameInstant(end.zone)
+        }
         return if (unit.isDateBased) {
-            dateTime.until(zonedEnd.dateTime, unit)
+            start.dateTime.until(zonedEnd.dateTime, unit)
         } else {
-            toOffsetDateTime().until(zonedEnd.toOffsetDateTime(), unit)
+            start.toOffsetDateTime().until(zonedEnd.toOffsetDateTime(), unit)
         }
     }
 

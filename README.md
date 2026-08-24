@@ -64,7 +64,7 @@ The published bytecode is class-file 65, so a Java 21 JVM can load it.
 
 Three checks run in CI on every push and pull request. A fourth runs monthly.
 
-1. **Differential tests.** 101 test files in `test@jvm/` call `java.time` and
+1. **Differential tests.** 102 test files in `test@jvm/` call `java.time` and
    `krogu-time` with the same input and assert the same result. They cover
    exhaustive and all-pairs matrices over standard fields, units, amounts,
    queries, adjustments, conversions, intervals, chronology factories, and
@@ -83,7 +83,7 @@ Three checks run in CI on every push and pull request. A fourth runs monthly.
    with the one the JDK ships and opens an issue when the JDK is ahead. Zone
    rules are the one input that goes stale on its own.
 
-The current baseline is 717 JVM tests, 461 Android tests, and 460 iOS tests, all
+The current baseline is 719 JVM tests, 461 Android tests, and 460 iOS tests, all
 passing, followed by a successful build of every target.
 
 Run them:
