@@ -1,0 +1,106 @@
+name: TZDB freshness
+
+# Reports when a newer JDK ships a newer IANA TZDB than the copy bundled in
+# src/io/heapy/krogu/time/zone/TzdbData.kt. The bundled data is generated from a
+# JDK's lib/tzdb.dat by tools/generate-tzdb-data.main.kts, so a JDK release is
+# the only place a newer database can come from.
+#
+# Note: the JVM differential tests run on the JDK pinned in module.yaml. If that
+# JDK still ships the older database, regenerating from a newer JDK makes the
+# conformance test compare against mismatched rules. Check both before updating.
+
+on:
+  schedule:
+    - cron: "0 6 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    name: Compare bundled TZDB with the JDK
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Read the JDK TZDB version
+        id: jdk
+        run: |
+          set -euo pipefail
+          cat > /tmp/JdkTzdbVersion.java <<'JAVA'
+          import java.time.zone.ZoneRulesProvider;
+
+          public class JdkTzdbVersion {
+              public static void main(String[] args) {
+                  System.out.println(ZoneRulesProvider.getVersions("Europe/Paris").keySet().iterator().next());
+              }
+          }
+          JAVA
+          version="$(java /tmp/JdkTzdbVersion.java)"
+          echo "JDK TZDB: $version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Read the bundled TZDB version
+        id: bundled
+        run: |
+          set -euo pipefail
+          # The first base64 chunk decodes to the tzdb.dat header:
+          # 1 format byte, the UTF string "TZDB", a version count, then the
+          # length-prefixed version id at byte offset 11.
+          version="$(grep -m1 -E '^AQAEVFpEQg' src/io/heapy/krogu/time/zone/TzdbData.kt \
+            | cut -c1-32 | base64 -d | tail -c +12 | head -c 5)"
+          if ! printf '%s' "$version" | grep -qE '^[0-9]{4}[a-z]$'; then
+            echo "Could not read the bundled TZDB version, got: '$version'" >&2
+            exit 1
+          fi
+          echo "Bundled TZDB: $version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Open an issue when the JDK is ahead
+        if: steps.jdk.outputs.version != steps.bundled.outputs.version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUNDLED: ${{ steps.bundled.outputs.version }}
+          JDK: ${{ steps.jdk.outputs.version }}
+        run: |
+          set -euo pipefail
+          title="TZDB update available: $BUNDLED -> $JDK"
+          existing="$(gh issue list --state open --search 'TZDB update available in:title' \
+            --json number,title --jq ".[] | select(.title == \"$title\") | .number" | head -1)"
+          if [ -n "$existing" ]; then
+            echo "Issue #$existing already tracks this update."
+            exit 0
+          fi
+          gh issue create --title "$title" --body "$(cat <<BODY
+          Temurin JDK 25 ships IANA TZDB \`$JDK\`. The bundled database in
+          \`src/io/heapy/krogu/time/zone/TzdbData.kt\` is \`$BUNDLED\`.
+
+          To update:
+
+          1. Locate a \`lib/tzdb.dat\` that carries \`$JDK\`. Confirm the JDK pinned in
+             \`module.yaml\` ships it too, otherwise the JVM conformance test compares
+             against mismatched rules.
+          2. Regenerate the data:
+             \`kotlinr tools/generate-tzdb-data.main.kts <tzdb.dat> src/io/heapy/krogu/time/zone/TzdbData.kt\`
+          3. Replace \`$BUNDLED\` with \`$JDK\` in
+             \`test/io/heapy/krogu/time/zone/TzdbZoneRulesProviderTest.kt\`,
+             \`test@jvm/io/heapy/krogu/time/zone/TzdbZoneRulesProviderJavaConformanceTest.kt\`,
+             and \`README.md\`.
+          4. Run \`./kotlin test\`.
+
+          Opened by the TZDB freshness workflow.
+          BODY
+          )"
