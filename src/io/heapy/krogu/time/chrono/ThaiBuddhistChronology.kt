@@ -4,8 +4,10 @@ import io.heapy.krogu.time.Clock
 import io.heapy.krogu.time.Instant
 import io.heapy.krogu.time.LocalDate
 import io.heapy.krogu.time.ZoneId
+import io.heapy.krogu.time.format.ResolverStyle
 import io.heapy.krogu.time.temporal.ChronoField
 import io.heapy.krogu.time.temporal.TemporalAccessor
+import io.heapy.krogu.time.temporal.TemporalField
 import io.heapy.krogu.time.temporal.ValueRange
 
 /** The proleptic Thai Buddhist calendar system. */
@@ -89,6 +91,13 @@ public object ThaiBuddhistChronology : AbstractChronology() {
         )
         else -> field.range
     }
+
+    // Java narrows this return type in every calendar system, so a caller
+    // does not need a cast the JDK does not need either.
+    override fun resolveDate(
+        fieldValues: MutableMap<TemporalField, Long>,
+        resolverStyle: ResolverStyle,
+    ): ThaiBuddhistDate? = super.resolveDate(fieldValues, resolverStyle) as ThaiBuddhistDate?
 
     override fun period(years: Int, months: Int, days: Int): ChronoPeriod =
         ChronoPeriodImpl(this, years, months, days)

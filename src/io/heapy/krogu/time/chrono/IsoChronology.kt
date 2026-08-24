@@ -9,8 +9,10 @@ import io.heapy.krogu.time.Year
 import io.heapy.krogu.time.ZoneId
 import io.heapy.krogu.time.ZoneOffset
 import io.heapy.krogu.time.ZonedDateTime
+import io.heapy.krogu.time.format.ResolverStyle
 import io.heapy.krogu.time.temporal.ChronoField
 import io.heapy.krogu.time.temporal.TemporalAccessor
+import io.heapy.krogu.time.temporal.TemporalField
 import io.heapy.krogu.time.temporal.ValueRange
 
 /** The singleton ISO-8601 chronology. */
@@ -87,6 +89,13 @@ public object IsoChronology : AbstractChronology() {
     override fun range(field: ChronoField): ValueRange = field.range
 
     /** Obtains an ISO period from independent year, month, and day components. */
+    // Java narrows this return type in every calendar system, so a caller
+    // does not need a cast the JDK does not need either.
+    override fun resolveDate(
+        fieldValues: MutableMap<TemporalField, Long>,
+        resolverStyle: ResolverStyle,
+    ): LocalDate? = super.resolveDate(fieldValues, resolverStyle) as LocalDate?
+
     override fun period(years: Int, months: Int, days: Int): Period =
         Period.of(years, months, days)
 

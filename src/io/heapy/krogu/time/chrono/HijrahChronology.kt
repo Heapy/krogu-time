@@ -5,8 +5,10 @@ import io.heapy.krogu.time.DateTimeException
 import io.heapy.krogu.time.Instant
 import io.heapy.krogu.time.LocalDate
 import io.heapy.krogu.time.ZoneId
+import io.heapy.krogu.time.format.ResolverStyle
 import io.heapy.krogu.time.temporal.ChronoField
 import io.heapy.krogu.time.temporal.TemporalAccessor
+import io.heapy.krogu.time.temporal.TemporalField
 import io.heapy.krogu.time.temporal.ValueRange
 
 /** The Islamic Umm al-Qura calendar system bundled by Java 21. */
@@ -112,6 +114,13 @@ public object HijrahChronology : AbstractChronology() {
         ChronoField.ERA -> ValueRange.of(1, 1)
         else -> field.range
     }
+
+    // Java narrows this return type in every calendar system, so a caller
+    // does not need a cast the JDK does not need either.
+    override fun resolveDate(
+        fieldValues: MutableMap<TemporalField, Long>,
+        resolverStyle: ResolverStyle,
+    ): HijrahDate? = super.resolveDate(fieldValues, resolverStyle) as HijrahDate?
 
     override fun period(years: Int, months: Int, days: Int): ChronoPeriod =
         ChronoPeriodImpl(this, years, months, days)
