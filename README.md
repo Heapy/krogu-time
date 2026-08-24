@@ -247,7 +247,7 @@ Implemented public surface and foundations:
   offset-field and query integration, adjustment, and ordering
 - `ZoneId` fixed-offset and `UTC`/`GMT`/`UT` prefixed identifiers, alias-map
   resolution, provider-backed region IDs, normalization, available-ID access,
-  bundled IANA TZDB 2025a resolution, system-default lookup, localized display
+  bundled IANA TZDB 2026b resolution, system-default lookup, localized display
   names, and zone/zone-offset temporal queries
 - `ZoneRules` fixed and variable in-memory rule sets, historic standard/wall
   transitions, recurring future rules, instant and ambiguous local-time
@@ -255,7 +255,7 @@ Implemented public surface and foundations:
   rule-list value semantics
 - `ZoneRulesProvider` registration, conflict detection, region/rule/version
   lookup, dynamic no-cache rules, refresh support, and automatic registration
-  of the bundled IANA TZDB 2025a database, plus `ServiceLoader` discovery on
+  of the bundled IANA TZDB 2026b database, plus `ServiceLoader` discovery on
   JVM and Android
 - `ZoneOffsetTransition` gap/overlap values, validated factories, instant and
   local timeline conversion, duration, offset validation, ordering, hashing,

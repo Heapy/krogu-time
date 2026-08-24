@@ -22,7 +22,7 @@ class TzdbZoneRulesProviderTest {
 
         val versions = ZoneRulesProvider.getVersions("Europe/Paris")
         assertEquals(1, versions.size)
-        assertEquals("2025a", versions.keys.single())
+        assertEquals("2026b", versions.keys.single())
         assertSameRules(ZoneId.of("Europe/Paris").rules, versions.values.single())
     }
 

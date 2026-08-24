@@ -27,7 +27,7 @@ class TzdbZoneRulesProviderJavaConformanceTest {
             val javaRules = JavaZoneId.of(zoneId).rules
             val rules = ZoneId.of(zoneId).rules
             assertEquals(javaRules.isFixedOffset, rules.isFixedOffset, zoneId)
-            assertEquals(setOf("2025a"), ZoneRulesProvider.getVersions(zoneId).keys, zoneId)
+            assertEquals(setOf("2026b"), ZoneRulesProvider.getVersions(zoneId).keys, zoneId)
             instants.forEach { text ->
                 val javaInstant = JavaInstant.parse(text)
                 val instant = Instant.parse(text)
