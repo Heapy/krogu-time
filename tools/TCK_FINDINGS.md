@@ -16,10 +16,10 @@ come from that script, run twice with the same result.
 It works. Converted TCK, run against the port:
 
 ```
-Total tests run: 20915, Passes: 20883, Failures: 32
+Total tests run: 24524, Passes: 24362, Failures: 162
 ```
 
-113 of 155 TCK/test files ran; 42 were dropped because the converter cannot
+125 of 155 TCK/test files ran; 30 were dropped because the converter cannot
 handle them yet, and the script lists every one. The conversion is fully mechanical, driven by
 the built jar rather than a hand-written rule list.
 
@@ -141,6 +141,31 @@ Two more are harness artifacts: `TestZoneId.test_systemDefault_*` set the JVM
 default time zone and expect the port's exception type, but the JVM's own
 `java.time` throws first.
 
+### Still open — the biggest one
+
+- **Formatting from a plain `TemporalAccessor` fails, 109 failures in
+  `TCKDateTimeFormatters` plus more elsewhere.** Java's formatters read the
+  fields they need one at a time, so any accessor that answers `isSupported`
+  and `getLong` can be formatted. The port appears to need a real
+  `LocalTime`, and throws instead.
+
+  Reproduced outside the harness with a hand-written accessor holding only
+  `HOUR_OF_DAY` and `MINUTE_OF_HOUR`:
+
+  | accessor fields | java.time | krogu-time |
+  | --- | --- | --- |
+  | hour, minute | `11:05` | throws `DateTimeException` |
+  | hour, minute, second | `11:05:30` | throws `DateTimeException` |
+  | offset only | throws | throws |
+
+  This is not a test-only shape. It affects any caller with a custom
+  `TemporalAccessor`, which is a documented extension point of the API, and
+  the blast radius is every ISO formatter. It is the most serious open item.
+
+  A second, smaller symptom in the same area: the port asks for an optional
+  field without checking `isSupported` first, so an accessor that throws on a
+  missing field fails where Java prints the optional section or drops it.
+
 ### Still open — a real difference
 
 - **`TestNumberParser.test_parseDigitsAdjacentLenient`, 1 failure.** Lenient
@@ -167,12 +192,29 @@ default time zone and expect the port's exception type, but the JVM's own
   OpenJDK's internal `test` tree rather than by the compatibility `tck` tree,
   so matching it is a design call rather than a compatibility fix.
 
-## Not yet converted (42 files)
+## Not yet converted (30 files)
 
-42 files are dropped. The census below predates the static-import and Locale
-rules; re-measure it with `-Xmaxerrs 10000` before working the list.
+30 files are dropped, with 119 compile errors between them, measured with the
+error cap lifted. Largest causes first:
 
-Formatting was the largest blind spot before those rules landed, 46 of 73: `TCKDateTimeFormatter`,
+- companion `get*` methods are read as properties, so calls such as
+  `getAvailableChronologies()`, `getRules()` and `getLocalizedDateTimePattern()`
+  are not rewritten (42 errors over 17 files) — converter gap
+- the noun-accessor rule rewrites Java's `String.length()` to `getLength()`
+  (37 over 12) — converter gap
+- `toFormat()` (19 over 2). Codex read this as a missing API; it is not. The
+  port has it in `src@jvmAndAndroid` as an extension function, which compiles
+  to a static on `DateTimeFormatterClassicFormat_jvmAndAndroidKt` and is
+  therefore invisible as a method to a Java caller. Converter gap, and a real
+  interop note for Java users.
+- `datesUntil` returns `Sequence`, not `Stream` (13 over 1) — permanent
+- residual `Locale`, `TimeZone` and same-package bridge cases (6 over 3)
+- `jdk.test.lib.RandomFactory` (2 over 1) — jtreg infrastructure
+
+The older census below is kept for the causes it explains; its counts are
+stale.
+
+Formatting was the largest blind spot before the Locale rules landed, 46 of 73: `TCKDateTimeFormatter`,
 `TCKDateTimeFormatterBuilder`, `TCKDateTimeFormatters`, `TCKDateTimeParseResolver`
 and 11 more from the `tck` tree. Then chronology, 14: every calendar
 `TCKChronology` except `TCKIsoChronology`, which the `resolveDate` fix
