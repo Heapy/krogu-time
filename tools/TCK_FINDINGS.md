@@ -16,7 +16,7 @@ come from that script, run twice with the same result.
 It works. Converted TCK, run against the port:
 
 ```
-Total tests run: 24524, Passes: 24362, Failures: 162
+Total tests run: 24524, Passes: 24473, Failures: 51
 ```
 
 125 of 155 TCK/test files ran; 30 were dropped because the converter cannot
@@ -141,13 +141,16 @@ Two more are harness artifacts: `TestZoneId.test_systemDefault_*` set the JVM
 default time zone and expect the port's exception type, but the JVM's own
 `java.time` throws first.
 
-### Still open — the biggest one
+### Fixed — formatting from a plain `TemporalAccessor`
 
-- **Formatting from a plain `TemporalAccessor` fails, 109 failures in
-  `TCKDateTimeFormatters` plus more elsewhere.** Java's formatters read the
-  fields they need one at a time, so any accessor that answers `isSupported`
-  and `getLong` can be formatted. The port appears to need a real
-  `LocalTime`, and throws instead.
+- **109 failures in `TCKDateTimeFormatters`, now 2.** `format` had two paths.
+  A formatter built from a pattern walked its token tree and read each field
+  through `getLong`. A formatter built through `DateTimeFormatterBuilder`,
+  which is how every ISO constant is made, went through a printer lambda that
+  needed a concrete value such as `LocalTime`. Both now walk the token tree.
+  The printer lambda is still constructed and threaded through the copy
+  methods but is no longer called from anywhere; removing it is a cleanup
+  worth doing separately.
 
   Reproduced outside the harness with a hand-written accessor holding only
   `HOUR_OF_DAY` and `MINUTE_OF_HOUR`:
@@ -158,13 +161,30 @@ default time zone and expect the port's exception type, but the JVM's own
   | hour, minute, second | `11:05:30` | throws `DateTimeException` |
   | offset only | throws | throws |
 
-  This is not a test-only shape. It affects any caller with a custom
-  `TemporalAccessor`, which is a documented extension point of the API, and
-  the blast radius is every ISO formatter. It is the most serious open item.
+  It was not a test-only shape: a custom `TemporalAccessor` is a documented
+  extension point, and the blast radius was every ISO formatter.
 
-  A second, smaller symptom in the same area: the port asks for an optional
-  field without checking `isSupported` first, so an accessor that throws on a
-  missing field fails where Java prints the optional section or drops it.
+### Still open — parsed-field resolution
+
+- **`TCKDateTimeParseResolver`, 13 failures.** A custom `TemporalField` that
+  resolves to a `LocalTime`, a `ChronoLocalDateTime` or a `ChronoZonedDateTime`
+  is not honoured: the value comes back `null`, or the parse reports "Text
+  cannot be parsed to a date", or "Unable to obtain ZonedDateTime from
+  TemporalAccessor". `TemporalField.resolve` is the same kind of documented
+  extension point that the formatter bug turned out to be, so this is the next
+  real one.
+
+- **`TestLocalizedOffsetPrinterParser`, 3 failures.** A custom locale provider
+  supplies "MAG" where the port prints "GMT". Needs checking against the JDK
+  fixture before being called a port bug.
+
+- **`TestDateTimeFormatter`, 2 failures.** Exception message wording; the port
+  omits "Chronology" from a message the TCK greps for.
+
+- **`TCKDateTimeFormatters`, 2 failures.** `expected [en_GB] but found
+  [en-GB]`. The port's `Locale.toString` returns the BCP 47 tag where Java
+  returns its own underscore form. That follows from the port having its own
+  KMP `Locale`, so it is a design consequence rather than a defect.
 
 ### Still open — a real difference
 
