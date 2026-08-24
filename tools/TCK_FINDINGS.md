@@ -43,8 +43,7 @@ Rules are derived from the jar, not written by hand:
 - `java.time` becomes `io.heapy.krogu.time`, never inside string literals
 - the noun accessors from `MIGRATION_NOTES.md` become `getXxx()`
 
-On the full tree that is 7645 companion calls, 1285 companion constants,
-283 object calls, 221 noun accessors, 2104 package references.
+On the full tree that is 9605 rewrites across 155 files.
 
 ## Failure triage
 
@@ -82,7 +81,9 @@ On the full tree that is 7645 companion calls, 1285 companion constants,
 
 ## Not yet converted (74 files)
 
-100 compile errors over 22 files, cascading to 74 dropped. Known causes:
+73 files are dropped. The error census below was measured against the JDK 21
+TCK, before the harness moved to JDK 25; re-measure it before working items 2
+and 3 under Next steps. Known causes:
 
 - `java.util.Locale` versus the port's own `Locale` (28) — needs an adapter
   or per-site rewrite
