@@ -30,7 +30,7 @@ settings:
     pom:
       name: grogu-time
       description: A Kotlin Multiplatform port of the Java 21 java.time API
-      url: https://github.com/heapy/grogu-time
+      url: https://github.com/heapy/krogu-time
       licenses:
         - name: The Apache License, Version 2.0
           url: https://www.apache.org/licenses/LICENSE-2.0.txt
@@ -38,9 +38,9 @@ settings:
         - id: heapy
           name: Ruslan Ibrahimau
       scm:
-        url: https://github.com/heapy/grogu-time
-        connection: scm:git:https://github.com/heapy/grogu-time.git
-        developerConnection: scm:git:ssh://git@github.com/heapy/grogu-time.git
+        url: https://github.com/heapy/krogu-time
+        connection: scm:git:https://github.com/heapy/krogu-time.git
+        developerConnection: scm:git:ssh://git@github.com/heapy/krogu-time.git
 
 # allWarningsAsErrors is applied per leaf platform, not in common.
 # The publication metadata compilation (compileMetadataIos) hits a
