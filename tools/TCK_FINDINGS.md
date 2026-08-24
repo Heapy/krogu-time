@@ -16,7 +16,7 @@ come from that script, run twice with the same result.
 It works. Converted TCK, run against the port:
 
 ```
-Total tests run: 17648, Passes: 17590, Failures: 58
+Total tests run: 17648, Passes: 17614, Failures: 34
 ```
 
 82 of 155 TCK/test files ran; 73 were dropped because the converter cannot
@@ -60,12 +60,26 @@ On the full tree that is 9605 rewrites across 155 files.
 
 ### Fixed
 
-- **`TCKZoneIdPrinterParser`, 80 failures, now 24.** `parseUnresolved` built
+- **`TCKZoneIdPrinterParser`, 80 failures, now 0.** Two separate bugs, both
+  in that one class.
+
+  First, `parseUnresolved` built
   an accessor whose offset query only read `OFFSET_SECONDS`. Java answers the
   offset query from the parsed zone when that zone is itself a `ZoneOffset`,
   and never sets `OFFSET_SECONDS` while doing it. The resolved accessor
   already had that rule; the unresolved one did not. Guarded by
   `DateTimeFormatterUnresolvedZoneQueryJavaConformanceTest`.
+
+  Second, zone ids were parsed by longest match over `ZoneId.of`, which is
+  more permissive than the parser Java uses. Java parses structurally: a
+  `UTC`/`UT`/`GMT` prefix, then an offset needing two-digit hours *and*
+  minutes, with seconds optional. When that offset is malformed the prefix
+  stands alone and the rest of the text is left unparsed, so `UTC-01` stops
+  at index 3 with zone `UTC`, where the port consumed `-01` and answered
+  `UTC-01:00`. A bare `+01` is a parse failure in Java and was accepted by the
+  port. Guarded by `DateTimeFormatterZoneIdParseJavaConformanceTest`, which
+  compares index, error index, and zone across 43 inputs in both
+  case-sensitive and case-insensitive mode.
 
 ### Worth investigating — possible real divergence
 
@@ -97,7 +111,9 @@ and 3 under Next steps. Known causes:
 
 ## Next steps
 
-1. Work through the remaining `TCKZoneIdPrinterParser` failures (24 left).
+1. The 34 remaining failures have no cluster left: the largest is 6 in
+   `TestLocalTime`. About 23 of them are the harness artifacts listed above,
+   so the real work is the handful under "Worth investigating".
 2. Add static-import rules to the converter. Cheap, unlocks several files.
 3. Decide on `Locale` and the covariant return types.
 4. Make the CI job blocking once the failure count reaches zero.

@@ -2790,11 +2790,93 @@ private data class ParsedPatternZone(
     val endIndex: Int,
 )
 
+private data class ParsedPatternZoneOffset(
+    val offset: ZoneOffset,
+    val endIndex: Int,
+)
+
+private val ZONE_ID_PREFIXES = listOf("UTC", "UT", "GMT")
+
+/**
+ * Parses the offset of an offset zone id with Java's `+HH:MM:ss` rules:
+ * a sign, two-digit hours, and two-digit minutes are all required, and
+ * two-digit seconds are optional. `ZoneId.of` is more permissive than this,
+ * so the id text cannot simply be handed to it.
+ */
+private fun parseZoneIdOffset(
+    text: String,
+    startIndex: Int,
+): ParsedPatternZoneOffset? {
+    fun twoDigits(at: Int): Int? {
+        if (at + 2 > text.length) return null
+        val tens = text[at]
+        val units = text[at + 1]
+        if (tens !in '0'..'9' || units !in '0'..'9') return null
+        return (tens - '0') * 10 + (units - '0')
+    }
+
+    if (startIndex >= text.length) return null
+    val sign = when (text[startIndex]) {
+        '+' -> 1
+        '-' -> -1
+        else -> return null
+    }
+    val hours = twoDigits(startIndex + 1) ?: return null
+    var index = startIndex + 3
+    if (index >= text.length || text[index] != ':') return null
+    val minutes = twoDigits(index + 1) ?: return null
+    index += 3
+
+    var seconds = 0
+    if (index + 3 <= text.length && text[index] == ':') {
+        twoDigits(index + 1)?.let { parsed ->
+            seconds = parsed
+            index += 3
+        }
+    }
+
+    val offset = try {
+        ZoneOffset.ofHoursMinutesSeconds(sign * hours, sign * minutes, sign * seconds)
+    } catch (_: DateTimeException) {
+        return null
+    }
+    return ParsedPatternZoneOffset(offset, index)
+}
+
 private fun parsePatternZone(
     text: String,
     startIndex: Int,
     caseSensitive: Boolean,
 ): ParsedPatternZone {
+    if (startIndex < text.length) {
+        // A bare offset id has no prefix to fall back to, so a malformed
+        // offset is a parse failure rather than a shorter match.
+        if (text[startIndex] == '+' || text[startIndex] == '-') {
+            val offset = parseZoneIdOffset(text, startIndex)
+                ?: throw DateTimeParseException("Invalid zone", text, startIndex)
+            return ParsedPatternZone(offset.offset, offset.endIndex)
+        }
+
+        val prefix = ZONE_ID_PREFIXES.firstOrNull { text.matchesAt(startIndex, it, caseSensitive) }
+        if (prefix != null) {
+            val afterPrefix = startIndex + prefix.length
+            // GMT0 is a zone id in its own right, not GMT with an offset.
+            if (prefix == "GMT" && afterPrefix < text.length && text[afterPrefix] == '0') {
+                return ParsedPatternZone(ZoneId.of("GMT0"), afterPrefix + 1)
+            }
+            // Neither '0' nor 'Z' can start an offset, so the prefix stands
+            // alone and the rest of the text is left unparsed.
+            val standsAlone = afterPrefix >= text.length ||
+                text[afterPrefix] == '0' ||
+                text[afterPrefix].equals('Z', ignoreCase = !caseSensitive)
+            if (standsAlone) return ParsedPatternZone(ZoneId.of(prefix), afterPrefix)
+
+            val offset = parseZoneIdOffset(text, afterPrefix)
+                ?: return ParsedPatternZone(ZoneId.of(prefix), afterPrefix)
+            return ParsedPatternZone(ZoneId.ofOffset(prefix, offset.offset), offset.endIndex)
+        }
+    }
+
     for (endIndex in text.length downTo startIndex + 1) {
         parseZoneCandidate(text.substring(startIndex, endIndex), caseSensitive)?.let { zone ->
             return ParsedPatternZone(zone, endIndex)
