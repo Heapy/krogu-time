@@ -404,6 +404,56 @@ fun rewriteStaticImports(source: String): String {
     return text
 }
 
+// A Java method reference still needs the explicit Kotlin object receiver
+// because the port deliberately provides no static bridge.
+fun rewriteMethodReferences(source: String, foreignTypes: Set<String>): String {
+    val mask = codeMask(source)
+    val replacements = mutableListOf<SourceReplacement>()
+
+    fun collect(owner: String, member: String, receiver: String) {
+        if (member in (enumConstants[owner] ?: emptySet())) return
+        val reference = Regex(
+            """(?<![.\w])${Regex.escape(owner)}(?=\s*::\s*${Regex.escape(member)}\b)""",
+        )
+        reference.findAll(mask).forEach { match ->
+            replacements += SourceReplacement(
+                match.range.last + 1,
+                match.range.last + 1,
+                receiver,
+            )
+            rewrites++
+        }
+    }
+
+    companions.forEach { (simple, members) ->
+        if (simple !in foreignTypes) {
+            members.methods.forEach { collect(simple, it, ".Companion") }
+        }
+    }
+    singletons.forEach { (simple, members) ->
+        if (simple !in foreignTypes) {
+            members.methods.forEach { collect(simple, it, ".INSTANCE") }
+        }
+    }
+    return applyReplacements(source, replacements)
+}
+
+// Kotlin's covariant read-only lists need a wildcard when viewed through
+// Java's invariant List type.
+fun rewriteEraLists(source: String): String {
+    val mask = codeMask(source)
+    val declarations = Regex(
+        """(?<![.\w])(?:java\.util\.)?List\s*<\s*Era\s*>""" +
+            """(?=\s+[A-Za-z_$][\w$]*\s*=\s*[^;]*\.eras\s*\(\s*\)\s*;)""",
+    )
+    val replacements = declarations.findAll(mask).map { declaration ->
+        val era = declaration.range.first + declaration.value.indexOf("Era")
+        rewrites++
+        SourceReplacement(era, era + "Era".length, "? extends Era")
+    }.toList()
+    return applyReplacements(source, replacements)
+}
+
 fun isJavaLocale(expression: String, names: Set<String>): Boolean {
     val value = expression.trim()
     if (Regex("""^\(\s*(?:java\.util\.)?Locale\s*\)""").containsMatchIn(value)) {
@@ -528,6 +578,7 @@ tckFiles.forEach { file ->
     }.toSet()
 
     text = rewriteStaticImports(text)
+    text = rewriteMethodReferences(text, foreign)
 
     companions.forEach { (simple, members) ->
         if (simple in foreign) return@forEach
@@ -568,6 +619,7 @@ tckFiles.forEach { file ->
     }
 
     text = rewriteJavaLocales(text, foreign, foreignValues, inheritedLocaleNames(file))
+    text = rewriteEraLists(text)
 
     val relative = file.relativeTo(sources).path
         .replace("java/time", newPackage.replace('.', '/'))
@@ -591,7 +643,8 @@ for (round in 1..8) {
     val remaining = generated.walkTopDown().filter { it.extension == "java" }.map { it.path }.toList()
     if (remaining.isEmpty()) break
     val (code, output) = run(
-        javac, "-nowarn", "-d", classes.path, "-cp", classpath, "-sourcepath", ".",
+        javac, "-nowarn", "-Xmaxerrs", "10000", "-d", classes.path,
+        "-cp", classpath, "-sourcepath", ".",
         *remaining.toTypedArray(), dir = generated,
     )
     log = output
