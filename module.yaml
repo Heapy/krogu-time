@@ -9,7 +9,7 @@ description: A Kotlin Multiplatform port of java.time
 
 settings:
   android:
-    namespace: io.heapy.grogu.time
+    namespace: io.heapy.krogu.time
   # Pinned to 21 on purpose. The behavioral reference of this port is Java 21
   # java.time, and the JVM differential tests compare against the running JDK.
   # Newer JDKs changed ZoneId.SHORT_IDS and the InstantSeconds field range, so

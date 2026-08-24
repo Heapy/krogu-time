@@ -1,7 +1,7 @@
 # krogu-time
 
 `krogu-time` is a Kotlin Multiplatform port of the Java 21 `java.time` API under
-the `io.heapy.grogu.time` package.
+the `io.heapy.krogu.time` package.
 
 The public Java 21 API surface is feature-complete, translated into idiomatic
 Kotlin where JavaBean accessors map naturally to properties. Platform-specific
@@ -57,7 +57,7 @@ you release it by hand.
 
 ## Compatibility contract
 
-- Package root: `io.heapy.grogu.time`
+- Package root: `io.heapy.krogu.time`
 - Behavioral reference: Java 21 `java.time`
 - API style: Kotlin properties and operators where they preserve Java
   semantics, with Java-named operations retained when useful
