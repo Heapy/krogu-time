@@ -378,14 +378,23 @@ public class LocalTime private constructor(
         private const val MICROS_PER_DAY: Long = NANOS_PER_DAY / NANOS_PER_MICRO
         private const val MILLIS_PER_DAY: Long = NANOS_PER_DAY / NANOS_PER_MILLI
 
+        /**
+         * Whole hours dominate the times programs ask for, so java.time keeps one
+         * instance per hour and hands those out rather than allocating. This has to
+         * be declared ahead of the constants below, because a companion property
+         * that reads a later one sees null while the class is initialising.
+         */
+        private val HOURS: Array<LocalTime> =
+            Array(HOURS_PER_DAY) { LocalTime(it, 0, 0, 0) }
+
         @JvmField
-        public val MIN: LocalTime = LocalTime(0, 0, 0, 0)
+        public val MIN: LocalTime = HOURS[0]
         @JvmField
         public val MAX: LocalTime = LocalTime(23, 59, 59, 999_999_999)
         @JvmField
-        public val MIDNIGHT: LocalTime = MIN
+        public val MIDNIGHT: LocalTime = HOURS[0]
         @JvmField
-        public val NOON: LocalTime = LocalTime(12, 0, 0, 0)
+        public val NOON: LocalTime = HOURS[12]
 
         /** Obtains the current time using the system clock in the default time-zone. */
         @JvmStatic
@@ -538,10 +547,10 @@ public class LocalTime private constructor(
             DateTimeParseException("Text cannot be parsed to a LocalTime", input, errorIndex)
 
         private fun create(hour: Int, minute: Int, second: Int, nano: Int): LocalTime =
-            when {
-                minute == 0 && second == 0 && nano == 0 && hour == 0 -> MIDNIGHT
-                minute == 0 && second == 0 && nano == 0 && hour == 12 -> NOON
-                else -> LocalTime(hour, minute, second, nano)
+            if (minute == 0 && second == 0 && nano == 0) {
+                HOURS[hour]
+            } else {
+                LocalTime(hour, minute, second, nano)
             }
     }
 }
