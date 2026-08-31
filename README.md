@@ -94,7 +94,7 @@ Run them:
 
 ## Build
 
-The repository uses JetBrains Kotlin Toolchain 0.12.0-dev-4300 and its checked-in
+The repository uses JetBrains Kotlin Toolchain 0.12.0 and its checked-in
 wrapper. No Gradle installation is required.
 
 ```shell
