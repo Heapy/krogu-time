@@ -52,35 +52,37 @@ public abstract class ZoneId {
     public companion object {
         /** The legacy short-ID mappings defined by Java's `ZoneId`. */
         @JvmField
-        public val SHORT_IDS: Map<String, String> = mapOf(
-            "ACT" to "Australia/Darwin",
-            "AET" to "Australia/Sydney",
-            "AGT" to "America/Argentina/Buenos_Aires",
-            "ART" to "Africa/Cairo",
-            "AST" to "America/Anchorage",
-            "BET" to "America/Sao_Paulo",
-            "BST" to "Asia/Dhaka",
-            "CAT" to "Africa/Harare",
-            "CNT" to "America/St_Johns",
-            "CST" to "America/Chicago",
-            "CTT" to "Asia/Shanghai",
-            "EAT" to "Africa/Addis_Ababa",
-            "ECT" to "Europe/Paris",
-            "IET" to "America/Indiana/Indianapolis",
-            "IST" to "Asia/Kolkata",
-            "JST" to "Asia/Tokyo",
-            "MIT" to "Pacific/Apia",
-            "NET" to "Asia/Yerevan",
-            "NST" to "Pacific/Auckland",
-            "PLT" to "Asia/Karachi",
-            "PNT" to "America/Phoenix",
-            "PRT" to "America/Puerto_Rico",
-            "PST" to "America/Los_Angeles",
-            "SST" to "Pacific/Guadalcanal",
-            "VST" to "Asia/Ho_Chi_Minh",
-            "EST" to "America/Panama",
-            "MST" to "America/Phoenix",
-            "HST" to "Pacific/Honolulu",
+        public val SHORT_IDS: Map<String, String> = ReadOnlyMap(
+            mapOf(
+                "ACT" to "Australia/Darwin",
+                "AET" to "Australia/Sydney",
+                "AGT" to "America/Argentina/Buenos_Aires",
+                "ART" to "Africa/Cairo",
+                "AST" to "America/Anchorage",
+                "BET" to "America/Sao_Paulo",
+                "BST" to "Asia/Dhaka",
+                "CAT" to "Africa/Harare",
+                "CNT" to "America/St_Johns",
+                "CST" to "America/Chicago",
+                "CTT" to "Asia/Shanghai",
+                "EAT" to "Africa/Addis_Ababa",
+                "ECT" to "Europe/Paris",
+                "IET" to "America/Indiana/Indianapolis",
+                "IST" to "Asia/Kolkata",
+                "JST" to "Asia/Tokyo",
+                "MIT" to "Pacific/Apia",
+                "NET" to "Asia/Yerevan",
+                "NST" to "Pacific/Auckland",
+                "PLT" to "Asia/Karachi",
+                "PNT" to "America/Phoenix",
+                "PRT" to "America/Puerto_Rico",
+                "PST" to "America/Los_Angeles",
+                "SST" to "Pacific/Guadalcanal",
+                "VST" to "Asia/Ho_Chi_Minh",
+                "EST" to "America/Panama",
+                "MST" to "America/Phoenix",
+                "HST" to "Pacific/Honolulu",
+            ),
         )
 
         /** Obtains the system default time-zone. */
@@ -186,4 +188,73 @@ private class RegionZoneId private constructor(
             "Invalid ID for region-based ZoneId, invalid format: $zoneId",
         )
     }
+}
+
+/**
+ * A read-only view of [source].
+ *
+ * Java sees Kotlin's read-only `Map` as `java.util.Map`, and the compiler gives
+ * a class implementing it mutator stubs that throw. `mapOf` hands back a
+ * `LinkedHashMap` instead, which a Java caller can clear, so the shared
+ * [ZoneId.SHORT_IDS] constant is wrapped the way Java wraps its own. The entries
+ * are copied into read-only types as well, because handing out the backing map's
+ * own entry set would let a Java caller reach the same state through
+ * `entrySet()`.
+ */
+private class ReadOnlyMap<K, V>(
+    private val source: Map<K, V>,
+) : AbstractMap<K, V>() {
+    override val entries: Set<Map.Entry<K, V>> =
+        ReadOnlySet(source.entries.map { ReadOnlyEntry(it.key, it.value) })
+
+    // AbstractMap answers a lookup by scanning the entry set. ZoneId.of takes
+    // an alias map from the caller, so a lookup can sit in a loop; both go
+    // straight to the source instead.
+    override fun get(key: K): V? = source[key]
+
+    override fun containsKey(key: K): Boolean = source.containsKey(key)
+}
+
+/** A read-only view of the entries in [source]. */
+private class ReadOnlySet<T>(
+    private val source: List<T>,
+) : AbstractSet<T>() {
+    override val size: Int get() = source.size
+
+    override fun iterator(): Iterator<T> = ReadOnlyIterator(source)
+}
+
+/**
+ * An iterator over [source] that a Java caller cannot remove through, since
+ * `java.util.Iterator.remove` is left to the throwing implementation Kotlin's
+ * read-only `Iterator` maps to.
+ */
+private class ReadOnlyIterator<T>(
+    private val source: List<T>,
+) : Iterator<T> {
+    private var index = 0
+
+    override fun hasNext(): Boolean = index < source.size
+
+    override fun next(): T {
+        if (!hasNext()) throw NoSuchElementException()
+        return source[index++]
+    }
+}
+
+/**
+ * An entry whose [value] cannot be replaced, mirroring the entries Java's
+ * `Collections.unmodifiableMap` hands out. Equality follows the `Map.Entry`
+ * contract so the enclosing map compares equal to an ordinary map.
+ */
+private class ReadOnlyEntry<K, V>(
+    override val key: K,
+    override val value: V,
+) : Map.Entry<K, V> {
+    override fun equals(other: Any?): Boolean =
+        other is Map.Entry<*, *> && key == other.key && value == other.value
+
+    override fun hashCode(): Int = (key?.hashCode() ?: 0) xor (value?.hashCode() ?: 0)
+
+    override fun toString(): String = "$key=$value"
 }
