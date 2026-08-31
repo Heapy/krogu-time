@@ -8,7 +8,10 @@ name: TCK
 # to a blocking job once the failure count reaches zero.
 #
 # The TCK sources are GPLv2 only. They are fetched at run time into build/ and
-# never committed, so this Apache-2.0 project redistributes nothing GPL'd.
+# never committed. The one piece of GPL-derived text this repository carries is
+# tools/tck/tck.patch, which the run below applies to the fetched sources; see
+# tools/tck/README.md. That needs no step of its own here, because the patch
+# ships with the checkout and the script applies it.
 
 on:
   push:

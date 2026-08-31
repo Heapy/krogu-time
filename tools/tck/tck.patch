@@ -1,0 +1,101 @@
+# krogu-time TCK patch
+# generated against: jdk-25.0.4.1-ga
+#
+# Derived from OpenJDK test sources that are GPLv2 only, with no
+# Classpath exception, and therefore governed by GPLv2 rather than by
+# this repository's Apache-2.0 licence. See tools/tck/README.md.
+#
+# Regenerate by editing build/tck/gen by hand and running
+#   kotlinr tools/run-tck.main.kts --capture-patch
+
+diff --git a/base/tck/io/heapy/krogu/time/chrono/TCKHijrahChronology.java b/gen/tck/io/heapy/krogu/time/chrono/TCKHijrahChronology.java
+index 228a6e1..c4cde3b 100644
+--- a/base/tck/io/heapy/krogu/time/chrono/TCKHijrahChronology.java
++++ b/gen/tck/io/heapy/krogu/time/chrono/TCKHijrahChronology.java
+@@ -168,3 +168,3 @@ public class TCKHijrahChronology {
+             }
+-            List<Era> eras = chrono.eras();
++            List<? extends Era> eras = chrono.eras();
+             for (Era era : eras) {
+diff --git a/base/tck/io/heapy/krogu/time/chrono/TCKHijrahEra.java b/gen/tck/io/heapy/krogu/time/chrono/TCKHijrahEra.java
+index 13fa8b5..6ea842e 100644
+--- a/base/tck/io/heapy/krogu/time/chrono/TCKHijrahEra.java
++++ b/gen/tck/io/heapy/krogu/time/chrono/TCKHijrahEra.java
+@@ -96,3 +96,3 @@ public class TCKHijrahEra {
+     public void test_values() {
+-        List<Era> eraList = HijrahChronology.INSTANCE.eras();
++        List<? extends Era> eraList = HijrahChronology.INSTANCE.eras();
+         HijrahEra[] eras = HijrahEra.values();
+diff --git a/base/tck/io/heapy/krogu/time/chrono/TCKIsoEra.java b/gen/tck/io/heapy/krogu/time/chrono/TCKIsoEra.java
+index 7128b08..8c81b1c 100644
+--- a/base/tck/io/heapy/krogu/time/chrono/TCKIsoEra.java
++++ b/gen/tck/io/heapy/krogu/time/chrono/TCKIsoEra.java
+@@ -95,3 +95,3 @@ public class TCKIsoEra {
+     public void test_values() {
+-        List<Era> eraList = IsoChronology.INSTANCE.eras();
++        List<? extends Era> eraList = IsoChronology.INSTANCE.eras();
+         IsoEra[] eras = IsoEra.values();
+diff --git a/base/tck/io/heapy/krogu/time/chrono/TCKJapaneseChronology.java b/gen/tck/io/heapy/krogu/time/chrono/TCKJapaneseChronology.java
+index 9e98fd6..21381f8 100644
+--- a/base/tck/io/heapy/krogu/time/chrono/TCKJapaneseChronology.java
++++ b/gen/tck/io/heapy/krogu/time/chrono/TCKJapaneseChronology.java
+@@ -440,3 +440,3 @@ public class TCKJapaneseChronology {
+             }
+-            List<Era> eras = chrono.eras();
++            List<? extends Era> eras = chrono.eras();
+             for (Era era : eras) {
+@@ -564,3 +564,3 @@ public class TCKJapaneseChronology {
+         assertEquals(era, JapaneseChronology.INSTANCE.eraOf(eraValue), "JapaneseChronology.INSTANCE.eraOf()");
+-        List<Era> eras = JapaneseChronology.INSTANCE.eras();
++        List<? extends Era> eras = JapaneseChronology.INSTANCE.eras();
+         assertTrue(eras.contains(era), "Era is not present in JapaneseChronology.INSTANCE.eras()");
+@@ -607,3 +607,3 @@ public class TCKJapaneseChronology {
+     public void test_JapaneseChronology_eras() {
+-        List<Era> actualEras = JapaneseChronology.INSTANCE.eras();
++        List<? extends Era> actualEras = JapaneseChronology.INSTANCE.eras();
+         Object[][] erasInfo = data_japanseseEras();
+diff --git a/base/tck/io/heapy/krogu/time/chrono/TCKJapaneseEra.java b/gen/tck/io/heapy/krogu/time/chrono/TCKJapaneseEra.java
+index b5fad5e..e16c828 100644
+--- a/base/tck/io/heapy/krogu/time/chrono/TCKJapaneseEra.java
++++ b/gen/tck/io/heapy/krogu/time/chrono/TCKJapaneseEra.java
+@@ -113,3 +113,3 @@ public class TCKJapaneseEra {
+     public void test_values() {
+-        List<Era> eraList = JapaneseChronology.INSTANCE.eras();
++        List<? extends Era> eraList = JapaneseChronology.INSTANCE.eras();
+         JapaneseEra[] eras = JapaneseEra.values();
+diff --git a/base/tck/io/heapy/krogu/time/chrono/TCKMinguoChronology.java b/gen/tck/io/heapy/krogu/time/chrono/TCKMinguoChronology.java
+index c2b02b2..73ab783 100644
+--- a/base/tck/io/heapy/krogu/time/chrono/TCKMinguoChronology.java
++++ b/gen/tck/io/heapy/krogu/time/chrono/TCKMinguoChronology.java
+@@ -324,3 +324,3 @@ public class TCKMinguoChronology {
+             }
+-            List<Era> eras = chrono.eras();
++            List<? extends Era> eras = chrono.eras();
+             for (Era era : eras) {
+diff --git a/base/tck/io/heapy/krogu/time/chrono/TCKMinguoEra.java b/gen/tck/io/heapy/krogu/time/chrono/TCKMinguoEra.java
+index 5d359d2..7e5eeb6 100644
+--- a/base/tck/io/heapy/krogu/time/chrono/TCKMinguoEra.java
++++ b/gen/tck/io/heapy/krogu/time/chrono/TCKMinguoEra.java
+@@ -100,3 +100,3 @@ public class TCKMinguoEra {
+     public void test_values() {
+-        List<Era> eraList = MinguoChronology.INSTANCE.eras();
++        List<? extends Era> eraList = MinguoChronology.INSTANCE.eras();
+         MinguoEra[] eras = MinguoEra.values() ;
+diff --git a/base/tck/io/heapy/krogu/time/chrono/TCKThaiBuddhistChronology.java b/gen/tck/io/heapy/krogu/time/chrono/TCKThaiBuddhistChronology.java
+index c52c1ab..318d91c 100644
+--- a/base/tck/io/heapy/krogu/time/chrono/TCKThaiBuddhistChronology.java
++++ b/gen/tck/io/heapy/krogu/time/chrono/TCKThaiBuddhistChronology.java
+@@ -331,3 +331,3 @@ public class TCKThaiBuddhistChronology {
+             }
+-            List<Era> eras = chrono.eras();
++            List<? extends Era> eras = chrono.eras();
+             for (Era era : eras) {
+diff --git a/base/tck/io/heapy/krogu/time/chrono/TCKThaiBuddhistEra.java b/gen/tck/io/heapy/krogu/time/chrono/TCKThaiBuddhistEra.java
+index 19981ac..38b8fca 100644
+--- a/base/tck/io/heapy/krogu/time/chrono/TCKThaiBuddhistEra.java
++++ b/gen/tck/io/heapy/krogu/time/chrono/TCKThaiBuddhistEra.java
+@@ -99,3 +99,3 @@ public class TCKThaiBuddhistEra {
+     public void test_values() {
+-        List<Era> eraList = ThaiBuddhistChronology.INSTANCE.eras();
++        List<? extends Era> eraList = ThaiBuddhistChronology.INSTANCE.eras();
+         ThaiBuddhistEra[] eras = ThaiBuddhistEra.values();

@@ -4,15 +4,33 @@
  * Runs the OpenJDK java.time TCK against krogu-time.
  *
  * The TCK sources are GPLv2 only, with no Classpath exception. They are
- * fetched into the work directory and never committed, so this Apache-2.0
- * project redistributes nothing GPL-licensed.
+ * fetched into the work directory and never committed, so the only
+ * GPL-derived text this Apache-2.0 project carries is the small stored patch
+ * described in tools/tck/README.md.
  *
- * Companion and object members without JVM static bridges are reached through
- * Companion or INSTANCE. The rewrite rules are read out of the built jar
- * rather than written by hand, so they follow the port automatically.
+ * Conversion runs in two layers, split by what each edit tracks.
+ *
+ * The mechanical layer holds the edits that track the port, so that a change
+ * to the port's Java-facing surface needs no edit here. Its rules are read
+ * out of the built jar: companion and object members without JVM static
+ * bridges are reached through Companion or INSTANCE, and the parameter
+ * positions that take the port's own Locale come from the same dump.
+ *
+ * The stored patch holds the edits that track the pinned TCK tag instead.
+ * Those are shaped by one frozen revision of someone else's source, so a
+ * line-oriented patch expresses them honestly and breaks loudly when the tag
+ * moves, where a regex would silently stop matching.
  *
  * Usage:
  *   kotlinr tools/run-tck.main.kts [work-dir]
+ *   kotlinr tools/run-tck.main.kts --capture-patch [work-dir]
+ *
+ * A normal run converts into <work>/base, copies that to <work>/gen, applies
+ * the stored patch to <work>/gen, then compiles and runs a pruned copy. To
+ * change what the patch does: run normally once, edit <work>/gen by hand,
+ * then run again with --capture-patch to store the difference back into
+ * tools/tck/tck.patch. Tests that should not run are disabled the TestNG
+ * way, with @Test(enabled = false); none are disabled today.
  *
  * Requires `./kotlin build` first, and the reference JDK on JAVA_HOME or in
  * the Kotlin Toolchain cache.
@@ -46,14 +64,31 @@ val libraries = listOf(
 )
 
 val root = File(".").absoluteFile.normalize()
-val work = File(args.getOrNull(0) ?: "build/tck").let {
+
+val options = args.filter { it.startsWith("--") }
+val positional = args.filter { !it.startsWith("--") }
+val capturePatch = "--capture-patch" in options
+
+val work = File(positional.getOrNull(0) ?: "build/tck").let {
     if (it.isAbsolute) it else File(root, it.path)
 }
 
-fun run(vararg command: String, dir: File = root): Pair<Int, String> {
+// The tree the mechanical rules produce, the tree the stored patch is
+// applied to and a human edits, and the throwaway copy javac prunes.
+val base = File(work, "base")
+val generated = File(work, "gen")
+val compiled = File(work, "src")
+val patchFile = File(root, "tools/tck/tck.patch")
+
+fun run(
+    vararg command: String,
+    dir: File = root,
+    mergeError: Boolean = true,
+): Pair<Int, String> {
     val process = ProcessBuilder(*command)
         .directory(dir)
-        .redirectErrorStream(true)
+        .redirectErrorStream(mergeError)
+        .apply { if (!mergeError) redirectError(ProcessBuilder.Redirect.INHERIT) }
         .start()
     val output = process.inputStream.bufferedReader().readText()
     return process.waitFor() to output
@@ -64,6 +99,11 @@ fun ensure(condition: Boolean, message: () -> String) {
         System.err.println(message())
         exitProcess(1)
     }
+}
+
+ensure(options.all { it == "--capture-patch" }) {
+    "unknown option: ${options.first { it != "--capture-patch" }}\n" +
+        "usage: kotlinr tools/run-tck.main.kts [--capture-patch] [work-dir]"
 }
 
 // --- reference JDK ------------------------------------------------------
@@ -477,22 +517,6 @@ fun rewriteMethodReferences(source: String, foreignTypes: Set<String>): String {
     return applyReplacements(source, replacements)
 }
 
-// Kotlin's covariant read-only lists need a wildcard when viewed through
-// Java's invariant List type.
-fun rewriteEraLists(source: String): String {
-    val mask = codeMask(source)
-    val declarations = Regex(
-        """(?<![.\w])(?:java\.util\.)?List\s*<\s*Era\s*>""" +
-            """(?=\s+[A-Za-z_$][\w$]*\s*=\s*[^;]*\.eras\s*\(\s*\)\s*;)""",
-    )
-    val replacements = declarations.findAll(mask).map { declaration ->
-        val era = declaration.range.first + declaration.value.indexOf("Era")
-        rewrites++
-        SourceReplacement(era, era + "Era".length, "? extends Era")
-    }.toList()
-    return applyReplacements(source, replacements)
-}
-
 fun isJavaLocale(expression: String, names: Set<String>): Boolean {
     val value = expression.trim()
     if (Regex("""^\(\s*(?:java\.util\.)?Locale\s*\)""").containsMatchIn(value)) {
@@ -555,9 +579,8 @@ fun rewriteJavaLocales(
     return applyReplacements(source, replacements)
 }
 
-val generated = File(work, "gen")
-generated.deleteRecursively()
-generated.mkdirs()
+base.deleteRecursively()
+base.mkdirs()
 
 // Only the tck and test trees. The sibling nontestng tree is jtreg-only
 // scaffolding with no TestNG classes.
@@ -658,15 +681,196 @@ tckFiles.forEach { file ->
     }
 
     text = rewriteJavaLocales(text, foreign, foreignValues, inheritedLocaleNames(file))
-    text = rewriteEraLists(text)
 
     val relative = file.relativeTo(sources).path
         .replace("java/time", newPackage.replace('.', '/'))
-    val target = File(generated, relative)
+    val target = File(base, relative)
     target.parentFile.mkdirs()
     target.writeText(text)
 }
 println("converted ${tckFiles.size} files, $rewrites rewrites")
+
+// --- stored patch --------------------------------------------------------
+
+// The tag lives in the patch header because a line-oriented patch is only
+// meaningful against the revision it was cut from. patch(1) treats anything
+// before the first diff header as a comment, so the header costs nothing.
+val patchTagPrefix = "generated against:"
+
+fun storedPatchTag(): String? = patchFile.readLines()
+    .takeWhile { it.startsWith("#") || it.isBlank() }
+    .firstNotNullOfOrNull {
+        Regex("""^#\s*$patchTagPrefix\s*(\S+)\s*$""").find(it)?.groupValues?.get(1)
+    }
+
+fun copyTree(from: File, to: File) {
+    to.deleteRecursively()
+    ensure(from.copyRecursively(to, overwrite = true)) { "could not copy ${from.path}" }
+}
+
+fun treeFiles(tree: File): Map<String, File> = tree.walkTopDown()
+    .filter { it.isFile }
+    .associateBy { it.relativeTo(tree).invariantSeparatorsPath }
+
+fun treeDifference(left: File, right: File): List<String> {
+    val a = treeFiles(left)
+    val b = treeFiles(right)
+    return (a.keys + b.keys).sorted().filter { path ->
+        val one = a[path]?.readBytes()
+        val other = b[path]?.readBytes()
+        one == null || other == null || !one.contentEquals(other)
+    }
+}
+
+// patch(1) rather than `git apply`: the work directory sits inside this
+// repository but is ignored by it, and there `git apply` reports success
+// without touching a single file. A silent no-op is exactly the failure this
+// design exists to make loud, so the portable tool wins.
+//
+// -F0 because patch defaults to a fuzz factor of 2, which with one line of
+// context means it will happily place a hunk by line number alone after the
+// surrounding source has changed underneath it. Demanding an exact context
+// match is the whole reason the tag is pinned.
+fun applyPatch(tree: File, patch: File, dryRun: Boolean): Pair<Int, String> = run(
+    "patch", "-p2", "-F0", "--batch",
+    *(if (dryRun) arrayOf("--dry-run") else emptyArray()),
+    "-i", patch.path,
+    dir = tree,
+)
+
+// BSD patch names the file it gave up on; GNU patch names the reject file it
+// would have written. Reading both keeps the message useful on either.
+fun failingPatchFiles(output: String): List<String> = listOf(
+    Regex("""hunks? failed while patching '?(\S+?)'?$""", RegexOption.MULTILINE),
+    Regex("""saving rejects to file (\S+)\.rej$""", RegexOption.MULTILINE),
+).flatMap { pattern ->
+    pattern.findAll(output).map { it.groupValues[1] }
+}.distinct()
+
+val captureCommand = "kotlinr tools/run-tck.main.kts --capture-patch"
+
+if (capturePatch) {
+    ensure(generated.isDirectory) {
+        "no converted tree at ${generated.path}. Run the script without " +
+            "--capture-patch first, then edit that tree by hand."
+    }
+    // Relative arguments keep the strip count at -p2 no matter where the
+    // work directory lives.
+    val (diffCode, diff) = run(
+        "git", "diff", "--no-index", "--no-color", "-U1",
+        base.name, generated.name,
+        dir = work, mergeError = false,
+    )
+    ensure(diffCode == 0 || diffCode == 1) {
+        "git diff failed while capturing the patch"
+    }
+
+    // Whole files must never reach the repository: they are GPLv2-only
+    // sources, and a deletion hunk carries the entire file as context.
+    val wholeFile = Regex(
+        """^diff --git a/\S+ b/(\S+)$\n(?:^(?!@@|diff ).*$\n)*?""" +
+            """^(?:new|deleted) file mode""",
+        setOf(RegexOption.MULTILINE),
+    ).findAll(diff).map { it.groupValues[1] }.toList()
+    ensure(wholeFile.isEmpty()) {
+        "refusing to store a patch that adds or removes whole files, because " +
+            "such a hunk carries a complete GPLv2-only source into this " +
+            "repository:\n" + wholeFile.joinToString("\n") { "  $it" }
+    }
+
+    val candidate = File(work, "tck.patch.candidate")
+    candidate.writeText(
+        """
+        |# krogu-time TCK patch
+        |# $patchTagPrefix $tckTag
+        |#
+        |# Derived from OpenJDK test sources that are GPLv2 only, with no
+        |# Classpath exception, and therefore governed by GPLv2 rather than by
+        |# this repository's Apache-2.0 licence. See tools/tck/README.md.
+        |#
+        |# Regenerate by editing build/tck/gen by hand and running
+        |#   $captureCommand
+        |
+        |
+        """.trimMargin() + diff,
+    )
+
+    // The captured patch is only trustworthy if replaying it onto a fresh
+    // base reproduces the edited tree byte for byte.
+    val trial = File(work, "patch-check")
+    copyTree(base, trial)
+    if (diff.isNotBlank()) {
+        val (code, output) = applyPatch(trial, candidate, dryRun = false)
+        ensure(code == 0) {
+            "the captured patch does not replay onto ${base.name}:\n$output"
+        }
+    }
+    val mismatch = treeDifference(trial, generated)
+    ensure(mismatch.isEmpty()) {
+        "the captured patch does not reproduce ${generated.path}:\n" +
+            mismatch.joinToString("\n") { "  $it" }
+    }
+    trial.deleteRecursively()
+
+    patchFile.parentFile.mkdirs()
+    candidate.copyTo(patchFile, overwrite = true)
+    candidate.delete()
+    val hunks = diff.lines().count { it.startsWith("@@") }
+    val touched = diff.lines().count { it.startsWith("diff --git") }
+    println(
+        "captured ${patchFile.relativeTo(root).invariantSeparatorsPath}: " +
+            "$hunks hunks across $touched files, " +
+            "${patchFile.readLines().size} lines",
+    )
+    exitProcess(0)
+}
+
+copyTree(base, generated)
+if (!patchFile.isFile) {
+    println(
+        "no stored patch at ${patchFile.relativeTo(root).invariantSeparatorsPath}, " +
+            "running the mechanically converted tree unchanged",
+    )
+} else {
+    val recordedTag = storedPatchTag()
+    ensure(recordedTag != null) {
+        "${patchFile.path} carries no '# $patchTagPrefix <tag>' header, so " +
+            "there is no way to tell which TCK revision it was cut from. " +
+            "Regenerate it with $captureCommand."
+    }
+    ensure(recordedTag == tckTag) {
+        "the stored patch was generated against $recordedTag but this script " +
+            "pins $tckTag. A line-oriented patch does not survive a tag move. " +
+            "Run the script once to get a converted tree at ${generated.path}, " +
+            "redo the edits there by hand, then run $captureCommand."
+    }
+    val hunks = patchFile.readLines().count { it.startsWith("@@") }
+    val touched = patchFile.readLines().count { it.startsWith("diff --git") }
+    if (hunks == 0) {
+        println("stored patch is empty, nothing to apply")
+    } else {
+        val (checkCode, checkOutput) = applyPatch(generated, patchFile, dryRun = true)
+        ensure(checkCode == 0) {
+            val failing = failingPatchFiles(checkOutput)
+            "the stored patch no longer applies to the TCK at $tckTag.\n" +
+                (if (failing.isEmpty()) checkOutput
+                else "Files that did not apply:\n" +
+                    failing.joinToString("\n") { "  $it" }) +
+                "\n${generated.path} holds the unpatched tree. Redo those edits " +
+                "there by hand, then run $captureCommand."
+        }
+        val (applyCode, applyOutput) = applyPatch(generated, patchFile, dryRun = false)
+        ensure(applyCode == 0) {
+            "the stored patch passed its dry run and then failed to " +
+                "apply:\n$applyOutput"
+        }
+        println("applied stored patch: $hunks hunks across $touched files")
+    }
+}
+
+// javac prunes the files it cannot compile, so it works on a copy: the tree
+// a human edits and the capture step diffs must keep every file.
+copyTree(generated, compiled)
 
 // --- compile -------------------------------------------------------------
 
@@ -679,12 +883,12 @@ classes.mkdirs()
 val dropped = mutableSetOf<String>()
 var log = ""
 for (round in 1..8) {
-    val remaining = generated.walkTopDown().filter { it.extension == "java" }.map { it.path }.toList()
+    val remaining = compiled.walkTopDown().filter { it.extension == "java" }.map { it.path }.toList()
     if (remaining.isEmpty()) break
     val (code, output) = run(
         javac, "-nowarn", "-Xmaxerrs", "10000", "-d", classes.path,
         "-cp", classpath, "-sourcepath", ".",
-        *remaining.toTypedArray(), dir = generated,
+        *remaining.toTypedArray(), dir = compiled,
     )
     log = output
     if (code == 0) break
@@ -692,12 +896,12 @@ for (round in 1..8) {
         .map { it.groupValues[1] }.toSet()
     ensure(failing.isNotEmpty()) { "javac failed without naming a file:\n$output" }
     failing.forEach { path ->
-        val file = File(path).let { if (it.isAbsolute) it else File(generated, path) }
-        dropped += file.relativeTo(generated).path
+        val file = File(path).let { if (it.isAbsolute) it else File(compiled, path) }
+        dropped += file.relativeTo(compiled).path
         file.delete()
     }
 }
-val standing = generated.walkTopDown().filter { it.extension == "java" }.toList()
+val standing = compiled.walkTopDown().filter { it.extension == "java" }.toList()
 ensure(standing.isNotEmpty()) { "nothing compiled:\n$log" }
 println("converted files still standing: ${standing.size}")
 println("dropped files (no TCK coverage): ${dropped.size}")
@@ -706,7 +910,7 @@ dropped.sorted().forEach { println("  $it") }
 // --- run -----------------------------------------------------------------
 
 val testClasses = standing
-    .map { it.relativeTo(generated).path.removeSuffix(".java").replace('/', '.') }
+    .map { it.relativeTo(compiled).path.removeSuffix(".java").replace('/', '.') }
     .filter { Regex("""\.(TCK|Test)[A-Za-z_]*$""").containsMatchIn(it) }
     .filterNot { "Abstract" in it }
     .sorted()
