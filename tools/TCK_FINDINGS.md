@@ -201,8 +201,14 @@ Adding `@JvmStatic` and `@JvmField` let 11 more files compile, and they brought
   `ZoneRules` list bug fixed earlier.
 
 `@JvmStatic` cannot go on an overriding member, so 106 chronology functions and
-14 chronology vals keep the `Companion` or `INSTANCE` detour for Java callers.
-That is a Kotlin restriction, not something the port can annotate away.
+14 chronology vals are not annotated. That is a Kotlin restriction, but it costs
+a Java caller nothing: `java.time` does not expose those as statics either.
+`javap java.time.chrono.IsoChronology` shows `date` as an instance method and
+`INSTANCE` as the only static, so `IsoChronology.INSTANCE.date(...)` is what a
+Java caller writes against the JDK and against this port alike. Calling it a
+detour overstated it; the annotation coverage is complete for everything where
+Java has a static, and the one companion left bare is a private one holding
+`const val`s inside an internal class.
 
 ### Still open — a real difference
 
