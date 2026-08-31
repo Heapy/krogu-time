@@ -16,10 +16,10 @@ come from that script, run twice with the same result.
 It works. Converted TCK, run against the port:
 
 ```
-Total tests run: 24524, Passes: 24484, Failures: 40
+Total tests run: 27310, Passes: 27262, Failures: 48
 ```
 
-125 of 155 TCK/test files ran; 30 were dropped because the converter cannot
+136 of 155 TCK/test files ran; 19 were dropped because the converter cannot
 handle them yet, and the script lists every one. The conversion is fully mechanical, driven by
 the built jar rather than a hand-written rule list.
 
@@ -43,7 +43,11 @@ Rules are derived from the jar, not written by hand:
 - `java.time` becomes `io.heapy.krogu.time`, never inside string literals
 - the noun accessors from `MIGRATION_NOTES.md` become `getXxx()`
 
-On the full tree that is 9605 rewrites across 155 files.
+On the full tree that is 454 rewrites across 155 files. It was 9978 before
+the port gained `@JvmStatic` and `@JvmField`: 83% of the converter's work was
+inserting `.Companion` and `.INSTANCE`, and the library now offers the statics
+directly, so the converter asks the jar for a matching JVM descriptor and skips
+the rewrite when one exists.
 
 ## Failure triage
 
@@ -184,6 +188,21 @@ default time zone and expect the port's exception type, but the JVM's own
   [en-GB]`. The port's `Locale.toString` returns the BCP 47 tag where Java
   returns its own underscore form. That follows from the port having its own
   KMP `Locale`, so it is a design consequence rather than a defect.
+
+### Found once the port became callable from Java
+
+Adding `@JvmStatic` and `@JvmField` let 11 more files compile, and they brought
+8 failures with them. None of the previous 40 changed.
+
+- **`TestLocalizedPattern`, 7 failures.** Localized pattern lookup. Partly
+  missing harness resources, partly JDK exception types leaking through.
+- **`TCKZoneId.test_constant_OLD_IDS_POST_2024b_immutable`, 1 failure.**
+  `SHORT_IDS` is mutable where Java's is not; the same shape as the
+  `ZoneRules` list bug fixed earlier.
+
+`@JvmStatic` cannot go on an overriding member, so 106 chronology functions and
+14 chronology vals keep the `Companion` or `INSTANCE` detour for Java callers.
+That is a Kotlin restriction, not something the port can annotate away.
 
 ### Still open — a real difference
 
