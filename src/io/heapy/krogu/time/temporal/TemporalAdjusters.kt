@@ -2,52 +2,64 @@ package io.heapy.krogu.time.temporal
 
 import io.heapy.krogu.time.DayOfWeek
 import io.heapy.krogu.time.LocalDate
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmStatic
 
 /** Common date-based adjustment strategies. */
 public object TemporalAdjusters {
     /** Creates an adjuster backed by a local-date transformation. */
+    @JvmStatic
     public fun ofDateAdjuster(dateBasedAdjuster: (LocalDate) -> LocalDate): TemporalAdjuster =
         TemporalAdjuster { temporal ->
             temporal.with(dateBasedAdjuster(LocalDate.from(temporal)))
         }
 
     /** Returns an adjuster for the first day of the current month. */
+    @JvmStatic
     public fun firstDayOfMonth(): TemporalAdjuster =
         TemporalAdjuster { it.with(ChronoField.DAY_OF_MONTH, 1) }
 
     /** Returns an adjuster for the last day of the current month. */
+    @JvmStatic
     public fun lastDayOfMonth(): TemporalAdjuster = TemporalAdjuster {
         it.with(ChronoField.DAY_OF_MONTH, it.range(ChronoField.DAY_OF_MONTH).maximum)
     }
 
     /** Returns an adjuster for the first day of the next month. */
+    @JvmStatic
     public fun firstDayOfNextMonth(): TemporalAdjuster = TemporalAdjuster {
         it.with(ChronoField.DAY_OF_MONTH, 1).plus(1, ChronoUnit.MONTHS)
     }
 
     /** Returns an adjuster for the first day of the current year. */
+    @JvmStatic
     public fun firstDayOfYear(): TemporalAdjuster =
         TemporalAdjuster { it.with(ChronoField.DAY_OF_YEAR, 1) }
 
     /** Returns an adjuster for the last day of the current year. */
+    @JvmStatic
     public fun lastDayOfYear(): TemporalAdjuster = TemporalAdjuster {
         it.with(ChronoField.DAY_OF_YEAR, it.range(ChronoField.DAY_OF_YEAR).maximum)
     }
 
     /** Returns an adjuster for the first day of the next year. */
+    @JvmStatic
     public fun firstDayOfNextYear(): TemporalAdjuster = TemporalAdjuster {
         it.with(ChronoField.DAY_OF_YEAR, 1).plus(1, ChronoUnit.YEARS)
     }
 
     /** Returns an adjuster for the first [dayOfWeek] in the current month. */
+    @JvmStatic
     public fun firstInMonth(dayOfWeek: DayOfWeek): TemporalAdjuster =
         dayOfWeekInMonth(1, dayOfWeek)
 
     /** Returns an adjuster for the last [dayOfWeek] in the current month. */
+    @JvmStatic
     public fun lastInMonth(dayOfWeek: DayOfWeek): TemporalAdjuster =
         dayOfWeekInMonth(-1, dayOfWeek)
 
     /** Returns an adjuster for an ordinal occurrence of [dayOfWeek] relative to the month. */
+    @JvmStatic
     public fun dayOfWeekInMonth(ordinal: Int, dayOfWeek: DayOfWeek): TemporalAdjuster {
         val targetDay = dayOfWeek.value
         return if (ordinal >= 0) {
@@ -74,6 +86,7 @@ public object TemporalAdjusters {
     }
 
     /** Returns an adjuster for the next occurrence of [dayOfWeek]. */
+    @JvmStatic
     public fun next(dayOfWeek: DayOfWeek): TemporalAdjuster {
         val targetDay = dayOfWeek.value
         return TemporalAdjuster { temporal ->
@@ -85,6 +98,7 @@ public object TemporalAdjusters {
     }
 
     /** Returns an adjuster for [dayOfWeek], retaining the date if it already matches. */
+    @JvmStatic
     public fun nextOrSame(dayOfWeek: DayOfWeek): TemporalAdjuster {
         val targetDay = dayOfWeek.value
         return TemporalAdjuster { temporal ->
@@ -100,6 +114,7 @@ public object TemporalAdjusters {
     }
 
     /** Returns an adjuster for the previous occurrence of [dayOfWeek]. */
+    @JvmStatic
     public fun previous(dayOfWeek: DayOfWeek): TemporalAdjuster {
         val targetDay = dayOfWeek.value
         return TemporalAdjuster { temporal ->
@@ -111,6 +126,7 @@ public object TemporalAdjusters {
     }
 
     /** Returns an adjuster for [dayOfWeek], retaining the date if it already matches. */
+    @JvmStatic
     public fun previousOrSame(dayOfWeek: DayOfWeek): TemporalAdjuster {
         val targetDay = dayOfWeek.value
         return TemporalAdjuster { temporal ->

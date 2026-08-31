@@ -10,6 +10,8 @@ import io.heapy.krogu.time.temporal.TemporalAmount
 import io.heapy.krogu.time.temporal.TemporalQueries
 import io.heapy.krogu.time.temporal.TemporalUnit
 import io.heapy.krogu.time.temporal.UnsupportedTemporalTypeException
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmStatic
 
 /** A date-based amount expressed in ISO years, months, and days. */
 public class Period private constructor(
@@ -212,24 +214,31 @@ public class Period private constructor(
         private val SUPPORTED_UNITS: List<TemporalUnit> =
             listOf(ChronoUnit.YEARS, ChronoUnit.MONTHS, ChronoUnit.DAYS)
 
+        @JvmField
         public val ZERO: Period = Period(0, 0, 0)
 
         /** Creates a period containing only years. */
+        @JvmStatic
         public fun ofYears(years: Int): Period = create(years, 0, 0)
 
         /** Creates a period containing only months. */
+        @JvmStatic
         public fun ofMonths(months: Int): Period = create(0, months, 0)
 
         /** Creates a period containing a whole number of seven-day weeks. */
+        @JvmStatic
         public fun ofWeeks(weeks: Int): Period = create(0, 0, toIntExact(weeks.toLong() * 7))
 
         /** Creates a period containing only days. */
+        @JvmStatic
         public fun ofDays(days: Int): Period = create(0, 0, days)
 
         /** Creates a period containing independent year, month, and day components. */
+        @JvmStatic
         public fun of(years: Int, months: Int, days: Int): Period = create(years, months, days)
 
         /** Converts a temporal amount whose units are years, months, and days. */
+        @JvmStatic
         public fun from(amount: TemporalAmount): Period {
             if (amount is Period) return amount
             if (amount is ChronoPeriod && amount.chronology !== IsoChronology) {
@@ -252,6 +261,7 @@ public class Period private constructor(
         }
 
         /** Parses a Java-compatible ISO-8601 period. */
+        @JvmStatic
         public fun parse(text: CharSequence): Period {
             val input = text.toString()
             val match = PERIOD_PATTERN.matchEntire(input) ?: throw parseFailure(input)
@@ -267,6 +277,7 @@ public class Period private constructor(
         }
 
         /** Calculates the calendar period from [startDateInclusive] to [endDateExclusive]. */
+        @JvmStatic
         public fun between(
             startDateInclusive: LocalDate,
             endDateExclusive: LocalDate,

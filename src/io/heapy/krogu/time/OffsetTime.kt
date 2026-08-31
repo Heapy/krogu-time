@@ -13,6 +13,8 @@ import io.heapy.krogu.time.temporal.TemporalQueries
 import io.heapy.krogu.time.temporal.TemporalQuery
 import io.heapy.krogu.time.temporal.TemporalUnit
 import io.heapy.krogu.time.temporal.UnsupportedTemporalTypeException
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmStatic
 
 /** A time with a fixed offset from UTC. */
 public class OffsetTime private constructor(
@@ -177,20 +179,27 @@ public class OffsetTime private constructor(
         private const val NANOS_PER_HOUR: Long = 60 * NANOS_PER_MINUTE
         private const val NANOS_PER_HALF_DAY: Long = 12 * NANOS_PER_HOUR
 
+        @JvmField
         public val MIN: OffsetTime = OffsetTime(LocalTime.MIN, ZoneOffset.MAX)
+        @JvmField
         public val MAX: OffsetTime = OffsetTime(LocalTime.MAX, ZoneOffset.MIN)
 
         /** Obtains the current offset time using the system clock in the default time-zone. */
+        @JvmStatic
         public fun now(): OffsetTime = now(Clock.systemDefaultZone())
 
         /** Obtains the current offset time using the system clock in [zone]. */
+        @JvmStatic
         public fun now(zone: ZoneId): OffsetTime = now(Clock.system(zone))
 
         /** Obtains the current offset time from [clock]. */
+        @JvmStatic
         public fun now(clock: Clock): OffsetTime = OffsetDateTime.now(clock).toOffsetTime()
 
+        @JvmStatic
         public fun of(time: LocalTime, offset: ZoneOffset): OffsetTime = OffsetTime(time, offset)
 
+        @JvmStatic
         public fun of(
             hour: Int,
             minute: Int,
@@ -200,11 +209,13 @@ public class OffsetTime private constructor(
         ): OffsetTime = OffsetTime(LocalTime.of(hour, minute, second, nanoOfSecond), offset)
 
         /** Obtains the offset time at [instant] in [zone]. */
+        @JvmStatic
         public fun ofInstant(instant: Instant, zone: ZoneId): OffsetTime {
             val offset = zone.rules.getOffset(instant)
             return OffsetTime(LocalTime.ofInstant(instant, offset), offset)
         }
 
+        @JvmStatic
         public fun from(temporal: TemporalAccessor): OffsetTime {
             if (temporal is OffsetTime) return temporal
             return try {
@@ -217,6 +228,7 @@ public class OffsetTime private constructor(
             }
         }
 
+        @JvmStatic
         public fun parse(text: CharSequence): OffsetTime {
             val input = text.toString()
             val offsetStart = input.indexOfFirst { it == '+' || it == '-' || it == 'Z' || it == 'z' }
@@ -250,6 +262,7 @@ public class OffsetTime private constructor(
         }
 
         /** Parses an offset time from [text] using [formatter]. */
+        @JvmStatic
         public fun parse(text: CharSequence, formatter: DateTimeFormatter): OffsetTime =
             from(formatter.parse(text))
 

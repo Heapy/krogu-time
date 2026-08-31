@@ -4,6 +4,8 @@ import io.heapy.krogu.time.DateTimeException
 import io.heapy.krogu.time.temporal.ChronoField
 import io.heapy.krogu.time.temporal.TemporalField
 import io.heapy.krogu.time.temporal.ValueRange
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmStatic
 
 /** The era of the Hijrah calendar system. */
 public enum class HijrahEra : Era {
@@ -17,6 +19,7 @@ public enum class HijrahEra : Era {
 
     public companion object {
         /** Obtains the Hijrah era for [hijrahEra]. */
+        @JvmStatic
         public fun of(hijrahEra: Int): HijrahEra =
             if (hijrahEra == 1) AH else throw DateTimeException("Invalid era: $hijrahEra")
     }

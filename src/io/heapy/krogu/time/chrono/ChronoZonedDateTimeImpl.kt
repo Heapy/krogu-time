@@ -11,6 +11,8 @@ import io.heapy.krogu.time.temporal.Temporal
 import io.heapy.krogu.time.temporal.TemporalAmount
 import io.heapy.krogu.time.temporal.TemporalField
 import io.heapy.krogu.time.temporal.TemporalUnit
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmStatic
 
 internal class ChronoZonedDateTimeImpl<D : ChronoLocalDate> private constructor(
     override val dateTime: ChronoLocalDateTimeImpl<D>,
@@ -99,6 +101,7 @@ internal class ChronoZonedDateTimeImpl<D : ChronoLocalDate> private constructor(
     }
 
     internal companion object {
+        @JvmStatic
         fun <D : ChronoLocalDate> ofBest(
             localDateTime: ChronoLocalDateTimeImpl<D>,
             zone: ZoneId,
@@ -132,6 +135,7 @@ internal class ChronoZonedDateTimeImpl<D : ChronoLocalDate> private constructor(
             return ChronoZonedDateTimeImpl(resolvedDateTime, offset, zone)
         }
 
+        @JvmStatic
         fun ofInstant(
             chronology: Chronology,
             instant: Instant,
@@ -145,6 +149,7 @@ internal class ChronoZonedDateTimeImpl<D : ChronoLocalDate> private constructor(
         }
 
         @Suppress("UNCHECKED_CAST")
+        @JvmStatic
         fun <D : ChronoLocalDate> ensureValid(
             chronology: Chronology,
             temporal: Temporal,

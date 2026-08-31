@@ -18,6 +18,8 @@ import io.heapy.krogu.time.temporal.TemporalAccessor
 import io.heapy.krogu.time.temporal.TemporalField
 import io.heapy.krogu.time.temporal.TemporalQueries
 import io.heapy.krogu.time.temporal.ValueRange
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmStatic
 
 /** A calendar system used to organize and identify dates. */
 public interface Chronology : Comparable<Chronology> {
@@ -176,10 +178,12 @@ public interface Chronology : Comparable<Chronology> {
         private const val SECONDS_PER_DAY: Long = 86_400
 
         /** Obtains a chronology from [temporal], defaulting to ISO when none is queried. */
+        @JvmStatic
         public fun from(temporal: TemporalAccessor): Chronology =
             temporal.query(TemporalQueries.chronology()) ?: IsoChronology
 
         /** Obtains the chronology selected by [locale]'s `ca` Unicode extension. */
+        @JvmStatic
         public fun ofLocale(locale: Locale): Chronology =
             when (val calendarType = locale.getUnicodeLocaleType("ca")) {
                 null, "iso", "iso8601" -> IsoChronology
@@ -191,6 +195,7 @@ public interface Chronology : Comparable<Chronology> {
             }
 
         /** Obtains an available chronology by its ID or calendar type. */
+        @JvmStatic
         public fun of(id: String): Chronology = when (id) {
             IsoChronology.id, IsoChronology.calendarType -> IsoChronology
             JapaneseChronology.id, JapaneseChronology.calendarType -> JapaneseChronology
@@ -207,6 +212,7 @@ public interface Chronology : Comparable<Chronology> {
         }
 
         /** Returns the chronologies currently available to this library. */
+        @JvmStatic
         public fun getAvailableChronologies(): Set<Chronology> =
             builtInChronologies() + loadChronologies()
 

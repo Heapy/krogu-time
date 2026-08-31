@@ -18,6 +18,8 @@ import io.heapy.krogu.time.temporal.TemporalQuery
 import io.heapy.krogu.time.temporal.TemporalUnit
 import io.heapy.krogu.time.temporal.UnsupportedTemporalTypeException
 import io.heapy.krogu.time.temporal.ValueRange
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmStatic
 
 /** A zoned date-time whose calendar system is supplied by a [Chronology]. */
 public interface ChronoZonedDateTime<out D : ChronoLocalDate> :
@@ -189,9 +191,11 @@ public interface ChronoZonedDateTime<out D : ChronoLocalDate> :
             }
 
         /** Returns a comparator that ignores chronology and compares instants only. */
+        @JvmStatic
         public fun timeLineOrder(): Comparator<ChronoZonedDateTime<*>> = TIME_LINE_ORDER
 
         /** Obtains a chronology-aware zoned date-time from [temporal]. */
+        @JvmStatic
         public fun from(temporal: TemporalAccessor): ChronoZonedDateTime<*> {
             if (temporal is ChronoZonedDateTime<*>) return temporal
             val chronology = temporal.query(TemporalQueries.chronology())

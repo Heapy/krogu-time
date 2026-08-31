@@ -16,6 +16,8 @@ import io.heapy.krogu.time.temporal.TemporalField
 import io.heapy.krogu.time.temporal.TemporalQueries
 import io.heapy.krogu.time.temporal.TemporalQuery
 import io.heapy.krogu.time.temporal.TemporalUnit
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmStatic
 
 /** A local date-time whose calendar system is supplied by a [Chronology]. */
 public interface ChronoLocalDateTime<out D : ChronoLocalDate> :
@@ -145,9 +147,11 @@ public interface ChronoLocalDateTime<out D : ChronoLocalDate> :
         }
 
         /** Returns a comparator that ignores chronology and compares the local timeline only. */
+        @JvmStatic
         public fun timeLineOrder(): Comparator<ChronoLocalDateTime<*>> = TIME_LINE_ORDER
 
         /** Obtains a chronology-aware local date-time from [temporal]. */
+        @JvmStatic
         public fun from(temporal: TemporalAccessor): ChronoLocalDateTime<*> {
             if (temporal is ChronoLocalDateTime<*>) return temporal
             val chronology = temporal.query(TemporalQueries.chronology())

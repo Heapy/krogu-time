@@ -16,6 +16,8 @@ import io.heapy.krogu.time.temporal.TemporalField
 import io.heapy.krogu.time.temporal.TemporalUnit
 import io.heapy.krogu.time.temporal.UnsupportedTemporalTypeException
 import io.heapy.krogu.time.temporal.ValueRange
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmStatic
 
 /** A date in the proleptic Minguo calendar system. */
 public class MinguoDate private constructor(
@@ -234,15 +236,19 @@ public class MinguoDate private constructor(
 
     public companion object {
         /** Obtains the current Minguo date in the system default time-zone. */
+        @JvmStatic
         public fun now(): MinguoDate = now(Clock.systemDefaultZone())
 
         /** Obtains the current Minguo date in [zone]. */
+        @JvmStatic
         public fun now(zone: ZoneId): MinguoDate = now(Clock.system(zone))
 
         /** Obtains the current Minguo date from [clock]. */
+        @JvmStatic
         public fun now(clock: Clock): MinguoDate = fromIsoDate(LocalDate.now(clock))
 
         /** Obtains a Minguo date from its proleptic year, month, and day. */
+        @JvmStatic
         public fun of(prolepticYear: Int, month: Int, dayOfMonth: Int): MinguoDate =
             fromIsoDate(
                 LocalDate.of(
@@ -253,6 +259,7 @@ public class MinguoDate private constructor(
             )
 
         /** Obtains a Minguo date from a temporal accessor. */
+        @JvmStatic
         public fun from(temporal: TemporalAccessor): MinguoDate =
             if (temporal is MinguoDate) temporal else fromIsoDate(LocalDate.from(temporal))
 

@@ -6,6 +6,8 @@ import io.heapy.krogu.time.ZoneId
 import io.heapy.krogu.time.chrono.ChronoLocalDate
 import io.heapy.krogu.time.chrono.Chronology
 import io.heapy.krogu.time.temporal.TemporalField
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmStatic
 
 /**
  * Builds date-time formatters from a sequence of pattern and literal elements.
@@ -368,6 +370,7 @@ public class DateTimeFormatterBuilder {
 
     public companion object {
         /** Returns the localized pattern selected for the supplied styles, chronology, and locale. */
+        @JvmStatic
         public fun getLocalizedDateTimePattern(
             dateStyle: FormatStyle?,
             timeStyle: FormatStyle?,
@@ -386,6 +389,7 @@ public class DateTimeFormatterBuilder {
         }
 
         /** Returns the localized pattern selected for [requestedTemplate], chronology, and locale. */
+        @JvmStatic
         public fun getLocalizedDateTimePattern(
             requestedTemplate: String,
             chronology: Chronology,

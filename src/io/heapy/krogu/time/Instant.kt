@@ -17,6 +17,8 @@ import io.heapy.krogu.time.temporal.TemporalQueries
 import io.heapy.krogu.time.temporal.TemporalQuery
 import io.heapy.krogu.time.temporal.TemporalUnit
 import io.heapy.krogu.time.temporal.UnsupportedTemporalTypeException
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmStatic
 
 /**
  * An instantaneous point on the time-line, stored as seconds and nanoseconds
@@ -358,32 +360,41 @@ public class Instant private constructor(
         private const val SECONDS_PER_DAY: Long = 86_400
         private const val NANOS_PER_DAY: Long = SECONDS_PER_DAY * NANOS_PER_SECOND
 
+        @JvmField
         public val EPOCH: Instant = Instant(0, 0)
+        @JvmField
         public val MIN: Instant = Instant(MIN_SECOND, 0)
+        @JvmField
         public val MAX: Instant = Instant(MAX_SECOND, 999_999_999)
 
         /** Obtains the current instant from the system UTC clock. */
+        @JvmStatic
         public fun now(): Instant = Clock.systemUTC().instant()
 
         /** Obtains the current instant from [clock]. */
+        @JvmStatic
         public fun now(clock: Clock): Instant = clock.instant()
 
         /** Obtains an instant from seconds since the epoch. */
+        @JvmStatic
         public fun ofEpochSecond(epochSecond: Long): Instant = create(epochSecond, 0)
 
         /** Obtains an instant from seconds and a nanosecond adjustment. */
+        @JvmStatic
         public fun ofEpochSecond(epochSecond: Long, nanoAdjustment: Long): Instant = create(
             addExact(epochSecond, floorDiv(nanoAdjustment, NANOS_PER_SECOND)),
             floorMod(nanoAdjustment, NANOS_PER_SECOND).toInt(),
         )
 
         /** Obtains an instant from milliseconds since the epoch. */
+        @JvmStatic
         public fun ofEpochMilli(epochMilli: Long): Instant = create(
             floorDiv(epochMilli, MILLIS_PER_SECOND),
             (floorMod(epochMilli, MILLIS_PER_SECOND) * NANOS_PER_MILLI).toInt(),
         )
 
         /** Obtains an instant from a temporal accessor. */
+        @JvmStatic
         public fun from(temporal: TemporalAccessor): Instant {
             if (temporal is Instant) return temporal
             return try {
@@ -400,6 +411,7 @@ public class Instant private constructor(
         }
 
         /** Parses an instant using the ISO-8601 instant representation. */
+        @JvmStatic
         public fun parse(text: CharSequence): Instant {
             val input = text.toString()
             if (input.isEmpty()) throw parseFailure(input, 0)
@@ -568,6 +580,7 @@ public class Instant private constructor(
         }
 
         /** Parses an instant from [text] using [formatter]. */
+        @JvmStatic
         public fun parse(text: CharSequence, formatter: DateTimeFormatter): Instant =
             from(formatter.parse(text))
 

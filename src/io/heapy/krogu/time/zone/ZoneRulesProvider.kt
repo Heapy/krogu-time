@@ -1,5 +1,8 @@
 package io.heapy.krogu.time.zone
 
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmStatic
+
 /** Service-provider base class and registry for region-based zone rules. */
 public abstract class ZoneRulesProvider protected constructor() {
     /** Returns every region ID supplied by this provider. */
@@ -24,17 +27,21 @@ public abstract class ZoneRulesProvider protected constructor() {
         }
 
         /** Returns a snapshot of all registered region IDs. */
+        @JvmStatic
         public fun getAvailableZoneIds(): Set<String> = zones.keys.toSet()
 
         /** Returns rules supplied for [zoneId]. */
+        @JvmStatic
         public fun getRules(zoneId: String, forCaching: Boolean): ZoneRules? =
             getProvider(zoneId).provideRules(zoneId, forCaching)
 
         /** Returns a copy of the version history supplied for [zoneId]. */
+        @JvmStatic
         public fun getVersions(zoneId: String): Map<String, ZoneRules> =
             getProvider(zoneId).provideVersions(zoneId).toMap()
 
         /** Permanently registers [provider]. */
+        @JvmStatic
         public fun registerProvider(provider: ZoneRulesProvider) {
             val zoneIds = provider.provideZoneIds()
             zoneIds.forEach { zoneId ->
@@ -50,6 +57,7 @@ public abstract class ZoneRulesProvider protected constructor() {
         }
 
         /** Requests a refresh from every registered provider. */
+        @JvmStatic
         public fun refresh(): Boolean {
             var changed = false
             providers.forEach { provider -> changed = provider.provideRefresh() || changed }

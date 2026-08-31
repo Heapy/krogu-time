@@ -8,6 +8,8 @@ import io.heapy.krogu.time.Month
 import io.heapy.krogu.time.Year
 import io.heapy.krogu.time.ZoneOffset
 import io.heapy.krogu.time.temporal.TemporalAdjusters
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmStatic
 
 /** A recurring rule that creates a zone-offset transition for a year. */
 public class ZoneOffsetTransitionRule private constructor(
@@ -128,6 +130,7 @@ public class ZoneOffsetTransitionRule private constructor(
 
     public companion object {
         /** Creates a validated recurring transition rule. */
+        @JvmStatic
         public fun of(
             month: Month,
             dayOfMonthIndicator: Int,

@@ -18,6 +18,8 @@ import io.heapy.krogu.time.temporal.TemporalField
 import io.heapy.krogu.time.temporal.TemporalUnit
 import io.heapy.krogu.time.temporal.UnsupportedTemporalTypeException
 import io.heapy.krogu.time.temporal.ValueRange
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmStatic
 
 /** A date in the Islamic Umm al-Qura calendar system. */
 public class HijrahDate private constructor(
@@ -262,21 +264,26 @@ public class HijrahDate private constructor(
 
     public companion object {
         /** Obtains the current Hijrah date in the system default time-zone. */
+        @JvmStatic
         public fun now(): HijrahDate = now(Clock.systemDefaultZone())
 
         /** Obtains the current Hijrah date in [zone]. */
+        @JvmStatic
         public fun now(zone: ZoneId): HijrahDate = now(Clock.system(zone))
 
         /** Obtains the current Hijrah date from [clock]. */
+        @JvmStatic
         public fun now(clock: Clock): HijrahDate = fromEpochDay(LocalDate.now(clock).toEpochDay())
 
         /** Obtains a Hijrah date from its proleptic year, month, and day. */
+        @JvmStatic
         public fun of(prolepticYear: Int, month: Int, dayOfMonth: Int): HijrahDate {
             HijrahChronology.epochDay(prolepticYear, month, dayOfMonth)
             return HijrahDate(prolepticYear, month, dayOfMonth)
         }
 
         /** Obtains a Hijrah date from a temporal accessor. */
+        @JvmStatic
         public fun from(temporal: TemporalAccessor): HijrahDate = HijrahChronology.date(temporal)
 
         internal fun fromEpochDay(epochDay: Long): HijrahDate {

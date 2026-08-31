@@ -17,6 +17,8 @@ import io.heapy.krogu.time.temporal.TemporalField
 import io.heapy.krogu.time.temporal.TemporalUnit
 import io.heapy.krogu.time.temporal.UnsupportedTemporalTypeException
 import io.heapy.krogu.time.temporal.ValueRange
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmStatic
 
 /** A date in the Japanese Imperial calendar system. */
 public class JapaneseDate private constructor(
@@ -249,15 +251,19 @@ public class JapaneseDate private constructor(
         private const val LEGACY_CALENDAR_MAX_DAY: Int = 17
 
         /** Obtains the current Japanese date in the system default time-zone. */
+        @JvmStatic
         public fun now(): JapaneseDate = now(Clock.systemDefaultZone())
 
         /** Obtains the current Japanese date in [zone]. */
+        @JvmStatic
         public fun now(zone: ZoneId): JapaneseDate = now(Clock.system(zone))
 
         /** Obtains the current Japanese date from [clock]. */
+        @JvmStatic
         public fun now(clock: Clock): JapaneseDate = fromIsoDate(LocalDate.now(clock))
 
         /** Obtains a Japanese date from an era, year-of-era, month, and day. */
+        @JvmStatic
         public fun of(
             era: JapaneseEra,
             yearOfEra: Int,
@@ -277,10 +283,12 @@ public class JapaneseDate private constructor(
         }
 
         /** Obtains a Japanese date from an ISO-equivalent proleptic year, month, and day. */
+        @JvmStatic
         public fun of(prolepticYear: Int, month: Int, dayOfMonth: Int): JapaneseDate =
             fromIsoDate(LocalDate.of(prolepticYear, month, dayOfMonth))
 
         /** Obtains a Japanese date from a temporal accessor. */
+        @JvmStatic
         public fun from(temporal: TemporalAccessor): JapaneseDate =
             if (temporal is JapaneseDate) temporal else fromIsoDate(LocalDate.from(temporal))
 

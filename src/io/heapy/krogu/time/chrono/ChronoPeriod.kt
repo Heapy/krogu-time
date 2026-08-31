@@ -1,6 +1,8 @@
 package io.heapy.krogu.time.chrono
 
 import io.heapy.krogu.time.temporal.TemporalAmount
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmStatic
 
 /** A date-based amount whose units are defined by a [Chronology]. */
 public interface ChronoPeriod : TemporalAmount {
@@ -32,6 +34,7 @@ public interface ChronoPeriod : TemporalAmount {
 
     public companion object {
         /** Calculates the chronology-specific period between two dates. */
+        @JvmStatic
         public fun between(
             startDateInclusive: ChronoLocalDate,
             endDateExclusive: ChronoLocalDate,

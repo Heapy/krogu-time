@@ -21,6 +21,8 @@ import io.heapy.krogu.time.temporal.TemporalQuery
 import io.heapy.krogu.time.temporal.TemporalUnit
 import io.heapy.krogu.time.temporal.UnsupportedTemporalTypeException
 import io.heapy.krogu.time.temporal.ValueRange
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmStatic
 
 /** A date without a time-zone in the ISO-8601 calendar system. */
 public class LocalDate private constructor(
@@ -513,17 +515,23 @@ public class LocalDate private constructor(
         private const val DAYS_0000_TO_1970: Long = 719_528
         private const val SECONDS_PER_DAY: Long = 86_400
 
+        @JvmField
         public val MIN: LocalDate = LocalDate(Year.MIN_VALUE, 1, 1)
+        @JvmField
         public val MAX: LocalDate = LocalDate(Year.MAX_VALUE, 12, 31)
+        @JvmField
         public val EPOCH: LocalDate = LocalDate(1970, 1, 1)
 
         /** Obtains the current date using the system clock in the default time-zone. */
+        @JvmStatic
         public fun now(): LocalDate = now(Clock.systemDefaultZone())
 
         /** Obtains the current date using the system clock in [zone]. */
+        @JvmStatic
         public fun now(zone: ZoneId): LocalDate = now(Clock.system(zone))
 
         /** Obtains the current date from [clock]. */
+        @JvmStatic
         public fun now(clock: Clock): LocalDate = LocalDateTime.now(clock).date
 
         private fun resolvePreviousValid(year: Int, month: Int, day: Int): LocalDate {
@@ -532,10 +540,12 @@ public class LocalDate private constructor(
         }
 
         /** Obtains a date from an ISO year, month, and day. */
+        @JvmStatic
         public fun of(year: Int, month: Month, dayOfMonth: Int): LocalDate =
             of(year, month.value, dayOfMonth)
 
         /** Obtains a date from an ISO year, month number, and day. */
+        @JvmStatic
         public fun of(year: Int, month: Int, dayOfMonth: Int): LocalDate {
             val validYear = ChronoField.YEAR.checkValidIntValue(year.toLong())
             val validMonth = ChronoField.MONTH_OF_YEAR.checkValidIntValue(month.toLong())
@@ -548,6 +558,7 @@ public class LocalDate private constructor(
         }
 
         /** Obtains a date from an ISO year and one-based day-of-year. */
+        @JvmStatic
         public fun ofYearDay(year: Int, dayOfYear: Int): LocalDate {
             val validYear = ChronoField.YEAR.checkValidIntValue(year.toLong())
             ChronoField.DAY_OF_YEAR.checkValidIntValue(dayOfYear.toLong())
@@ -565,6 +576,7 @@ public class LocalDate private constructor(
         }
 
         /** Obtains the local date at [instant] in [zone]. */
+        @JvmStatic
         public fun ofInstant(instant: Instant, zone: ZoneId): LocalDate {
             val offset = zone.rules.getOffset(instant)
             val localSecond = instant.epochSecond + offset.totalSeconds
@@ -572,6 +584,7 @@ public class LocalDate private constructor(
         }
 
         /** Obtains a date from the count of days since 1970-01-01. */
+        @JvmStatic
         public fun ofEpochDay(epochDay: Long): LocalDate {
             ChronoField.EPOCH_DAY.checkValidValue(epochDay)
             var zeroDay = epochDay + DAYS_0000_TO_1970 - 60
@@ -603,6 +616,7 @@ public class LocalDate private constructor(
         }
 
         /** Obtains a date from a temporal accessor. */
+        @JvmStatic
         public fun from(temporal: TemporalAccessor): LocalDate {
             if (temporal is LocalDate) return temporal
             return try {
@@ -616,6 +630,7 @@ public class LocalDate private constructor(
         }
 
         /** Parses a date using the strict ISO local-date format. */
+        @JvmStatic
         public fun parse(text: CharSequence): LocalDate {
             val input = text.toString()
             if (input.isEmpty()) throw parseFailure(input, 0)
@@ -681,6 +696,7 @@ public class LocalDate private constructor(
         }
 
         /** Parses a date from [text] using [formatter]. */
+        @JvmStatic
         public fun parse(text: CharSequence, formatter: DateTimeFormatter): LocalDate =
             from(formatter.parse(text))
 

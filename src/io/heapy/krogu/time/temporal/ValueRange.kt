@@ -1,6 +1,8 @@
 package io.heapy.krogu.time.temporal
 
 import io.heapy.krogu.time.DateTimeException
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmStatic
 
 /**
  * The outer range of valid values for a date-time field.
@@ -87,6 +89,7 @@ public class ValueRange private constructor(
 
     public companion object {
         /** Creates a range with fixed minimum and maximum bounds. */
+        @JvmStatic
         public fun of(minimum: Long, maximum: Long): ValueRange {
             require(minimum <= maximum) {
                 "Minimum value must be less than maximum value"
@@ -95,6 +98,7 @@ public class ValueRange private constructor(
         }
 
         /** Creates a range with a fixed minimum and variable maximum. */
+        @JvmStatic
         public fun of(
             minimum: Long,
             smallestMaximum: Long,
@@ -107,6 +111,7 @@ public class ValueRange private constructor(
         }
 
         /** Creates a range with variable minimum and maximum bounds. */
+        @JvmStatic
         public fun of(
             minimum: Long,
             largestMinimum: Long,

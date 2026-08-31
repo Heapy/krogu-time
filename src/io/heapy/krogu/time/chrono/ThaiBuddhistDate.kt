@@ -16,6 +16,8 @@ import io.heapy.krogu.time.temporal.TemporalField
 import io.heapy.krogu.time.temporal.TemporalUnit
 import io.heapy.krogu.time.temporal.UnsupportedTemporalTypeException
 import io.heapy.krogu.time.temporal.ValueRange
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmStatic
 
 /** A date in the proleptic Thai Buddhist calendar system. */
 public class ThaiBuddhistDate private constructor(
@@ -235,15 +237,19 @@ public class ThaiBuddhistDate private constructor(
 
     public companion object {
         /** Obtains the current Thai Buddhist date in the system default time-zone. */
+        @JvmStatic
         public fun now(): ThaiBuddhistDate = now(Clock.systemDefaultZone())
 
         /** Obtains the current Thai Buddhist date in [zone]. */
+        @JvmStatic
         public fun now(zone: ZoneId): ThaiBuddhistDate = now(Clock.system(zone))
 
         /** Obtains the current Thai Buddhist date from [clock]. */
+        @JvmStatic
         public fun now(clock: Clock): ThaiBuddhistDate = fromIsoDate(LocalDate.now(clock))
 
         /** Obtains a Thai Buddhist date from its proleptic year, month, and day. */
+        @JvmStatic
         public fun of(prolepticYear: Int, month: Int, dayOfMonth: Int): ThaiBuddhistDate =
             fromIsoDate(
                 LocalDate.of(
@@ -254,6 +260,7 @@ public class ThaiBuddhistDate private constructor(
             )
 
         /** Obtains a Thai Buddhist date from a temporal accessor. */
+        @JvmStatic
         public fun from(temporal: TemporalAccessor): ThaiBuddhistDate =
             if (temporal is ThaiBuddhistDate) temporal else fromIsoDate(LocalDate.from(temporal))
 

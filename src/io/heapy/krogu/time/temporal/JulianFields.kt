@@ -4,16 +4,21 @@ import io.heapy.krogu.time.DateTimeException
 import io.heapy.krogu.time.chrono.Chronology
 import io.heapy.krogu.time.format.ResolverStyle
 import io.heapy.krogu.time.internal.subtractExact
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmStatic
 
 /** Date fields that express an epoch day using common continuous day-number systems. */
 public object JulianFields {
     /** Julian Day Number, where ISO 1970-01-01 is day 2,440,588. */
+    @JvmField
     public val JULIAN_DAY: TemporalField = Field.JULIAN_DAY
 
     /** Modified Julian Day, where ISO 1970-01-01 is day 40,587. */
+    @JvmField
     public val MODIFIED_JULIAN_DAY: TemporalField = Field.MODIFIED_JULIAN_DAY
 
     /** Rata Die, where ISO 0001-01-01 is day 1. */
+    @JvmField
     public val RATA_DIE: TemporalField = Field.RATA_DIE
 
     private enum class Field(

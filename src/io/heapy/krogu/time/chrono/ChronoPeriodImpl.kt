@@ -8,6 +8,8 @@ import io.heapy.krogu.time.temporal.TemporalAmount
 import io.heapy.krogu.time.temporal.TemporalQueries
 import io.heapy.krogu.time.temporal.TemporalUnit
 import io.heapy.krogu.time.temporal.UnsupportedTemporalTypeException
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmStatic
 
 internal class ChronoPeriodImpl(
     override val chronology: Chronology,
@@ -146,15 +148,20 @@ internal class ChronoPeriodImpl(
     }
 
     private companion object {
+        @JvmField
         val SUPPORTED_UNITS: List<TemporalUnit> =
             listOf(ChronoUnit.YEARS, ChronoUnit.MONTHS, ChronoUnit.DAYS)
 
+        @JvmStatic
         fun addExact(first: Int, second: Int): Int = toIntExact(first.toLong() + second)
 
+        @JvmStatic
         fun subtractExact(first: Int, second: Int): Int = toIntExact(first.toLong() - second)
 
+        @JvmStatic
         fun multiplyExact(first: Int, second: Int): Int = toIntExact(first.toLong() * second)
 
+        @JvmStatic
         fun toIntExact(value: Long): Int {
             val result = value.toInt()
             if (result.toLong() != value) throw ArithmeticException("integer overflow")

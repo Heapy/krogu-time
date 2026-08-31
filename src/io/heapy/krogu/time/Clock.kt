@@ -2,6 +2,8 @@ package io.heapy.krogu.time
 
 import io.heapy.krogu.time.internal.addExact
 import io.heapy.krogu.time.internal.floorMod
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmStatic
 import kotlin.time.Clock as KotlinClock
 
 /** A time source that supplies instants using a configured time-zone. */
@@ -25,28 +27,35 @@ public abstract class Clock protected constructor() : InstantSource {
         private val SYSTEM_UTC: Clock = SystemClock(ZoneOffset.UTC)
 
         /** Obtains the best available system clock in UTC. */
+        @JvmStatic
         public fun systemUTC(): Clock = SYSTEM_UTC
 
         /** Obtains the best available system clock in the default time-zone. */
+        @JvmStatic
         public fun systemDefaultZone(): Clock = system(ZoneId.systemDefault())
 
         /** Obtains the best available system clock in [zone]. */
+        @JvmStatic
         public fun system(zone: ZoneId): Clock =
             if (zone === ZoneOffset.UTC) SYSTEM_UTC else SystemClock(zone)
 
         /** Obtains a system clock that ticks in whole milliseconds. */
+        @JvmStatic
         public fun tickMillis(zone: ZoneId): Clock =
             TickClock(system(zone), NANOS_PER_MILLI)
 
         /** Obtains a system clock that ticks in whole seconds. */
+        @JvmStatic
         public fun tickSeconds(zone: ZoneId): Clock =
             TickClock(system(zone), NANOS_PER_SECOND)
 
         /** Obtains a system clock that ticks in whole minutes. */
+        @JvmStatic
         public fun tickMinutes(zone: ZoneId): Clock =
             TickClock(system(zone), NANOS_PER_MINUTE)
 
         /** Obtains a clock that truncates [baseClock] to occurrences of [tickDuration]. */
+        @JvmStatic
         public fun tick(baseClock: Clock, tickDuration: Duration): Clock {
             require(!tickDuration.isNegative) { "Tick duration must not be negative" }
             val tickNanos = tickDuration.toNanos()
@@ -58,10 +67,12 @@ public abstract class Clock protected constructor() : InstantSource {
         }
 
         /** Obtains a clock that always returns [fixedInstant]. */
+        @JvmStatic
         public fun fixed(fixedInstant: Instant, zone: ZoneId): Clock =
             FixedClock(fixedInstant, zone)
 
         /** Obtains a clock that adds [offsetDuration] to [baseClock]. */
+        @JvmStatic
         public fun offset(baseClock: Clock, offsetDuration: Duration): Clock =
             if (offsetDuration == Duration.ZERO) baseClock else OffsetClock(baseClock, offsetDuration)
     }

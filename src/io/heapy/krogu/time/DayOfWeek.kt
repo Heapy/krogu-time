@@ -13,6 +13,8 @@ import io.heapy.krogu.time.temporal.TemporalField
 import io.heapy.krogu.time.temporal.TemporalQueries
 import io.heapy.krogu.time.temporal.TemporalQuery
 import io.heapy.krogu.time.temporal.UnsupportedTemporalTypeException
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmStatic
 
 /**
  * A day of the week in the ISO-8601 calendar system, from Monday to Sunday.
@@ -78,6 +80,7 @@ public enum class DayOfWeek : TemporalAccessor, TemporalAdjuster {
         private const val DAYS_PER_WEEK: Int = 7
 
         /** Returns the day identified by its ISO-8601 value. */
+        @JvmStatic
         public fun of(dayOfWeek: Int): DayOfWeek {
             if (dayOfWeek !in 1..DAYS_PER_WEEK) {
                 throw DateTimeException("Invalid value for DayOfWeek: $dayOfWeek")
@@ -86,6 +89,7 @@ public enum class DayOfWeek : TemporalAccessor, TemporalAdjuster {
         }
 
         /** Obtains a day-of-week from [temporal]. */
+        @JvmStatic
         public fun from(temporal: TemporalAccessor): DayOfWeek {
             if (temporal is DayOfWeek) return temporal
             return try {

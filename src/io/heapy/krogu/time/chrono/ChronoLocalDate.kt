@@ -14,6 +14,8 @@ import io.heapy.krogu.time.temporal.TemporalQueries
 import io.heapy.krogu.time.temporal.TemporalQuery
 import io.heapy.krogu.time.temporal.TemporalUnit
 import io.heapy.krogu.time.temporal.UnsupportedTemporalTypeException
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmStatic
 
 /** A date whose calendar system is supplied by a [Chronology]. */
 public interface ChronoLocalDate : Temporal, TemporalAdjuster, Comparable<ChronoLocalDate> {
@@ -116,9 +118,11 @@ public interface ChronoLocalDate : Temporal, TemporalAdjuster, Comparable<Chrono
             Comparator { first, second -> first.toEpochDay().compareTo(second.toEpochDay()) }
 
         /** Returns a comparator that ignores chronology and compares epoch days only. */
+        @JvmStatic
         public fun timeLineOrder(): Comparator<ChronoLocalDate> = TIME_LINE_ORDER
 
         /** Obtains a chronology-aware date from [temporal]. */
+        @JvmStatic
         public fun from(temporal: TemporalAccessor): ChronoLocalDate {
             if (temporal is ChronoLocalDate) return temporal
             val chronology = temporal.query(TemporalQueries.chronology())

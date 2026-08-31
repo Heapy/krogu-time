@@ -15,6 +15,8 @@ import io.heapy.krogu.time.temporal.TemporalQueries
 import io.heapy.krogu.time.temporal.TemporalQuery
 import io.heapy.krogu.time.temporal.TemporalUnit
 import io.heapy.krogu.time.temporal.ValueRange
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmStatic
 
 /** A date-time with a time-zone in the ISO-8601 calendar system. */
 public class ZonedDateTime private constructor(
@@ -282,20 +284,26 @@ public class ZonedDateTime private constructor(
             Comparator { first, second -> first.compareInstant(second) }
 
         /** Obtains the current zoned date-time using the system clock in the default time-zone. */
+        @JvmStatic
         public fun now(): ZonedDateTime = now(Clock.systemDefaultZone())
 
         /** Obtains the current zoned date-time using the system clock in [zone]. */
+        @JvmStatic
         public fun now(zone: ZoneId): ZonedDateTime = now(Clock.system(zone))
 
         /** Obtains the current zoned date-time from [clock]. */
+        @JvmStatic
         public fun now(clock: Clock): ZonedDateTime = ofInstant(clock.instant(), clock.zone)
 
+        @JvmStatic
         public fun of(date: LocalDate, time: LocalTime, zone: ZoneId): ZonedDateTime =
             of(LocalDateTime.of(date, time), zone)
 
+        @JvmStatic
         public fun of(dateTime: LocalDateTime, zone: ZoneId): ZonedDateTime =
             ofLocal(dateTime, zone, null)
 
+        @JvmStatic
         public fun of(
             year: Int,
             month: Month,
@@ -310,6 +318,7 @@ public class ZonedDateTime private constructor(
             zone,
         )
 
+        @JvmStatic
         public fun of(
             year: Int,
             month: Int,
@@ -325,6 +334,7 @@ public class ZonedDateTime private constructor(
         )
 
         /** Resolves [dateTime] in [zone], optionally preferring [preferredOffset] in an overlap. */
+        @JvmStatic
         public fun ofLocal(
             dateTime: LocalDateTime,
             zone: ZoneId,
@@ -359,6 +369,7 @@ public class ZonedDateTime private constructor(
         }
 
         /** Obtains a zoned date-time representing [instant] in [zone]. */
+        @JvmStatic
         public fun ofInstant(instant: Instant, zone: ZoneId): ZonedDateTime {
             val offset = zone.rules.getOffset(instant)
             return ZonedDateTime(
@@ -369,6 +380,7 @@ public class ZonedDateTime private constructor(
         }
 
         /** Resolves the instant implied by [dateTime] and [offset] into [zone]. */
+        @JvmStatic
         public fun ofInstant(
             dateTime: LocalDateTime,
             offset: ZoneOffset,
@@ -380,6 +392,7 @@ public class ZonedDateTime private constructor(
         }
 
         /** Obtains a zoned date-time only when [offset] is valid at [dateTime] in [zone]. */
+        @JvmStatic
         public fun ofStrict(
             dateTime: LocalDateTime,
             offset: ZoneOffset,
@@ -401,6 +414,7 @@ public class ZonedDateTime private constructor(
         }
 
         /** Obtains a zoned date-time from a temporal accessor. */
+        @JvmStatic
         public fun from(temporal: TemporalAccessor): ZonedDateTime {
             if (temporal is ZonedDateTime) return temporal
             return try {
@@ -419,6 +433,7 @@ public class ZonedDateTime private constructor(
         }
 
         /** Parses a date-time using the strict ISO zoned-date-time format. */
+        @JvmStatic
         public fun parse(text: CharSequence): ZonedDateTime {
             val input = text.toString()
             val bracketStart = input.lastIndexOf('[')
@@ -450,10 +465,12 @@ public class ZonedDateTime private constructor(
         }
 
         /** Parses a zoned date-time from [text] using [formatter]. */
+        @JvmStatic
         public fun parse(text: CharSequence, formatter: DateTimeFormatter): ZonedDateTime =
             from(formatter.parse(text))
 
         /** Returns a comparator that compares zoned date-times only by instant. */
+        @JvmStatic
         public fun timeLineOrder(): Comparator<ZonedDateTime> = TIME_LINE_ORDER
 
         private fun parseOffsetDateTime(

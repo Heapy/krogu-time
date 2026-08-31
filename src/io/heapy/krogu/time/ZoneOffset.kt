@@ -9,6 +9,8 @@ import io.heapy.krogu.time.temporal.TemporalQueries
 import io.heapy.krogu.time.temporal.TemporalQuery
 import io.heapy.krogu.time.temporal.UnsupportedTemporalTypeException
 import io.heapy.krogu.time.zone.ZoneRules
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmStatic
 import kotlin.math.abs
 
 /** A fixed offset from UTC in the range -18:00 to +18:00. */
@@ -65,11 +67,15 @@ public class ZoneOffset private constructor(
             ZoneOffset(-MAX_SECONDS + index * SECONDS_PER_QUARTER)
         }
 
+        @JvmField
         public val UTC: ZoneOffset = QUARTER_HOUR_CACHE[MAX_SECONDS / SECONDS_PER_QUARTER]
+        @JvmField
         public val MIN: ZoneOffset = QUARTER_HOUR_CACHE.first()
+        @JvmField
         public val MAX: ZoneOffset = QUARTER_HOUR_CACHE.last()
 
         /** Obtains an offset from its textual identifier. */
+        @JvmStatic
         public fun of(offsetId: String): ZoneOffset {
             if (offsetId == "Z") return UTC
             val normalized = if (offsetId.length == 2) {
@@ -120,19 +126,23 @@ public class ZoneOffset private constructor(
         }
 
         /** Obtains an offset from a signed hour value. */
+        @JvmStatic
         public fun ofHours(hours: Int): ZoneOffset = ofHoursMinutesSeconds(hours, 0, 0)
 
         /** Obtains an offset from signed hour and minute values. */
+        @JvmStatic
         public fun ofHoursMinutes(hours: Int, minutes: Int): ZoneOffset =
             ofHoursMinutesSeconds(hours, minutes, 0)
 
         /** Obtains an offset from signed hour, minute, and second values. */
+        @JvmStatic
         public fun ofHoursMinutesSeconds(hours: Int, minutes: Int, seconds: Int): ZoneOffset {
             validate(hours, minutes, seconds)
             return ofTotalSeconds(hours * 3_600 + minutes * 60 + seconds)
         }
 
         /** Obtains an offset from a temporal accessor. */
+        @JvmStatic
         public fun from(temporal: TemporalAccessor): ZoneOffset {
             val offset = temporal.query(TemporalQueries.offset())
             return offset ?: throw DateTimeException(
@@ -141,6 +151,7 @@ public class ZoneOffset private constructor(
         }
 
         /** Obtains an offset from its total number of seconds. */
+        @JvmStatic
         public fun ofTotalSeconds(totalSeconds: Int): ZoneOffset {
             if (totalSeconds !in -MAX_SECONDS..MAX_SECONDS) {
                 throw DateTimeException("Zone offset not in valid range: -18:00 to +18:00")

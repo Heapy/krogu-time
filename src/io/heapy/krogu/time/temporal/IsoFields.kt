@@ -11,25 +11,33 @@ import io.heapy.krogu.time.format.ResolverStyle
 import io.heapy.krogu.time.internal.addExact
 import io.heapy.krogu.time.internal.multiplyExact
 import io.heapy.krogu.time.internal.subtractExact
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmStatic
 
 /** Fields and units specific to the ISO-8601 calendar system. */
 public object IsoFields {
     /** The day within the quarter, from 1 to 90, 91, or 92. */
+    @JvmField
     public val DAY_OF_QUARTER: TemporalField = Field.DAY_OF_QUARTER
 
     /** The quarter within the year, from 1 to 4. */
+    @JvmField
     public val QUARTER_OF_YEAR: TemporalField = Field.QUARTER_OF_YEAR
 
     /** The week within the ISO week-based year, from 1 to 52 or 53. */
+    @JvmField
     public val WEEK_OF_WEEK_BASED_YEAR: TemporalField = Field.WEEK_OF_WEEK_BASED_YEAR
 
     /** The ISO week-based year. */
+    @JvmField
     public val WEEK_BASED_YEAR: TemporalField = Field.WEEK_BASED_YEAR
 
     /** A unit representing the addition of ISO week-based years. */
+    @JvmField
     public val WEEK_BASED_YEARS: TemporalUnit = Unit.WEEK_BASED_YEARS
 
     /** A unit representing the addition of quarters. */
+    @JvmField
     public val QUARTER_YEARS: TemporalUnit = Unit.QUARTER_YEARS
 
     private enum class Field(

@@ -7,6 +7,8 @@ import io.heapy.krogu.time.temporal.TemporalQueries
 import io.heapy.krogu.time.zone.ZoneRules
 import io.heapy.krogu.time.zone.ZoneRulesException
 import io.heapy.krogu.time.zone.ZoneRulesProvider
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmStatic
 
 /** An identifier for a time-zone. */
 public abstract class ZoneId {
@@ -49,6 +51,7 @@ public abstract class ZoneId {
 
     public companion object {
         /** The legacy short-ID mappings defined by Java's `ZoneId`. */
+        @JvmField
         public val SHORT_IDS: Map<String, String> = mapOf(
             "ACT" to "Australia/Darwin",
             "AET" to "Australia/Sydney",
@@ -81,9 +84,11 @@ public abstract class ZoneId {
         )
 
         /** Obtains the system default time-zone. */
+        @JvmStatic
         public fun systemDefault(): ZoneId = of(systemDefaultZoneId(), SHORT_IDS)
 
         /** Obtains a fixed-offset or registered region zone ID. */
+        @JvmStatic
         public fun of(zoneId: String): ZoneId {
             if (zoneId.length <= 1 || zoneId[0] == '+' || zoneId[0] == '-') {
                 return ZoneOffset.of(zoneId)
@@ -97,10 +102,12 @@ public abstract class ZoneId {
         }
 
         /** Obtains a zone ID after applying [aliasMap]. */
+        @JvmStatic
         public fun of(zoneId: String, aliasMap: Map<String, String>): ZoneId =
             of(aliasMap[zoneId] ?: zoneId)
 
         /** Creates a zone ID by prefixing a fixed [offset]. */
+        @JvmStatic
         public fun ofOffset(prefix: String, offset: ZoneOffset): ZoneId {
             if (prefix != "" && prefix != "GMT" && prefix != "UTC" && prefix != "UT") {
                 throw IllegalArgumentException("Prefix should be GMT, UTC or UT, is: $prefix")
@@ -111,12 +118,14 @@ public abstract class ZoneId {
         }
 
         /** Obtains a zone ID from a temporal accessor. */
+        @JvmStatic
         public fun from(temporal: TemporalAccessor): ZoneId =
             temporal.query(TemporalQueries.zone()) ?: throw DateTimeException(
                 "Unable to obtain ZoneId from TemporalAccessor: $temporal",
             )
 
         /** Returns every region ID registered with a zone-rules provider. */
+        @JvmStatic
         public fun getAvailableZoneIds(): Set<String> = ZoneRulesProvider.getAvailableZoneIds()
 
         private fun ofWithPrefix(zoneId: String, prefixLength: Int): ZoneId {
@@ -148,6 +157,7 @@ private class RegionZoneId private constructor(
             ?: throw ZoneRulesException("Provider returned no rules for time-zone ID: $id")
 
     companion object {
+        @JvmStatic
         fun of(zoneId: String): RegionZoneId {
             validateName(zoneId)
             val rules = ZoneRulesProvider.getRules(zoneId, true)

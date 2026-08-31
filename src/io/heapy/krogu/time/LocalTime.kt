@@ -14,6 +14,8 @@ import io.heapy.krogu.time.temporal.TemporalQueries
 import io.heapy.krogu.time.temporal.TemporalQuery
 import io.heapy.krogu.time.temporal.TemporalUnit
 import io.heapy.krogu.time.temporal.UnsupportedTemporalTypeException
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmStatic
 
 /** A time without a date or time-zone in the ISO-8601 calendar system. */
 public class LocalTime private constructor(
@@ -376,15 +378,21 @@ public class LocalTime private constructor(
         private const val MICROS_PER_DAY: Long = NANOS_PER_DAY / NANOS_PER_MICRO
         private const val MILLIS_PER_DAY: Long = NANOS_PER_DAY / NANOS_PER_MILLI
 
+        @JvmField
         public val MIN: LocalTime = LocalTime(0, 0, 0, 0)
+        @JvmField
         public val MAX: LocalTime = LocalTime(23, 59, 59, 999_999_999)
+        @JvmField
         public val MIDNIGHT: LocalTime = MIN
+        @JvmField
         public val NOON: LocalTime = LocalTime(12, 0, 0, 0)
 
         /** Obtains the current time using the system clock in the default time-zone. */
+        @JvmStatic
         public fun now(): LocalTime = now(Clock.systemDefaultZone())
 
         /** Obtains the current time using the system clock in [zone]. */
+        @JvmStatic
         public fun now(zone: ZoneId): LocalTime = now(Clock.system(zone))
 
         /**
@@ -392,16 +400,20 @@ public class LocalTime private constructor(
          * instant and zone offset without constructing a date, so it stays valid at
          * the extreme ends of the instant range (matching Java's `LocalTime.now`).
          */
+        @JvmStatic
         public fun now(clock: Clock): LocalTime = ofInstant(clock.instant(), clock.zone)
 
         /** Obtains a time from an hour and minute. */
+        @JvmStatic
         public fun of(hour: Int, minute: Int): LocalTime = of(hour, minute, 0, 0)
 
         /** Obtains a time from an hour, minute, and second. */
+        @JvmStatic
         public fun of(hour: Int, minute: Int, second: Int): LocalTime =
             of(hour, minute, second, 0)
 
         /** Obtains a time from hour, minute, second, and nanosecond components. */
+        @JvmStatic
         public fun of(hour: Int, minute: Int, second: Int, nanoOfSecond: Int): LocalTime {
             val validHour = ChronoField.HOUR_OF_DAY.checkValidIntValue(hour.toLong())
             val validMinute = ChronoField.MINUTE_OF_HOUR.checkValidIntValue(minute.toLong())
@@ -411,6 +423,7 @@ public class LocalTime private constructor(
         }
 
         /** Obtains the local time at [instant] in [zone]. */
+        @JvmStatic
         public fun ofInstant(instant: Instant, zone: ZoneId): LocalTime {
             val offset = zone.rules.getOffset(instant)
             val localSecond = instant.epochSecond + offset.totalSeconds
@@ -419,6 +432,7 @@ public class LocalTime private constructor(
         }
 
         /** Obtains a time from the whole second within the day. */
+        @JvmStatic
         public fun ofSecondOfDay(secondOfDay: Long): LocalTime {
             ChronoField.SECOND_OF_DAY.checkValidValue(secondOfDay)
             var remaining = secondOfDay
@@ -430,6 +444,7 @@ public class LocalTime private constructor(
         }
 
         /** Obtains a time from the nanosecond within the day. */
+        @JvmStatic
         public fun ofNanoOfDay(nanoOfDay: Long): LocalTime {
             ChronoField.NANO_OF_DAY.checkValidValue(nanoOfDay)
             var remaining = nanoOfDay
@@ -443,6 +458,7 @@ public class LocalTime private constructor(
         }
 
         /** Obtains a time from a temporal accessor. */
+        @JvmStatic
         public fun from(temporal: TemporalAccessor): LocalTime {
             if (temporal is LocalTime) return temporal
             return try {
@@ -456,6 +472,7 @@ public class LocalTime private constructor(
         }
 
         /** Parses a time using the strict ISO local-time format. */
+        @JvmStatic
         public fun parse(text: CharSequence): LocalTime {
             val input = text.toString()
             if (!hasTwoDigits(input, 0)) throw parseFailure(input, 0)
@@ -486,6 +503,7 @@ public class LocalTime private constructor(
         }
 
         /** Parses a time from [text] using [formatter]. */
+        @JvmStatic
         public fun parse(text: CharSequence, formatter: DateTimeFormatter): LocalTime =
             from(formatter.parse(text))
 

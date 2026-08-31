@@ -1,5 +1,8 @@
 package io.heapy.krogu.time
 
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmStatic
+
 /**
  * A locale identifier used by locale-sensitive date-time APIs.
  *
@@ -77,18 +80,23 @@ public class Locale private constructor(
         private const val UNDEFINED_LANGUAGE: String = "und"
 
         /** The language-neutral root locale. */
+        @JvmField
         public val ROOT: Locale = Locale(UNDEFINED_LANGUAGE)
 
         /** The English language locale. */
+        @JvmField
         public val ENGLISH: Locale = Locale("en")
 
         /** English as used in the United States. */
+        @JvmField
         public val US: Locale = Locale("en-US")
 
         /** English as used in the United Kingdom. */
+        @JvmField
         public val UK: Locale = Locale("en-GB")
 
         /** Creates a locale from a BCP 47 [languageTag]. */
+        @JvmStatic
         public fun forLanguageTag(languageTag: String): Locale {
             val canonical = canonicalizeLanguageTag(languageTag)
             return when (canonical) {
@@ -101,6 +109,7 @@ public class Locale private constructor(
         }
 
         /** Returns the platform's current default locale for formatting. */
+        @JvmStatic
         public fun getDefault(): Locale = forLanguageTag(defaultFormatLocaleTag())
     }
 }

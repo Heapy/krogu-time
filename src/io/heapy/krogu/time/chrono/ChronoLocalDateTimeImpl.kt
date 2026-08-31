@@ -14,6 +14,8 @@ import io.heapy.krogu.time.temporal.TemporalAmount
 import io.heapy.krogu.time.temporal.TemporalField
 import io.heapy.krogu.time.temporal.TemporalUnit
 import io.heapy.krogu.time.temporal.ValueRange
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmStatic
 
 internal class ChronoLocalDateTimeImpl<D : ChronoLocalDate> private constructor(
     override val date: D,
@@ -179,10 +181,12 @@ internal class ChronoLocalDateTimeImpl<D : ChronoLocalDate> private constructor(
         private const val MICROS_PER_DAY: Long = NANOS_PER_DAY / NANOS_PER_MICRO
         private const val MILLIS_PER_DAY: Long = NANOS_PER_DAY / NANOS_PER_MILLI
 
+        @JvmStatic
         fun <D : ChronoLocalDate> of(date: D, time: LocalTime): ChronoLocalDateTimeImpl<D> =
             ChronoLocalDateTimeImpl(date, time)
 
         @Suppress("UNCHECKED_CAST")
+        @JvmStatic
         fun <D : ChronoLocalDate> ensureDate(chronology: Chronology, temporal: Temporal): D {
             val date = temporal as? ChronoLocalDate
                 ?: throw ClassCastException("Temporal is not a ChronoLocalDate: $temporal")
@@ -191,6 +195,7 @@ internal class ChronoLocalDateTimeImpl<D : ChronoLocalDate> private constructor(
         }
 
         @Suppress("UNCHECKED_CAST")
+        @JvmStatic
         fun <D : ChronoLocalDate> ensureValid(
             chronology: Chronology,
             temporal: Temporal,

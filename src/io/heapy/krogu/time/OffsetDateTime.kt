@@ -15,6 +15,8 @@ import io.heapy.krogu.time.temporal.TemporalQuery
 import io.heapy.krogu.time.temporal.TemporalUnit
 import io.heapy.krogu.time.temporal.UnsupportedTemporalTypeException
 import io.heapy.krogu.time.temporal.ValueRange
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmStatic
 
 /** A date-time with a fixed offset from UTC. */
 public class OffsetDateTime private constructor(
@@ -249,27 +251,35 @@ public class OffsetDateTime private constructor(
         private val TIME_LINE_ORDER: Comparator<OffsetDateTime> =
             Comparator { first, second -> first.compareInstant(second) }
 
+        @JvmField
         public val MIN: OffsetDateTime = OffsetDateTime(LocalDateTime.MIN, ZoneOffset.MAX)
+        @JvmField
         public val MAX: OffsetDateTime = OffsetDateTime(LocalDateTime.MAX, ZoneOffset.MIN)
 
         /** Obtains the current offset date-time using the system clock in the default time-zone. */
+        @JvmStatic
         public fun now(): OffsetDateTime = now(Clock.systemDefaultZone())
 
         /** Obtains the current offset date-time using the system clock in [zone]. */
+        @JvmStatic
         public fun now(zone: ZoneId): OffsetDateTime = now(Clock.system(zone))
 
         /** Obtains the current offset date-time from [clock]. */
+        @JvmStatic
         public fun now(clock: Clock): OffsetDateTime {
             val instant = clock.instant()
             return ofInstant(instant, clock.zone)
         }
 
+        @JvmStatic
         public fun of(date: LocalDate, time: LocalTime, offset: ZoneOffset): OffsetDateTime =
             OffsetDateTime(LocalDateTime.of(date, time), offset)
 
+        @JvmStatic
         public fun of(dateTime: LocalDateTime, offset: ZoneOffset): OffsetDateTime =
             OffsetDateTime(dateTime, offset)
 
+        @JvmStatic
         public fun of(
             year: Int,
             month: Month,
@@ -284,6 +294,7 @@ public class OffsetDateTime private constructor(
             offset,
         )
 
+        @JvmStatic
         public fun of(
             year: Int,
             month: Int,
@@ -299,6 +310,7 @@ public class OffsetDateTime private constructor(
         )
 
         /** Obtains an offset date-time representing [instant] in [zone]. */
+        @JvmStatic
         public fun ofInstant(instant: Instant, zone: ZoneId): OffsetDateTime {
             val offset = zone.rules.getOffset(instant)
             return OffsetDateTime(
@@ -308,6 +320,7 @@ public class OffsetDateTime private constructor(
         }
 
         /** Obtains an offset date-time from a temporal accessor. */
+        @JvmStatic
         public fun from(temporal: TemporalAccessor): OffsetDateTime {
             if (temporal is OffsetDateTime) return temporal
             return try {
@@ -326,6 +339,7 @@ public class OffsetDateTime private constructor(
         }
 
         /** Parses a date-time using the strict ISO offset-date-time format. */
+        @JvmStatic
         public fun parse(text: CharSequence): OffsetDateTime {
             val input = text.toString()
             val separatorIndex = input.indexOfFirst { it == 'T' || it == 't' }
@@ -364,10 +378,12 @@ public class OffsetDateTime private constructor(
         }
 
         /** Parses an offset date-time from [text] using [formatter]. */
+        @JvmStatic
         public fun parse(text: CharSequence, formatter: DateTimeFormatter): OffsetDateTime =
             from(formatter.parse(text))
 
         /** Returns a comparator that compares offset date-times only by instant. */
+        @JvmStatic
         public fun timeLineOrder(): Comparator<OffsetDateTime> = TIME_LINE_ORDER
 
         private fun parseFailure(input: String, errorIndex: Int): DateTimeParseException =

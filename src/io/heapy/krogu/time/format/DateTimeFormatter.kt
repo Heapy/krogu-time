@@ -33,6 +33,8 @@ import io.heapy.krogu.time.temporal.TemporalQuery
 import io.heapy.krogu.time.temporal.UnsupportedTemporalTypeException
 import io.heapy.krogu.time.temporal.ValueRange
 import io.heapy.krogu.time.temporal.WeekFields
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmStatic
 
 /** A formatter that prints and parses date-time objects. */
 public class DateTimeFormatter private constructor(
@@ -483,24 +485,29 @@ public class DateTimeFormatter private constructor(
 
     public companion object {
         /** Returns a locale-specific date formatter for the ISO chronology. */
+        @JvmStatic
         public fun ofLocalizedDate(dateStyle: FormatStyle): DateTimeFormatter =
             localizedFormatter(dateStyle, null)
 
         /** Returns a locale-specific time formatter for the ISO chronology. */
+        @JvmStatic
         public fun ofLocalizedTime(timeStyle: FormatStyle): DateTimeFormatter =
             localizedFormatter(null, timeStyle)
 
         /** Returns a locale-specific date-time formatter using one style for both parts. */
+        @JvmStatic
         public fun ofLocalizedDateTime(dateTimeStyle: FormatStyle): DateTimeFormatter =
             localizedFormatter(dateTimeStyle, dateTimeStyle)
 
         /** Returns a locale-specific date-time formatter using independent styles. */
+        @JvmStatic
         public fun ofLocalizedDateTime(
             dateStyle: FormatStyle,
             timeStyle: FormatStyle,
         ): DateTimeFormatter = localizedFormatter(dateStyle, timeStyle)
 
         /** Returns a locale-specific formatter selected from [requestedTemplate]. */
+        @JvmStatic
         public fun ofLocalizedPattern(requestedTemplate: String): DateTimeFormatter =
             DateTimeFormatterBuilder()
                 .appendLocalized(requestedTemplate)
@@ -515,10 +522,12 @@ public class DateTimeFormatter private constructor(
         ).withChronology(IsoChronology)
 
         /** Creates a formatter from a date-time pattern. */
+        @JvmStatic
         public fun ofPattern(pattern: String): DateTimeFormatter =
             ofPattern(pattern, Locale.getDefault())
 
         /** Creates a formatter from a date-time [pattern] using [locale]. */
+        @JvmStatic
         public fun ofPattern(
             pattern: String,
             locale: Locale,
@@ -551,6 +560,7 @@ public class DateTimeFormatter private constructor(
         }
 
         /** The strict ISO formatter for a date without a time or offset. */
+        @JvmField
         public val ISO_LOCAL_DATE: DateTimeFormatter = DateTimeFormatter(
             printer = ::formatIsoDateFields,
             parser = { text -> LocalDate.parse(text) },
@@ -566,6 +576,7 @@ public class DateTimeFormatter private constructor(
         )
 
         /** The strict ISO formatter for a date with a required offset. */
+        @JvmField
         public val ISO_OFFSET_DATE: DateTimeFormatter = DateTimeFormatter(
             printer = { temporal ->
                 formatIsoDateFields(temporal) + ZoneOffset.from(temporal)
@@ -584,6 +595,7 @@ public class DateTimeFormatter private constructor(
         )
 
         /** The strict ISO formatter for a date with an optional offset. */
+        @JvmField
         public val ISO_DATE: DateTimeFormatter = DateTimeFormatter(
             printer = { temporal ->
                 buildString {
@@ -607,6 +619,7 @@ public class DateTimeFormatter private constructor(
         )
 
         /** The strict ISO formatter for a time without a date or offset. */
+        @JvmField
         public val ISO_LOCAL_TIME: DateTimeFormatter = DateTimeFormatter(
             printer = { temporal -> formatIsoLocalTime(LocalTime.from(temporal)) },
             parser = { text -> LocalTime.parse(text) },
@@ -619,6 +632,7 @@ public class DateTimeFormatter private constructor(
         )
 
         /** The strict ISO formatter for a time with an optional offset. */
+        @JvmField
         public val ISO_TIME: DateTimeFormatter = DateTimeFormatter(
             printer = { temporal ->
                 buildString {
@@ -643,6 +657,7 @@ public class DateTimeFormatter private constructor(
         )
 
         /** The strict ISO formatter for a date-time without an offset. */
+        @JvmField
         public val ISO_LOCAL_DATE_TIME: DateTimeFormatter = DateTimeFormatter(
             printer = ::formatIsoLocalDateTime,
             parser = { text -> LocalDateTime.parse(text) },
@@ -662,6 +677,7 @@ public class DateTimeFormatter private constructor(
         )
 
         /** The strict ISO formatter for a date-time with an optional offset and region zone. */
+        @JvmField
         public val ISO_DATE_TIME: DateTimeFormatter = DateTimeFormatter(
             printer = { temporal ->
                 buildString {
@@ -700,6 +716,7 @@ public class DateTimeFormatter private constructor(
         )
 
         /** The strict ISO formatter for a year and day-of-year with an optional offset. */
+        @JvmField
         public val ISO_ORDINAL_DATE: DateTimeFormatter = DateTimeFormatter(
             printer = { temporal ->
                 buildString {
@@ -721,6 +738,7 @@ public class DateTimeFormatter private constructor(
         )
 
         /** The strict ISO formatter for a week-based date with an optional offset. */
+        @JvmField
         public val ISO_WEEK_DATE: DateTimeFormatter = DateTimeFormatter(
             printer = { temporal ->
                 buildString {
@@ -745,6 +763,7 @@ public class DateTimeFormatter private constructor(
         )
 
         /** The strict basic ISO date formatter with an optional compact offset. */
+        @JvmField
         public val BASIC_ISO_DATE: DateTimeFormatter = DateTimeFormatter(
             printer = { temporal ->
                 val year = temporal.get(ChronoField.YEAR)
@@ -772,6 +791,7 @@ public class DateTimeFormatter private constructor(
         )
 
         /** The English RFC 1123 date-time formatter. */
+        @JvmField
         public val RFC_1123_DATE_TIME: DateTimeFormatter = DateTimeFormatter(
             printer = { temporal -> formatRfc1123(temporal) },
             parser = { text -> parseRfc1123(text) },
@@ -790,6 +810,7 @@ public class DateTimeFormatter private constructor(
         )
 
         /** The strict ISO formatter for an instant in UTC. */
+        @JvmField
         public val ISO_INSTANT: DateTimeFormatter = DateTimeFormatter(
             printer = { temporal -> Instant.from(temporal).toString() },
             parser = { text -> parseIsoInstant(text) },
@@ -799,6 +820,7 @@ public class DateTimeFormatter private constructor(
         )
 
         /** The strict ISO formatter for a time with an offset. */
+        @JvmField
         public val ISO_OFFSET_TIME: DateTimeFormatter = DateTimeFormatter(
             printer = { temporal ->
                 val offsetTime = OffsetTime.from(temporal)
@@ -819,6 +841,7 @@ public class DateTimeFormatter private constructor(
         )
 
         /** The strict ISO formatter for a date-time with an offset. */
+        @JvmField
         public val ISO_OFFSET_DATE_TIME: DateTimeFormatter = DateTimeFormatter(
             printer = { temporal ->
                 formatIsoLocalDateTime(temporal) + ZoneOffset.from(temporal)
@@ -847,6 +870,7 @@ public class DateTimeFormatter private constructor(
         )
 
         /** The strict ISO formatter for a date-time with an offset and optional region zone. */
+        @JvmField
         public val ISO_ZONED_DATE_TIME: DateTimeFormatter = DateTimeFormatter(
             printer = { temporal ->
                 val offset = ZoneOffset.from(temporal)
@@ -886,9 +910,11 @@ public class DateTimeFormatter private constructor(
         )
 
         /** Returns a singleton query for the excess days produced while resolving. */
+        @JvmStatic
         public fun parsedExcessDays(): TemporalQuery<Period> = PARSED_EXCESS_DAYS
 
         /** Returns a singleton query indicating whether an instant contained a leap second. */
+        @JvmStatic
         public fun parsedLeapSecond(): TemporalQuery<Boolean> = PARSED_LEAP_SECOND
 
         private val PARSED_EXCESS_DAYS: TemporalQuery<Period> = TemporalQuery { temporal ->

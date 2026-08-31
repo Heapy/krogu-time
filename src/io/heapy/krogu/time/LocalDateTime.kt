@@ -20,6 +20,8 @@ import io.heapy.krogu.time.temporal.TemporalQuery
 import io.heapy.krogu.time.temporal.TemporalUnit
 import io.heapy.krogu.time.temporal.UnsupportedTemporalTypeException
 import io.heapy.krogu.time.temporal.ValueRange
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmStatic
 
 /** A date-time without a time-zone in the ISO-8601 calendar system. */
 public class LocalDateTime private constructor(
@@ -369,22 +371,28 @@ public class LocalDateTime private constructor(
         private const val MICROS_PER_DAY: Long = NANOS_PER_DAY / NANOS_PER_MICRO
         private const val MILLIS_PER_DAY: Long = NANOS_PER_DAY / NANOS_PER_MILLI
 
+        @JvmField
         public val MIN: LocalDateTime = LocalDateTime(LocalDate.MIN, LocalTime.MIN)
+        @JvmField
         public val MAX: LocalDateTime = LocalDateTime(LocalDate.MAX, LocalTime.MAX)
 
         /** Obtains the current local date-time using the system clock in the default time-zone. */
+        @JvmStatic
         public fun now(): LocalDateTime = now(Clock.systemDefaultZone())
 
         /** Obtains the current local date-time using the system clock in [zone]. */
+        @JvmStatic
         public fun now(zone: ZoneId): LocalDateTime = now(Clock.system(zone))
 
         /** Obtains the current local date-time from [clock]. */
+        @JvmStatic
         public fun now(clock: Clock): LocalDateTime {
             val instant = clock.instant()
             val offset = clock.zone.rules.getOffset(instant)
             return ofEpochSecond(instant.epochSecond, instant.nano, offset)
         }
 
+        @JvmStatic
         public fun of(
             year: Int,
             month: Month,
@@ -393,6 +401,7 @@ public class LocalDateTime private constructor(
             minute: Int,
         ): LocalDateTime = of(year, month, dayOfMonth, hour, minute, 0, 0)
 
+        @JvmStatic
         public fun of(
             year: Int,
             month: Month,
@@ -402,6 +411,7 @@ public class LocalDateTime private constructor(
             second: Int,
         ): LocalDateTime = of(year, month, dayOfMonth, hour, minute, second, 0)
 
+        @JvmStatic
         public fun of(
             year: Int,
             month: Month,
@@ -415,6 +425,7 @@ public class LocalDateTime private constructor(
             LocalTime.of(hour, minute, second, nanoOfSecond),
         )
 
+        @JvmStatic
         public fun of(
             year: Int,
             month: Int,
@@ -423,6 +434,7 @@ public class LocalDateTime private constructor(
             minute: Int,
         ): LocalDateTime = of(year, month, dayOfMonth, hour, minute, 0, 0)
 
+        @JvmStatic
         public fun of(
             year: Int,
             month: Int,
@@ -432,6 +444,7 @@ public class LocalDateTime private constructor(
             second: Int,
         ): LocalDateTime = of(year, month, dayOfMonth, hour, minute, second, 0)
 
+        @JvmStatic
         public fun of(
             year: Int,
             month: Int,
@@ -446,16 +459,19 @@ public class LocalDateTime private constructor(
         )
 
         /** Combines an existing local date and local time. */
+        @JvmStatic
         public fun of(date: LocalDate, time: LocalTime): LocalDateTime =
             LocalDateTime(date, time)
 
         /** Obtains the local date-time at [instant] in [zone]. */
+        @JvmStatic
         public fun ofInstant(instant: Instant, zone: ZoneId): LocalDateTime {
             val offset = zone.rules.getOffset(instant)
             return ofEpochSecond(instant.epochSecond, instant.nano, offset)
         }
 
         /** Obtains a local date-time from epoch seconds interpreted with [offset]. */
+        @JvmStatic
         public fun ofEpochSecond(
             epochSecond: Long,
             nanoOfSecond: Int,
@@ -472,6 +488,7 @@ public class LocalDateTime private constructor(
         }
 
         /** Obtains a local date-time from a temporal accessor. */
+        @JvmStatic
         public fun from(temporal: TemporalAccessor): LocalDateTime {
             if (temporal is LocalDateTime) return temporal
             return try {
@@ -485,6 +502,7 @@ public class LocalDateTime private constructor(
         }
 
         /** Parses a date-time using the strict ISO local-date-time format. */
+        @JvmStatic
         public fun parse(text: CharSequence): LocalDateTime {
             val input = text.toString()
             val separatorIndex = input.indexOfFirst { it == 'T' || it == 't' }
@@ -512,6 +530,7 @@ public class LocalDateTime private constructor(
         }
 
         /** Parses a date-time from [text] using [formatter]. */
+        @JvmStatic
         public fun parse(text: CharSequence, formatter: DateTimeFormatter): LocalDateTime =
             from(formatter.parse(text))
 

@@ -18,6 +18,8 @@ import io.heapy.krogu.time.temporal.TemporalQuery
 import io.heapy.krogu.time.temporal.TemporalUnit
 import io.heapy.krogu.time.temporal.UnsupportedTemporalTypeException
 import io.heapy.krogu.time.temporal.ValueRange
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmStatic
 
 /** A year in the ISO-8601 calendar system. */
 public class Year private constructor(
@@ -195,19 +197,24 @@ public class Year private constructor(
         public const val MAX_VALUE: Int = 999_999_999
 
         /** Obtains the current year using the system clock in the default time-zone. */
+        @JvmStatic
         public fun now(): Year = now(Clock.systemDefaultZone())
 
         /** Obtains the current year using the system clock in [zone]. */
+        @JvmStatic
         public fun now(zone: ZoneId): Year = now(Clock.system(zone))
 
         /** Obtains the current year from [clock]. */
+        @JvmStatic
         public fun now(clock: Clock): Year = of(LocalDate.now(clock).year)
 
         /** Obtains an ISO year. */
+        @JvmStatic
         public fun of(isoYear: Int): Year =
             Year(ChronoField.YEAR.checkValidIntValue(isoYear.toLong()))
 
         /** Obtains a year from a temporal accessor. */
+        @JvmStatic
         public fun from(temporal: TemporalAccessor): Year {
             if (temporal is Year) return temporal
             return try {
@@ -226,6 +233,7 @@ public class Year private constructor(
         }
 
         /** Parses a year using the default ISO year format. */
+        @JvmStatic
         public fun parse(text: CharSequence): Year {
             val input = text.toString()
             if (input.isEmpty()) throw parseFailure(input, 0)
@@ -269,10 +277,12 @@ public class Year private constructor(
         }
 
         /** Parses a year from [text] using [formatter]. */
+        @JvmStatic
         public fun parse(text: CharSequence, formatter: DateTimeFormatter): Year =
             formatter.parse(text, TemporalQuery(::from))
 
         /** Returns whether [year] is a leap year in the proleptic Gregorian calendar. */
+        @JvmStatic
         public fun isLeap(year: Long): Boolean =
             year and 3L == 0L && (year % 100L != 0L || year % 400L == 0L)
 

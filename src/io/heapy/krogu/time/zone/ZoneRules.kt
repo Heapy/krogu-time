@@ -6,6 +6,8 @@ import io.heapy.krogu.time.LocalDateTime
 import io.heapy.krogu.time.Year
 import io.heapy.krogu.time.ZoneOffset
 import io.heapy.krogu.time.internal.floorDiv
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmStatic
 
 /** The offset rules for a time-zone. */
 public class ZoneRules private constructor(
@@ -261,6 +263,7 @@ public class ZoneRules private constructor(
         private const val SECONDS_PER_DAY: Long = 86_400
 
         /** Creates rules from historic standard/wall transitions and recurring future rules. */
+        @JvmStatic
         public fun of(
             baseStandardOffset: ZoneOffset,
             baseWallOffset: ZoneOffset,
@@ -300,6 +303,7 @@ public class ZoneRules private constructor(
         }
 
         /** Creates rules for a fixed [offset]. */
+        @JvmStatic
         public fun of(offset: ZoneOffset): ZoneRules = ZoneRules(
             emptyList(),
             listOf(offset),

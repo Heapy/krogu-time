@@ -1,5 +1,8 @@
 package io.heapy.krogu.time.internal
 
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmStatic
+
 /** A minimal unsigned 128-bit value used for exact duration arithmetic. */
 internal data class Unsigned128(
     val high: ULong,
@@ -53,6 +56,7 @@ internal data class Unsigned128(
     }
 
     internal companion object {
+        @JvmField
         val ZERO: Unsigned128 = Unsigned128(0uL, 0uL)
 
         private const val TOP_BIT: ULong = 0x8000_0000_0000_0000uL

@@ -11,6 +11,8 @@ import io.heapy.krogu.time.internal.addExact
 import io.heapy.krogu.time.internal.multiplyExact
 import io.heapy.krogu.time.internal.subtractExact
 import io.heapy.krogu.time.localeWeekRules
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmStatic
 
 /**
  * A localized definition of the first day of the week and the minimum number
@@ -472,21 +474,26 @@ public class WeekFields private constructor(
         }
 
         /** ISO-8601 weeks, starting Monday with four required days. */
+        @JvmField
         public val ISO: WeekFields = of(DayOfWeek.MONDAY, 4)
 
         /** Weeks starting Sunday where the first partial week is week one. */
+        @JvmField
         public val SUNDAY_START: WeekFields = of(DayOfWeek.SUNDAY, 1)
 
         /** The shared unit for adding and subtracting week-based years. */
+        @JvmField
         public val WEEK_BASED_YEARS: TemporalUnit = IsoFields.WEEK_BASED_YEARS
 
         /** Obtains the canonical definition for the supplied week rules. */
+        @JvmStatic
         public fun of(locale: Locale): WeekFields {
             val rules = localeWeekRules(locale.toLanguageTag())
             return of(DayOfWeek.of(rules.firstDayOfWeek), rules.minimalDaysInFirstWeek)
         }
 
         /** Obtains the canonical definition for the supplied explicit week rules. */
+        @JvmStatic
         public fun of(
             firstDayOfWeek: DayOfWeek,
             minimalDaysInFirstWeek: Int,

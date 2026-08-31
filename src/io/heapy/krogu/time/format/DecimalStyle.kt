@@ -3,6 +3,8 @@ package io.heapy.krogu.time.format
 import io.heapy.krogu.time.Locale
 import io.heapy.krogu.time.availableFormatLocaleTags
 import io.heapy.krogu.time.localeDecimalSymbols
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmStatic
 
 /** The characters used to print and parse decimal date-time values. */
 public class DecimalStyle private constructor(
@@ -70,16 +72,20 @@ public class DecimalStyle private constructor(
 
     public companion object {
         /** The standard ASCII decimal symbols used by ISO formatters. */
+        @JvmField
         public val STANDARD: DecimalStyle = DecimalStyle('0', '+', '-', '.')
 
         /** Returns the locales for which platform decimal symbols are available. */
+        @JvmStatic
         public fun getAvailableLocales(): Set<Locale> =
             availableFormatLocaleTags().mapTo(mutableSetOf(), Locale::forLanguageTag)
 
         /** Returns the decimal symbols for the default formatting locale. */
+        @JvmStatic
         public fun ofDefaultLocale(): DecimalStyle = of(Locale.getDefault())
 
         /** Returns the decimal symbols for [locale], including its `nu` and `rg` extensions. */
+        @JvmStatic
         public fun of(locale: Locale): DecimalStyle {
             val symbols = localeDecimalSymbols(locale.toLanguageTag())
             return if (

@@ -14,6 +14,8 @@ import io.heapy.krogu.time.temporal.Temporal
 import io.heapy.krogu.time.temporal.TemporalAmount
 import io.heapy.krogu.time.temporal.TemporalUnit
 import io.heapy.krogu.time.temporal.UnsupportedTemporalTypeException
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmStatic
 
 /**
  * A time-based amount stored as seconds and a nanosecond adjustment.
@@ -413,12 +415,15 @@ public class Duration private constructor(
         private val NANOS_PER_SECOND_128: Unsigned128 = Unsigned128(0uL, 1_000_000_000uL)
 
         /** The canonical zero-length duration. */
+        @JvmField
         public val ZERO: Duration = Duration(0, 0)
 
         /** Creates a duration from [amount] measured in [unit]. */
+        @JvmStatic
         public fun of(amount: Long, unit: TemporalUnit): Duration = ZERO.plus(amount, unit)
 
         /** Creates a duration from any temporal amount. */
+        @JvmStatic
         public fun from(amount: TemporalAmount): Duration {
             var duration = ZERO
             amount.units.forEach { unit ->
@@ -428,6 +433,7 @@ public class Duration private constructor(
         }
 
         /** Parses a Java-compatible ISO-8601 duration. */
+        @JvmStatic
         public fun parse(text: CharSequence): Duration {
             val input = text.toString()
             val match = DURATION_PATTERN.matchEntire(input)
@@ -473,6 +479,7 @@ public class Duration private constructor(
         }
 
         /** Calculates the duration from [startInclusive] to [endExclusive]. */
+        @JvmStatic
         public fun between(startInclusive: Temporal, endExclusive: Temporal): Duration {
             var seconds = startInclusive.until(endExclusive, ChronoUnit.SECONDS)
             if (seconds == 0L) {
@@ -494,21 +501,26 @@ public class Duration private constructor(
         }
 
         /** Creates a duration from standard 24-hour days. */
+        @JvmStatic
         public fun ofDays(days: Long): Duration =
             create(multiplyExact(days, SECONDS_PER_DAY), 0)
 
         /** Creates a duration from standard 60-minute hours. */
+        @JvmStatic
         public fun ofHours(hours: Long): Duration =
             create(multiplyExact(hours, SECONDS_PER_HOUR), 0)
 
         /** Creates a duration from 60-second minutes. */
+        @JvmStatic
         public fun ofMinutes(minutes: Long): Duration =
             create(multiplyExact(minutes, SECONDS_PER_MINUTE), 0)
 
         /** Creates a duration from whole seconds. */
+        @JvmStatic
         public fun ofSeconds(seconds: Long): Duration = create(seconds, 0)
 
         /** Creates a duration from seconds and an arbitrary nanosecond adjustment. */
+        @JvmStatic
         public fun ofSeconds(seconds: Long, nanoAdjustment: Long): Duration {
             val normalizedSeconds = addExact(seconds, floorDiv(nanoAdjustment, NANOS_PER_SECOND))
             val normalizedNanos = floorMod(nanoAdjustment, NANOS_PER_SECOND).toInt()
@@ -516,6 +528,7 @@ public class Duration private constructor(
         }
 
         /** Creates a duration from milliseconds. */
+        @JvmStatic
         public fun ofMillis(millis: Long): Duration {
             val normalizedSeconds = floorDiv(millis, MILLIS_PER_SECOND)
             val millisOfSecond = floorMod(millis, MILLIS_PER_SECOND).toInt()
@@ -523,6 +536,7 @@ public class Duration private constructor(
         }
 
         /** Creates a duration from nanoseconds. */
+        @JvmStatic
         public fun ofNanos(nanos: Long): Duration {
             val normalizedSeconds = floorDiv(nanos, NANOS_PER_SECOND)
             val nanosOfSecond = floorMod(nanos, NANOS_PER_SECOND).toInt()

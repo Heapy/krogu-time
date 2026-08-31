@@ -13,6 +13,8 @@ import io.heapy.krogu.time.temporal.TemporalQueries
 import io.heapy.krogu.time.temporal.TemporalQuery
 import io.heapy.krogu.time.temporal.UnsupportedTemporalTypeException
 import io.heapy.krogu.time.temporal.ValueRange
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmStatic
 
 /** A month and day without a year or time-zone in the ISO-8601 calendar system. */
 public class MonthDay private constructor(
@@ -125,21 +127,26 @@ public class MonthDay private constructor(
 
     public companion object {
         /** Obtains the current month-day using the system clock in the default time-zone. */
+        @JvmStatic
         public fun now(): MonthDay = now(Clock.systemDefaultZone())
 
         /** Obtains the current month-day using the system clock in [zone]. */
+        @JvmStatic
         public fun now(zone: ZoneId): MonthDay = now(Clock.system(zone))
 
         /** Obtains the current month-day from [clock]. */
+        @JvmStatic
         public fun now(clock: Clock): MonthDay {
             val date = LocalDate.now(clock)
             return of(date.monthValue, date.dayOfMonth)
         }
 
         /** Obtains a month-day from a month and day. */
+        @JvmStatic
         public fun of(month: Month, dayOfMonth: Int): MonthDay = of(month.value, dayOfMonth)
 
         /** Obtains a month-day from a month number and day. */
+        @JvmStatic
         public fun of(month: Int, dayOfMonth: Int): MonthDay {
             val resolvedMonth = Month.of(month)
             ChronoField.DAY_OF_MONTH.checkValidIntValue(dayOfMonth.toLong())
@@ -153,6 +160,7 @@ public class MonthDay private constructor(
         }
 
         /** Obtains a month-day from a temporal accessor. */
+        @JvmStatic
         public fun from(temporal: TemporalAccessor): MonthDay {
             if (temporal is MonthDay) return temporal
             return try {
@@ -174,6 +182,7 @@ public class MonthDay private constructor(
         }
 
         /** Parses a month-day using the strict ISO month-day format. */
+        @JvmStatic
         public fun parse(text: CharSequence): MonthDay {
             val input = text.toString()
             if (input.length < 2 || input[0] != '-' || input[1] != '-') {
@@ -199,6 +208,7 @@ public class MonthDay private constructor(
         }
 
         /** Parses a month-day from [text] using [formatter]. */
+        @JvmStatic
         public fun parse(text: CharSequence, formatter: DateTimeFormatter): MonthDay =
             formatter.parse(text, TemporalQuery(::from))
 

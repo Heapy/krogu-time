@@ -20,6 +20,8 @@ import io.heapy.krogu.time.temporal.TemporalQuery
 import io.heapy.krogu.time.temporal.TemporalUnit
 import io.heapy.krogu.time.temporal.UnsupportedTemporalTypeException
 import io.heapy.krogu.time.temporal.ValueRange
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmStatic
 
 /** A year and month without a day or time-zone in the ISO-8601 calendar system. */
 public class YearMonth private constructor(
@@ -248,27 +250,33 @@ public class YearMonth private constructor(
 
     public companion object {
         /** Obtains the current year-month using the system clock in the default time-zone. */
+        @JvmStatic
         public fun now(): YearMonth = now(Clock.systemDefaultZone())
 
         /** Obtains the current year-month using the system clock in [zone]. */
+        @JvmStatic
         public fun now(zone: ZoneId): YearMonth = now(Clock.system(zone))
 
         /** Obtains the current year-month from [clock]. */
+        @JvmStatic
         public fun now(clock: Clock): YearMonth {
             val date = LocalDate.now(clock)
             return of(date.year, date.monthValue)
         }
 
         /** Obtains a year-month from a year and month. */
+        @JvmStatic
         public fun of(year: Int, month: Month): YearMonth = of(year, month.value)
 
         /** Obtains a year-month from a year and month number. */
+        @JvmStatic
         public fun of(year: Int, month: Int): YearMonth = YearMonth(
             ChronoField.YEAR.checkValidIntValue(year.toLong()),
             ChronoField.MONTH_OF_YEAR.checkValidIntValue(month.toLong()),
         )
 
         /** Obtains a year-month from a temporal accessor. */
+        @JvmStatic
         public fun from(temporal: TemporalAccessor): YearMonth {
             if (temporal is YearMonth) return temporal
             return try {
@@ -290,6 +298,7 @@ public class YearMonth private constructor(
         }
 
         /** Parses a year-month using the strict ISO year-month format. */
+        @JvmStatic
         public fun parse(text: CharSequence): YearMonth {
             val input = text.toString()
             if (input.isEmpty()) throw parseFailure(input, 0)
@@ -353,6 +362,7 @@ public class YearMonth private constructor(
         }
 
         /** Parses a year-month from [text] using [formatter]. */
+        @JvmStatic
         public fun parse(text: CharSequence, formatter: DateTimeFormatter): YearMonth =
             formatter.parse(text, TemporalQuery(::from))
 

@@ -1,5 +1,8 @@
 package io.heapy.krogu.time
 
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmStatic
+
 /** A source of instants on the time-line. */
 public interface InstantSource {
     /** Returns the current instant supplied by this source. */
@@ -13,17 +16,21 @@ public interface InstantSource {
 
     public companion object {
         /** Obtains the best available system instant source. */
+        @JvmStatic
         public fun system(): InstantSource = SystemInstantSource
 
         /** Obtains a source that truncates [baseSource] to [tickDuration]. */
+        @JvmStatic
         public fun tick(baseSource: InstantSource, tickDuration: Duration): InstantSource =
             Clock.tick(baseSource.withZone(ZoneOffset.UTC), tickDuration)
 
         /** Obtains a source that always returns [fixedInstant]. */
+        @JvmStatic
         public fun fixed(fixedInstant: Instant): InstantSource =
             Clock.fixed(fixedInstant, ZoneOffset.UTC)
 
         /** Obtains a source that adds [offsetDuration] to [baseSource]. */
+        @JvmStatic
         public fun offset(
             baseSource: InstantSource,
             offsetDuration: Duration,

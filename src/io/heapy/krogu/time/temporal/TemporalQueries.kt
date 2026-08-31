@@ -5,6 +5,8 @@ import io.heapy.krogu.time.LocalTime
 import io.heapy.krogu.time.ZoneOffset
 import io.heapy.krogu.time.ZoneId
 import io.heapy.krogu.time.chrono.Chronology
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmStatic
 
 /** Common queries for extracting information from temporal objects. */
 public object TemporalQueries {
@@ -74,23 +76,30 @@ public object TemporalQueries {
         }
 
     /** Returns a query that obtains the zone offset, or `null` when unavailable. */
+    @JvmStatic
     public fun offset(): TemporalQuery<ZoneOffset?> = offsetQuery
 
     /** Returns a query that obtains an explicit zone ID, excluding bare offsets. */
+    @JvmStatic
     public fun zoneId(): TemporalQuery<ZoneId?> = zoneIdQuery
 
     /** Returns a query that obtains a zone ID, falling back to a zone offset. */
+    @JvmStatic
     public fun zone(): TemporalQuery<ZoneId?> = zoneQuery
 
     /** Returns a query that obtains the local date, or `null` when unavailable. */
+    @JvmStatic
     public fun localDate(): TemporalQuery<LocalDate?> = localDateQuery
 
     /** Returns a query that obtains the local time, or `null` when unavailable. */
+    @JvmStatic
     public fun localTime(): TemporalQuery<LocalTime?> = localTimeQuery
 
     /** Returns a query that obtains the smallest supported unit. */
+    @JvmStatic
     public fun precision(): TemporalQuery<TemporalUnit?> = precisionQuery
 
     /** Returns a query that obtains the chronology. */
+    @JvmStatic
     public fun chronology(): TemporalQuery<Chronology?> = chronologyQuery
 }

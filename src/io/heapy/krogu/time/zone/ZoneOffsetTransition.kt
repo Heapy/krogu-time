@@ -4,6 +4,8 @@ import io.heapy.krogu.time.Duration
 import io.heapy.krogu.time.Instant
 import io.heapy.krogu.time.LocalDateTime
 import io.heapy.krogu.time.ZoneOffset
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmStatic
 
 /** A discontinuity in a local timeline caused by an offset change. */
 public class ZoneOffsetTransition internal constructor(
@@ -69,6 +71,7 @@ public class ZoneOffsetTransition internal constructor(
 
     public companion object {
         /** Creates a transition at [transition] between two different offsets. */
+        @JvmStatic
         public fun of(
             transition: LocalDateTime,
             offsetBefore: ZoneOffset,

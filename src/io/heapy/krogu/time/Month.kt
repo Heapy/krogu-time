@@ -14,6 +14,8 @@ import io.heapy.krogu.time.temporal.TemporalField
 import io.heapy.krogu.time.temporal.TemporalQueries
 import io.heapy.krogu.time.temporal.TemporalQuery
 import io.heapy.krogu.time.temporal.UnsupportedTemporalTypeException
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmStatic
 
 /**
  * A month of the year in the ISO-8601 calendar system, from January to December.
@@ -122,6 +124,7 @@ public enum class Month : TemporalAccessor, TemporalAdjuster {
             intArrayOf(1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335)
 
         /** Returns the month identified by its ISO-8601 value. */
+        @JvmStatic
         public fun of(month: Int): Month {
             if (month !in 1..MONTHS_PER_YEAR) {
                 throw DateTimeException("Invalid value for MonthOfYear: $month")
@@ -130,6 +133,7 @@ public enum class Month : TemporalAccessor, TemporalAdjuster {
         }
 
         /** Obtains an ISO month from [temporal]. */
+        @JvmStatic
         public fun from(temporal: TemporalAccessor): Month {
             if (temporal is Month) return temporal
             return try {

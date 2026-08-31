@@ -7,9 +7,9 @@
  * fetched into the work directory and never committed, so this Apache-2.0
  * project redistributes nothing GPL-licensed.
  *
- * The port declares no @JvmStatic, so every companion member is reached
- * through Companion. The rewrite rules for that are read out of the built
- * jar rather than written by hand, so they follow the port automatically.
+ * Companion and object members without JVM static bridges are reached through
+ * Companion or INSTANCE. The rewrite rules are read out of the built jar
+ * rather than written by hand, so they follow the port automatically.
  *
  * Usage:
  *   kotlinr tools/run-tck.main.kts [work-dir]
@@ -135,14 +135,55 @@ ensure(sources.isDirectory) { "TCK sources missing at ${sources.path}" }
 
 class Members(val methods: MutableSet<String> = mutableSetOf(), val properties: MutableSet<String> = mutableSetOf())
 
-fun membersOf(className: String): Members {
+data class JvmSurface(
+    val instanceMethods: Map<String, Set<String>>,
+    val staticMethods: Set<String>,
+    val staticFields: Set<String>,
+)
+
+val surfaceCache = mutableMapOf<String, JvmSurface>()
+
+fun surfaceOf(className: String): JvmSurface = surfaceCache.getOrPut(className) {
+    val instanceMethods = mutableMapOf<String, MutableSet<String>>()
+    val staticMethods = mutableSetOf<String>()
+    val staticFields = mutableSetOf<String>()
+    val lines = run(javap, "-s", "-cp", portJar.path, className).second.lines()
+    lines.forEachIndexed { index, line ->
+        val method = Regex("""^\s*public .+\b([\w$]+)\(.*\);$""").find(line)
+        if (method != null) {
+            val name = method.groupValues[1]
+            val descriptor = Regex("""^\s*descriptor: (.+)$""")
+                .find(lines.getOrNull(index + 1).orEmpty())?.groupValues?.get(1)
+                ?: return@forEachIndexed
+            val signature = "$name$descriptor"
+            if (Regex("""\bstatic\b""").containsMatchIn(line)) {
+                staticMethods += signature
+            } else {
+                instanceMethods.getOrPut(name) { mutableSetOf() } += signature
+            }
+            return@forEachIndexed
+        }
+        Regex("""^\s*public static .+ ([\w$]+);$""").find(line)?.let { field ->
+            staticFields += field.groupValues[1]
+        }
+    }
+    JvmSurface(instanceMethods, staticMethods, staticFields)
+}
+
+fun membersOf(className: String, staticOwner: String = className): Members {
     val members = Members()
-    run(javap, "-cp", portJar.path, className).second.lineSequence().forEach { line ->
-        if ("class " in line || "static" in line) return@forEach
-        val name = Regex("""\b(\w+)\(""").find(line)?.groupValues?.get(1) ?: return@forEach
+    val surface = surfaceOf(className)
+    val ownerSurface = surfaceOf(staticOwner)
+    surface.instanceMethods.forEach { (name, signatures) ->
         if (name == "Companion") return@forEach
         val property = Regex("""^get([A-Z_]\w*)$""").find(name)?.groupValues?.get(1)
-        if (property != null) members.properties += property else members.methods += name
+        if (property != null) {
+            val hasStatic = property in ownerSurface.staticFields ||
+                signatures.all { it in ownerSurface.staticMethods }
+            if (!hasStatic) members.properties += property
+        } else if (signatures.any { it !in ownerSurface.staticMethods }) {
+            members.methods += name
+        }
     }
     return members
 }
@@ -161,9 +202,7 @@ val companions = mutableMapOf<String, Members>()
 classNames.filter { it.endsWith("\$Companion") }.forEach { companion ->
     val owner = companion.removeSuffix("\$Companion")
     val simple = owner.substringAfterLast('.').substringAfterLast('$')
-    val members = membersOf(companion)
-    // javap prints Companion members without the static modifier, so the
-    // filter in membersOf keeps them; take them as they are.
+    val members = membersOf(companion, owner)
     val existing = companions.getOrPut(simple) { Members() }
     existing.methods += members.methods
     existing.properties += members.properties
