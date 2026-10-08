@@ -64,16 +64,12 @@ jobs:
       - name: Build the JVM jar
         run: ./kotlin build
 
-      # The checked-in ./kotlin wrapper builds the project but cannot run a
-      # standalone script from inside a project directory, so the script
-      # runner is fetched separately, pinned to the version used locally.
-      - name: Set up the Kotlin script runner
-        run: |
-          set -euo pipefail
-          curl -sSL -o /tmp/kotlin-compiler.zip \
-            https://github.com/JetBrains/kotlin/releases/download/v2.4.10/kotlin-compiler-2.4.10.zip
-          unzip -q /tmp/kotlin-compiler.zip -d /tmp
-          echo "/tmp/kotlinc/bin" >> "$GITHUB_PATH"
+      - name: Set up Kotlin scripting
+        uses: Heapy/setup-main-kts@b0858237748f325b825e752bbac2ec2eb1fb9419 # v1.0.1
+        with:
+          kotlin-version: '2.4.10'
+          kotlin-sha256: '473dd66c7a3ef4b182065b3da670466c1bf2773a9dbb0ed8b33a39fe9d4f876d'
+          setup-java: 'false'
 
       - name: Run the TCK
         run: kotlinr tools/run-tck.main.kts
